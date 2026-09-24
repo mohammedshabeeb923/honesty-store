@@ -95,18 +95,41 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+function getCashfreeConfig() {
+  const appId = process.env.CASHFREE_APP_ID || 
+                process.env.CASHFREE_CLIENT_ID || 
+                process.env.APP_ID || 
+                process.env.cashfree_app_id || 
+                process.env.CF_APP_ID || '';
+
+  const secretKey = process.env.CASHFREE_SECRET_KEY || 
+                    process.env.CASHFREE_CLIENT_SECRET || 
+                    process.env.SECRET_KEY || 
+                    process.env.cashfree_secret_key || 
+                    process.env.CF_SECRET_KEY || '';
+
+  let env = (process.env.CASHFREE_ENV || process.env.cashfree_env || 'PRODUCTION').toUpperCase();
+  if (secretKey.startsWith('cfsk_ma_prod_')) {
+    env = 'PRODUCTION';
+  }
+
+  return { appId: appId.trim(), secretKey: secretKey.trim(), env };
+}
+
   // Gateway Diagnostic Route
   if (req.method === 'GET' && reqPath === '/api/gateway-status') {
-    const appId = process.env.CASHFREE_APP_ID;
-    const secretKey = process.env.CASHFREE_SECRET_KEY;
-    const env = (process.env.CASHFREE_ENV || 'PRODUCTION').toUpperCase();
+    const cf = getCashfreeConfig();
+    const matchingEnvKeys = Object.keys(process.env).filter(k => 
+      /cash|cf_|app_id|secret|supabase/i.test(k)
+    );
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
-      hasAppId: !!appId,
-      appIdPrefix: appId ? appId.slice(0, 6) + '...' : null,
-      hasSecretKey: !!secretKey,
-      secretKeyPrefix: secretKey ? secretKey.slice(0, 10) + '...' : null,
-      env: env
+      hasAppId: !!cf.appId,
+      appIdPrefix: cf.appId ? cf.appId.slice(0, 6) + '...' : null,
+      hasSecretKey: !!cf.secretKey,
+      secretKeyPrefix: cf.secretKey ? cf.secretKey.slice(0, 10) + '...' : null,
+      env: cf.env,
+      detectedEnvVars: matchingEnvKeys
     }));
     return;
   }
@@ -116,9 +139,7 @@ const server = http.createServer(async (req, res) => {
     try {
       const { orderId, orderAmount, customerPhone, customerName } = await parseJsonBody(req);
       const cleanPhone = (customerPhone || '9999999999').replace(/\D/g, '').slice(-10);
-      const appId = process.env.CASHFREE_APP_ID;
-      const secretKey = process.env.CASHFREE_SECRET_KEY;
-      const env = (process.env.CASHFREE_ENV || 'PRODUCTION').toUpperCase();
+      const { appId, secretKey, env } = getCashfreeConfig();
 
       console.log(`[Cashfree PG] Initiating order ${orderId} for ₹${orderAmount} (Customer: ${cleanPhone}) [${env}]`);
 
@@ -212,9 +233,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'POST' && reqPath === '/api/verify-cashfree-order') {
     try {
       const { orderId } = await parseJsonBody(req);
-      const appId = process.env.CASHFREE_APP_ID;
-      const secretKey = process.env.CASHFREE_SECRET_KEY;
-      const env = (process.env.CASHFREE_ENV || 'PRODUCTION').toUpperCase();
+      const { appId, secretKey, env } = getCashfreeConfig();
 
       if (!orderId) {
         throw new Error('orderId is required');
