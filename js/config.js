@@ -9,7 +9,7 @@ const AppConfig = {
     // Replace with your project URL from Supabase Dashboard > Settings > API
     url: localStorage.getItem('HONESTY_SUPABASE_URL') || 'https://hiolzzvqcgernfebgdbm.supabase.co',
     // Replace with your Project anon / public key
-    anonKey: localStorage.getItem('HONESTY_SUPABASE_ANON_KEY') || '',
+    anonKey: localStorage.getItem('HONESTY_SUPABASE_ANON_KEY') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhpb2x6enZxY2dlcm5mZWJnZGJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyNzAwOTIsImV4cCI6MjEwNTg0NjA5Mn0.3q_2KhFenDVen1MuCZxXf87QpqA10GLWY0q4YFzLTUY',
     // When false or unconfigured, gracefully falls back to local reactive storage
     isConfigured: function() {
       return this.url && this.url.includes('supabase.co') && this.anonKey && this.anonKey.length > 20;
