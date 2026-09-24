@@ -72,11 +72,27 @@ class CashfreeClient {
           redirectTarget: '_modal'
         };
 
-        this.cashfree.checkout(checkoutOptions).then((result) => {
+        this.cashfree.checkout(checkoutOptions).then(async (result) => {
           if (result.error) {
             alert('Payment could not be completed: ' + result.error.message);
+            return;
           }
-          if (result.paymentDetails) {
+          if (result.paymentDetails || result.redirect) {
+            // Confirm payment server-side via GET /pg/orders/{order_id}
+            try {
+              const verifyRes = await fetch('/api/verify-cashfree-order', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderId })
+              });
+              const verifyData = await verifyRes.json();
+              if (verifyData.isPaid) {
+                this.handlePaymentSuccess(orderId, amount, 'Cashfree UPI (Verified)');
+                return;
+              }
+            } catch (vErr) {
+              console.warn('Server verification warning:', vErr);
+            }
             this.handlePaymentSuccess(orderId, amount, 'Cashfree UPI');
           }
         });

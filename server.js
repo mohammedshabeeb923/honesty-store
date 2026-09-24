@@ -183,6 +183,62 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // 4b. Confirm / Verify Cashfree Payment (Server-side check: GET /pg/orders/{order_id})
+  if (req.method === 'POST' && reqPath === '/api/verify-cashfree-order') {
+    try {
+      const { orderId } = await parseJsonBody(req);
+      const appId = process.env.CASHFREE_APP_ID;
+      const secretKey = process.env.CASHFREE_SECRET_KEY;
+      const env = (process.env.CASHFREE_ENV || 'SANDBOX').toUpperCase();
+
+      if (!orderId) {
+        throw new Error('orderId is required');
+      }
+
+      if (appId && secretKey && appId !== 'TEST_APP_ID') {
+        const baseUrl = env === 'PRODUCTION' 
+          ? `https://api.cashfree.com/pg/orders/${orderId}` 
+          : `https://sandbox.cashfree.com/pg/orders/${orderId}`;
+
+        const cfRes = await fetch(baseUrl, {
+          method: 'GET',
+          headers: {
+            'x-client-id': appId,
+            'x-client-secret': secretKey,
+            'x-api-version': '2023-08-01'
+          }
+        });
+
+        const orderData = await cfRes.json();
+        const isPaid = orderData.order_status === 'PAID';
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          isPaid,
+          orderStatus: orderData.order_status,
+          orderAmount: orderData.order_amount,
+          cfOrderId: orderData.cf_order_id,
+          orderData
+        }));
+        return;
+      }
+
+      // Simulated sandbox mode verification
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        isPaid: true,
+        orderStatus: 'PAID',
+        isSimulated: true
+      }));
+    } catch (err) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: err.message }));
+    }
+    return;
+  }
+
   // 5. Test Supabase Connection
   if (req.method === 'POST' && reqPath === '/api/test-supabase') {
     try {

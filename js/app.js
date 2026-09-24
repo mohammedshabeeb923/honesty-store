@@ -117,6 +117,21 @@ document.addEventListener('DOMContentLoaded', () => {
     setViewMode(savedMode);
   }
 
+  // Handle Cashfree redirect return_url (?order_id=...)
+  if (urlParams.has('order_id')) {
+    const returnOrderId = urlParams.get('order_id');
+    console.log('[Cashfree Return URL]: Checking order', returnOrderId);
+    fetch('/api/verify-cashfree-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId: returnOrderId })
+    }).then(r => r.json()).then(data => {
+      if (data.isPaid && window.cashfreeClient) {
+        window.cashfreeClient.handlePaymentSuccess(returnOrderId, data.orderAmount || 50, 'Cashfree Web Checkout');
+      }
+    }).catch(e => console.warn('Return URL check warning:', e));
+  }
+
   // Close modals when clicking overlay
   document.querySelectorAll('.modal-overlay').forEach(modal => {
     modal.addEventListener('click', (e) => {
