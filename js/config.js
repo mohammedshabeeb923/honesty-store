@@ -19,7 +19,7 @@ const AppConfig = {
   // 2. CASHFREE PAYMENT GATEWAY CONFIGURATION
   cashfree: {
     // Cashfree Environment: 'SANDBOX' or 'PRODUCTION'
-    environment: localStorage.getItem('HONESTY_CASHFREE_ENV') || 'SANDBOX',
+    environment: localStorage.getItem('HONESTY_CASHFREE_ENV') || 'PRODUCTION',
     // Cashfree App ID from Cashfree Merchant Dashboard
     appId: localStorage.getItem('HONESTY_CASHFREE_APP_ID') || '1442420ede8ec2d801e7dc059140242441',
     // Cashfree API Version

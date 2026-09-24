@@ -102,7 +102,7 @@ const server = http.createServer(async (req, res) => {
       const cleanPhone = (customerPhone || '9999999999').replace(/\D/g, '').slice(-10);
       const appId = process.env.CASHFREE_APP_ID;
       const secretKey = process.env.CASHFREE_SECRET_KEY;
-      const env = (process.env.CASHFREE_ENV || 'SANDBOX').toUpperCase();
+      const env = (process.env.CASHFREE_ENV || 'PRODUCTION').toUpperCase();
 
       console.log(`[Cashfree PG] Initiating order ${orderId} for ₹${orderAmount} (Customer: ${cleanPhone}) [${env}]`);
 
@@ -189,7 +189,7 @@ const server = http.createServer(async (req, res) => {
       const { orderId } = await parseJsonBody(req);
       const appId = process.env.CASHFREE_APP_ID;
       const secretKey = process.env.CASHFREE_SECRET_KEY;
-      const env = (process.env.CASHFREE_ENV || 'SANDBOX').toUpperCase();
+      const env = (process.env.CASHFREE_ENV || 'PRODUCTION').toUpperCase();
 
       if (!orderId) {
         throw new Error('orderId is required');
