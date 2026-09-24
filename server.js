@@ -95,6 +95,22 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Gateway Diagnostic Route
+  if (req.method === 'GET' && reqPath === '/api/gateway-status') {
+    const appId = process.env.CASHFREE_APP_ID;
+    const secretKey = process.env.CASHFREE_SECRET_KEY;
+    const env = (process.env.CASHFREE_ENV || 'PRODUCTION').toUpperCase();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      hasAppId: !!appId,
+      appIdPrefix: appId ? appId.slice(0, 6) + '...' : null,
+      hasSecretKey: !!secretKey,
+      secretKeyPrefix: secretKey ? secretKey.slice(0, 10) + '...' : null,
+      env: env
+    }));
+    return;
+  }
+
   // 3. Create Cashfree PG Order
   if (req.method === 'POST' && reqPath === '/api/create-cashfree-order') {
     try {
@@ -148,6 +164,14 @@ const server = http.createServer(async (req, res) => {
           return;
         } else {
           console.warn('[Cashfree PG API Warning]:', cfData);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            success: false,
+            error: cfData.message || 'Cashfree PG error',
+            cfData,
+            environment: env
+          }));
+          return;
         }
       }
 
@@ -160,7 +184,8 @@ const server = http.createServer(async (req, res) => {
         orderAmount,
         paymentSessionId,
         environment: env,
-        isSimulated: true
+        isSimulated: true,
+        reason: 'CASHFREE_APP_ID or CASHFREE_SECRET_KEY missing in server environment'
       }));
     } catch (err) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
