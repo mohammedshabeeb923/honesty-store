@@ -205,7 +205,13 @@
                 </div>
               </div>
 
-              <h2 class="cart-title-heading">YOUR CART</h2>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin: 18px 0 14px;">
+                <h2 class="cart-title-heading" style="margin: 0;">YOUR TRAY</h2>
+                <button type="button" onclick="window.clearTray()" style="background: #fff; border: 1px solid #fecaca; color: #dc2626; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  Empty Tray
+                </button>
+              </div>
 
               <div class="cart-items-cards-list" id="cart-fullpage-items-list">
                 <!-- Injected dynamically via CustomerApp -->
@@ -1015,20 +1021,22 @@
     </div>
   </div>
 
-  <!-- Application Scripts -->
-  <script src="js/config.js"></script>
-  <script src="js/store-db.js"></script>
-  <script src="js/auth.js"></script>
-  <script src="js/cashfree-client.js"></script>
-  <script src="js/supabase-client.js"></script>
-  <script src="js/customer-app.js"></script>
-  <script src="js/admin-app.js"></script>
-  <script src="js/app.js"></script>
+  <!-- Application Scripts with Cache-Busting Versioning -->
+  <script src="js/config.js?v=4.0"></script>
+  <script src="js/store-db.js?v=4.0"></script>
+  <script src="js/auth.js?v=4.0"></script>
+  <script src="js/cashfree-client.js?v=4.0"></script>
+  <script src="js/supabase-client.js?v=4.0"></script>
+  <script src="js/customer-app.js?v=4.0"></script>
+  <script src="js/admin-app.js?v=4.0"></script>
+  <script src="js/app.js?v=4.0"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js').then((reg) => {
-          console.log('[PWA] Service Worker registered successfully with scope:', reg.scope);
+          console.log('[PWA] Service Worker registered:', reg.scope);
+          // Force update check on page load to bypass stale assets
+          if (reg.update) reg.update();
         }).catch((err) => {
           console.warn('[PWA] Service Worker registration failed:', err);
         });

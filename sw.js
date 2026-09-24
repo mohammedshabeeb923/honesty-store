@@ -1,4 +1,4 @@
-const CACHE_NAME = 'honesty-store-v2';
+const CACHE_NAME = 'honesty-store-v4';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -6,14 +6,6 @@ const STATIC_ASSETS = [
   '/css/base.css',
   '/css/customer.css',
   '/css/admin.css',
-  '/js/config.js',
-  '/js/store-db.js',
-  '/js/auth.js',
-  '/js/cashfree-client.js',
-  '/js/supabase-client.js',
-  '/js/customer-app.js',
-  '/js/admin-app.js',
-  '/js/app.js',
   '/assets/logo.jpg',
   '/assets/avatar.png',
   '/assets/lays.png',
@@ -37,6 +29,7 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         keys.map((key) => {
           if (key !== CACHE_NAME) {
+            console.log('[PWA SW] Clearing old cache:', key);
             return caches.delete(key);
           }
         })
@@ -51,18 +44,36 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Network-first for JS and HTML so users immediately get app updates
+  const isCodeAsset = event.request.url.endsWith('.js') || 
+                      event.request.url.endsWith('.html') || 
+                      event.request.url.endsWith('/') ||
+                      event.request.url.includes('.js?');
+
+  if (isCodeAsset) {
+    event.respondWith(
+      fetch(event.request).then((fresh) => {
+        if (fresh && fresh.status === 200) {
+          const freshClone = fresh.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, freshClone));
+        }
+        return fresh;
+      }).catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Cache-first for images and fonts
   event.respondWith(
     caches.match(event.request).then((cached) => {
-      if (cached) {
-        // Stale-while-revalidate for fast rendering
-        fetch(event.request).then((fresh) => {
-          if (fresh && fresh.status === 200) {
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, fresh));
-          }
-        }).catch(() => {});
-        return cached;
-      }
-      return fetch(event.request);
+      if (cached) return cached;
+      return fetch(event.request).then((fresh) => {
+        if (fresh && fresh.status === 200) {
+          const freshClone = fresh.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, freshClone));
+        }
+        return fresh;
+      });
     })
   );
 });

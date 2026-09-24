@@ -421,17 +421,20 @@ class CustomerApp {
             <p>₹${item.price} each</p>
           </div>
         </div>
-        <div class="cart-item-card-right">
+        <div class="cart-item-card-right" style="display: flex; align-items: center; gap: 8px;">
           <div class="cart-qty-pill">
-            <button class="cart-qty-btn minus" onclick="window.customerApp.reduceCartItem('${item.id}')" title="${item.qty === 1 ? 'Remove from cart' : 'Reduce quantity'}">
-              ${item.qty === 1 ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' : '−'}
+            <button class="cart-qty-btn minus" onclick="window.reduceCartItem('${item.id}')" title="Reduce quantity">
+              −
             </button>
             <span class="cart-qty-val">${item.qty}</span>
-            <button class="cart-qty-btn plus" onclick="window.customerApp.increaseCartItem('${item.id}')" title="Add one more">
+            <button class="cart-qty-btn plus" onclick="window.increaseCartItem('${item.id}')" title="Add one more">
               +
             </button>
           </div>
-          <div class="cart-item-card-price">₹${item.price * item.qty}</div>
+          <button class="cart-del-btn" onclick="window.removeCartItem('${item.id}')" title="Remove from tray" style="width: 32px; height: 32px; border-radius: 8px; border: 1px solid #fee2e2; background: #fff1f2; color: #dc2626; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
+          <div class="cart-item-card-price" style="min-width: 50px; text-align: right;">₹${item.price * item.qty}</div>
         </div>
       </div>
     `).join('');
@@ -540,3 +543,39 @@ class CustomerApp {
 }
 
 window.CustomerApp = CustomerApp;
+
+// Global Cart Actions
+window.reduceCartItem = function(productId) {
+  if (window.customerApp) {
+    window.customerApp.reduceCartItem(productId);
+  } else if (window.storeDB) {
+    window.storeDB.updateCartQty(productId, -1);
+  }
+};
+
+window.increaseCartItem = function(productId) {
+  if (window.customerApp) {
+    window.customerApp.addToCart(productId);
+  } else if (window.storeDB) {
+    window.storeDB.addToCart(productId);
+  }
+};
+
+window.removeCartItem = function(productId) {
+  if (window.customerApp) {
+    window.customerApp.removeCartItem(productId);
+  } else if (window.storeDB) {
+    window.storeDB.updateCartQty(productId, -999);
+  }
+};
+
+window.clearTray = function() {
+  if (window.storeDB) {
+    window.storeDB.clearCart();
+  }
+  if (window.customerApp) {
+    window.customerApp.updateCartUI();
+    window.customerApp.renderCatalog();
+    window.customerApp.renderFullCart();
+  }
+};
