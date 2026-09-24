@@ -1,5 +1,6 @@
 -- ============================================================
--- HONESTY STORE - PRODUCTION SUPABASE DATABASE SCHEMA
+-- HONESTY STORE - PRODUCTION SUPABASE DATABASE SCHEMA (IDEMPOTENT)
+-- Safe to re-run multiple times without errors
 -- Compatible with Supabase PostgreSQL, Auth, and Realtime
 -- ============================================================
 
@@ -88,21 +89,61 @@ ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.stock_audits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.community_metrics ENABLE ROW LEVEL SECURITY;
 
--- POLICIES (Public read for products & stores, user-specific for orders & profiles)
+-- SAFE POLICIES (Drop existing policies first so script can be safely re-run)
+DROP POLICY IF EXISTS "Public can view active stores" ON public.stores;
 CREATE POLICY "Public can view active stores" ON public.stores FOR SELECT USING (is_active = true);
+
+DROP POLICY IF EXISTS "Public can view active products" ON public.products;
 CREATE POLICY "Public can view active products" ON public.products FOR SELECT USING (is_active = true);
+
+DROP POLICY IF EXISTS "Allow public read community metrics" ON public.community_metrics;
 CREATE POLICY "Allow public read community metrics" ON public.community_metrics FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Customers can read own profile" ON public.profiles;
 CREATE POLICY "Customers can read own profile" ON public.profiles FOR SELECT USING (auth.uid() = id);
+
+DROP POLICY IF EXISTS "Customers can update own profile" ON public.profiles;
 CREATE POLICY "Customers can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Customers can read own orders" ON public.orders;
 CREATE POLICY "Customers can read own orders" ON public.orders FOR SELECT USING (auth.uid() = user_id OR customer_phone = (auth.jwt() ->> 'phone'));
+
+DROP POLICY IF EXISTS "Service role or checkout can insert orders" ON public.orders;
 CREATE POLICY "Service role or checkout can insert orders" ON public.orders FOR INSERT WITH CHECK (true);
 
--- ENABLE SUPABASE REALTIME
-ALTER PUBLICATION supabase_realtime ADD TABLE public.products;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.community_metrics;
+DROP POLICY IF EXISTS "Allow update stock on products" ON public.products;
+CREATE POLICY "Allow update stock on products" ON public.products FOR ALL USING (true) WITH CHECK (true);
+
+-- ENABLE SUPABASE REALTIME (IDEMPOTENT CHECK)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' 
+        AND schemaname = 'public' 
+        AND tablename = 'products'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.products;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' 
+        AND schemaname = 'public' 
+        AND tablename = 'orders'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' 
+        AND schemaname = 'public' 
+        AND tablename = 'community_metrics'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.community_metrics;
+    END IF;
+END $$;
 
 -- SEED INITIAL STORE PRODUCTS
 INSERT INTO public.products (id, name, variant, category, price, stock, expected_stock, physical_stock, image_url, low_stock_threshold)
