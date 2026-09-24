@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Honesty Store - Retail Management & Customer Experience</title>
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/customer.css" />
+  <link rel="stylesheet" href="css/admin.css" />
+</head>
+<body>
+
+  <!-- MASTER VIEW SWITCHER HEADER -->
+  <header class="master-header">
+    <div class="brand-badge">
+      <img src="assets/logo.jpg" alt="Honesty Store Logo" />
+      <span>HONESTY STORE</span>
+      <span style="font-size: 11px; font-weight: 500; background: rgba(255,255,255,0.15); padding: 2px 8px; border-radius: 10px; margin-left: 6px;">
+        Business Platform
+      </span>
+    </div>
+
+    <!-- Mode Selector -->
+    <div class="view-mode-selector">
+      <button class="view-btn" data-mode="customer" title="Show only Customer Mobile App">
+        📱 Customer App
+      </button>
+      <button class="view-btn active" data-mode="dual" title="Side-by-side Dual Mode">
+        ↔️ Dual View (Live Sync)
+      </button>
+      <button class="view-btn" data-mode="admin" title="Show only Business Admin Console">
+        💻 Admin Console
+      </button>
+    </div>
+
+    <!-- Quick Utilities -->
+    <div class="quick-actions">
+      <button class="action-pill-btn" id="btn-reset-demo" title="Reset all data to exact screenshot defaults">
+        🔄 Reset Demo State
+      </button>
+    </div>
+  </header>
+
+  <!-- MASTER STAGE -->
+  <main class="master-stage mode-dual" id="master-stage">
+
+    <!-- ============================================================ -->
+    <!-- 1. CUSTOMER MOBILE APP CONTAINER -->
+    <!-- ============================================================ -->
+    <div class="customer-wrapper">
+      <div class="mobile-device">
+
+        <!-- Mobile Top Status Bar -->
+        <div class="mobile-status-bar">
+          <span>9:41</span>
+          <div class="notch-pill"></div>
+          <span>📶 5G 🔋</span>
+        </div>
+
+        <!-- Mobile Header (Hidden on Splash) -->
+        <header class="mobile-app-header" id="mobile-app-header" style="display: none;">
+          <button class="header-btn" onclick="window.customerApp.switchScreen('screen-splash')" title="Home / Welcome">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
+          <div class="header-brand-title">
+            <img src="assets/logo.jpg" alt="Logo" />
+            <span>Honesty Store</span>
+          </div>
+          <div class="header-avatar" title="Customer Profile" style="position: relative; width: 34px; height: 34px; cursor: pointer;">
+            <img src="assets/avatar.png" alt="Avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" />
+            <span id="auth-status-dot" style="position: absolute; bottom: -1px; right: -1px; width: 10px; height: 10px; border-radius: 50%; background: #10b981; border: 2px solid #fff;" title="Verified Phone Login Active"></span>
+          </div>
+        </header>
+
+        <!-- Mobile Scrollable Screen Area -->
+        <div class="mobile-content-area">
+
+          <!-- SCREEN 1: SPLASH / WELCOME SCREEN (Matches media_1788895479623.jpg) -->
+          <section class="customer-screen active" id="screen-splash">
+            <div class="splash-top">
+              <div class="splash-logo-card">
+                <img src="assets/logo.jpg" alt="Honesty Store Logo" />
+              </div>
+              <h1 class="splash-title">HONESTY STORE</h1>
+              <p class="splash-subtitle">Take what you need. Pay what you take.</p>
+            </div>
+
+            <!-- Wall Snack Shelf Hero Image -->
+            <div class="splash-shelf-container">
+              <img src="assets/shelf.png" alt="Honesty Store Shelf" class="splash-shelf-img" />
+            </div>
+
+            <!-- 4-Step Stepper Box -->
+            <div class="splash-stepper-card">
+              <div class="stepper-steps">
+                <div class="step-item" id="step-scan-shelf" style="cursor: pointer;" title="Scan Shelf QR">
+                  <div class="step-icon-circle">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="3" y="3" width="7" height="7"></rect>
+                      <rect x="14" y="3" width="7" height="7"></rect>
+                      <rect x="14" y="14" width="7" height="7"></rect>
+                      <rect x="3" y="14" width="7" height="7"></rect>
+                    </svg>
+                  </div>
+                  <span class="step-label">SCAN</span>
+                </div>
+
+                <div class="step-item">
+                  <div class="step-icon-circle">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                      <line x1="3" y1="6" x2="21" y2="6"></line>
+                      <path d="M16 10a4 4 0 0 1-8 0"></path>
+                    </svg>
+                  </div>
+                  <span class="step-label">SELECT</span>
+                </div>
+
+                <div class="step-item">
+                  <div class="step-icon-circle">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                  </div>
+                  <span class="step-label">PAY</span>
+                </div>
+
+                <div class="step-item">
+                  <div class="step-icon-circle">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"></path>
+                      <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"></path>
+                      <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path>
+                      <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path>
+                    </svg>
+                  </div>
+                  <span class="step-label">TAKE</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Enter Store Button -->
+            <div style="width: 100%;">
+              <button class="splash-btn-enter" id="btn-enter-store">
+                <span>→ ENTER STORE</span>
+              </button>
+              <div class="splash-footer-note">Simple, transparent, and built on trust.</div>
+            </div>
+          </section>
+
+          <!-- SCREEN 2: CATALOG SCREEN (Matches media_1788895479627.jpg) -->
+          <section class="customer-screen" id="screen-catalog">
+            <div class="catalog-content">
+              <!-- Quote Banner -->
+              <p class="catalog-quote">"Good choices start with simple actions."</p>
+
+              <!-- Category Chips -->
+              <div class="category-chips-row">
+                <button class="category-chip active" data-category="All">All</button>
+                <button class="category-chip" data-category="Chips">Chips</button>
+                <button class="category-chip" data-category="Biscuits">Biscuits</button>
+                <button class="category-chip" data-category="Chocolates">Chocolates</button>
+              </div>
+
+              <!-- 2-Column Product Grid -->
+              <div class="products-grid" id="products-grid">
+                <!-- Injected dynamically via CustomerApp -->
+              </div>
+            </div>
+          </section>
+
+          <!-- SCREEN: YOUR CART (Matches media_1788895850090.jpg) -->
+          <section class="customer-screen" id="screen-cart">
+            <div class="cart-fullpage-content">
+              <div class="cart-page-header">
+                <button class="cart-back-btn" id="btn-cart-back">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="19" y1="12" x2="5" y2="12"></line>
+                    <polyline points="12 19 5 12 12 5"></polyline>
+                  </svg>
+                </button>
+                <div class="cart-brand-title">Honesty Store</div>
+                <div class="cart-avatar-wrap">
+                  <img src="assets/avatar.png" alt="Customer Avatar" />
+                </div>
+              </div>
+
+              <h2 class="cart-title-heading">YOUR CART</h2>
+
+              <div class="cart-items-cards-list" id="cart-fullpage-items-list">
+                <!-- Injected dynamically via CustomerApp -->
+              </div>
+
+              <div class="cart-summary-divider"></div>
+
+              <div class="cart-summary-line">
+                <span>Subtotal</span>
+                <span id="cart-fullpage-subtotal">₹50</span>
+              </div>
+
+              <div class="cart-summary-line total">
+                <span>Total</span>
+                <span id="cart-fullpage-total">₹50</span>
+              </div>
+
+              <div class="cart-verification-notice">
+                <span>🛡️</span>
+                <span>Your payment will be verified before your order is completed.</span>
+              </div>
+
+              <button class="cart-pay-btn-full" id="btn-cart-fullpage-pay">
+                PAY ₹50 →
+              </button>
+            </div>
+          </section>
+
+          <!-- SCREEN: PAYMENT VERIFIED (Matches media_1788895850084.jpg & media_1788895850091.jpg) -->
+          <section class="customer-screen" id="screen-verified">
+            <div class="verified-screen-content">
+              <div class="verified-icon-circle">
+                <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#0ca678" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </div>
+
+              <h2 class="verified-title">PAYMENT VERIFIED</h2>
+
+              <div class="verified-receipt-card">
+                <div class="verified-receipt-top">
+                  <div class="verified-meta-col">
+                    <h5>AMOUNT PAID</h5>
+                    <div class="amount-val" id="verified-amount-val">₹50</div>
+                  </div>
+                  <div class="verified-meta-col" style="text-align: right;">
+                    <h5>ORDER NO.</h5>
+                    <div class="order-no-val" id="verified-order-no">#HS10452</div>
+                  </div>
+                </div>
+
+                <div class="verified-card-divider"></div>
+
+                <div class="verified-items-label">ITEMS PURCHASED</div>
+                <div class="verified-items-list" id="verified-items-list-container">
+                  <div class="verified-item-row">
+                    <span>Lays</span>
+                    <span class="verified-item-qty">x1</span>
+                  </div>
+                  <div class="verified-item-row">
+                    <span>Oreo</span>
+                    <span class="verified-item-qty">x1</span>
+                  </div>
+                </div>
+              </div>
+
+              <p class="verified-trust-quote">
+                "Thank you for keeping our store honest. Your payment helps us keep the store running for everyone."
+              </p>
+
+              <button class="verified-btn-done" id="btn-verified-done">
+                DONE
+              </button>
+            </div>
+          </section>
+
+          <!-- SCREEN 3: MY ORDERS (Matches media_1788895479646.jpg top) -->
+          <section class="customer-screen" id="screen-orders">
+            <div class="orders-content">
+              <h2 class="section-page-title">MY ORDERS</h2>
+              <div class="orders-list" id="orders-history-list">
+                <!-- Injected dynamically via CustomerApp -->
+              </div>
+            </div>
+          </section>
+
+          <!-- SCREEN 4: OUR HONESTY (Matches media_1788895479646.jpg bottom) -->
+          <section class="customer-screen" id="screen-honesty">
+            <div class="honesty-content">
+              <div class="honesty-header-block">
+                <h2>OUR HONESTY</h2>
+                <p class="honesty-subtitle">Every payment helps keep the store available for everyone.</p>
+              </div>
+
+              <!-- Black Sales Hero Card -->
+              <div class="black-sales-card">
+                <div class="sales-card-title">COMMUNITY SALES TODAY</div>
+                <div class="sales-card-val" id="community-sales-today">₹1,620</div>
+              </div>
+
+              <!-- Two Stat Cards -->
+              <div class="honesty-stats-grid">
+                <div class="honesty-stat-card">
+                  <div class="stat-icon-wrap">🏪</div>
+                  <div class="stat-card-val" id="community-visits-count">127</div>
+                  <div class="stat-card-label">STORE VISITS</div>
+                </div>
+                <div class="honesty-stat-card">
+                  <div class="stat-icon-wrap" style="color:#0ca678;">🛡️</div>
+                  <div class="stat-card-val" id="community-payments-count">81</div>
+                  <div class="stat-card-label">COMPLETED PAYMENTS</div>
+                </div>
+              </div>
+
+              <!-- Mint Green Honesty Card -->
+              <div class="mint-honesty-card">
+                <div class="mint-card-icon">💚</div>
+                <div class="mint-card-text">
+                  Thank you for honoring the honor code. Your integrity keeps this initiative running smoothly.
+                </div>
+              </div>
+
+              <!-- Honor Code Pledge Button -->
+              <button class="btn-pledge-action" id="btn-sign-pledge">
+                🤝 Sign Community Honor Code
+              </button>
+            </div>
+          </section>
+
+        </div>
+
+        <!-- Bottom Navigation Bar (Hidden on Splash) -->
+        <nav class="mobile-bottom-nav" id="mobile-bottom-nav" style="display: none;">
+          <button class="nav-tab-item active" data-target="screen-catalog">
+            <span class="nav-tab-icon">🏠</span>
+            <span class="nav-tab-label">Home</span>
+          </button>
+          <button class="nav-tab-item" data-target="cart">
+            <span class="nav-tab-icon">🛒</span>
+            <span class="nav-tab-label">Cart</span>
+            <span class="cart-nav-badge" id="cart-nav-badge" style="display: none;">0</span>
+          </button>
+          <button class="nav-tab-item" data-target="screen-orders">
+            <span class="nav-tab-icon">🕒</span>
+            <span class="nav-tab-label">History</span>
+          </button>
+          <button class="nav-tab-item" data-target="screen-honesty">
+            <span class="nav-tab-icon">👥</span>
+            <span class="nav-tab-label">Community</span>
+          </button>
+        </nav>
+
+        <!-- CART DRAWER SHEET -->
+        <div class="cart-drawer-sheet" id="cart-drawer">
+          <div class="cart-drawer-header">
+            <div class="cart-drawer-title">Shopping Tray</div>
+            <button id="btn-close-cart" style="border:none; background:none; font-size:18px; cursor:pointer;">✕</button>
+          </div>
+          <div class="cart-items-scroll" id="cart-items-list">
+            <!-- Dynamically populated -->
+          </div>
+          <div class="cart-total-row">
+            <span>Total Payable:</span>
+            <span id="cart-total-amount">₹0</span>
+          </div>
+          <button class="btn-pay-now" id="btn-pay-now">
+            Proceed to Honor Checkout →
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- 2. BUSINESS ADMIN CONSOLE (Matches media_1788895479631.jpg) -->
+    <!-- ============================================================ -->
+    <div class="admin-wrapper">
+
+      <!-- Left Navigation Sidebar -->
+      <aside class="admin-sidebar">
+        <div class="sidebar-title">Admin Console</div>
+        <ul class="sidebar-nav-list">
+          <li class="sidebar-nav-item" data-tab="dashboard">
+            <span class="sidebar-nav-icon">📊</span>
+            <span>Dashboard</span>
+          </li>
+          <li class="sidebar-nav-item active" data-tab="inventory">
+            <span class="sidebar-nav-icon">📦</span>
+            <span>Inventory</span>
+          </li>
+          <li class="sidebar-nav-item" data-tab="sales">
+            <span class="sidebar-nav-icon">💵</span>
+            <span>Sales</span>
+          </li>
+          <li class="sidebar-nav-item" data-tab="users">
+            <span class="sidebar-nav-icon">👤</span>
+            <span>Users</span>
+          </li>
+          <li class="sidebar-nav-item" data-tab="settings">
+            <span class="sidebar-nav-icon">⚙️</span>
+            <span>Settings</span>
+          </li>
+        </ul>
+
+        <div class="sidebar-bottom-info">
+          <h5>Honesty Store v1.0</h5>
+          <p>Autonomous Retail Node #1<br/>Innovation Center Floor 3</p>
+        </div>
+      </aside>
+
+      <!-- Main Admin Content Area -->
+      <main class="admin-main">
+        <!-- Top Nav Bar -->
+        <header class="admin-top-nav">
+          <h2 class="admin-page-heading" id="admin-page-heading">INVENTORY</h2>
+          <div class="admin-header-actions">
+            <div class="admin-search-wrap">
+              <span class="admin-search-icon">🔍</span>
+              <input type="text" class="admin-search-input" id="admin-search-input" placeholder="Search products..." />
+            </div>
+            <button class="action-pill-btn" id="btn-open-add-product" style="background:#0f172a; color:#fff; border:none; padding:8px 14px; font-weight:600;">
+              + Add Product
+            </button>
+            <div style="cursor: pointer; font-size: 18px; color: #64748b;" title="Notifications">🔔</div>
+            <img src="assets/avatar.png" alt="Admin Profile" class="admin-profile-avatar" title="Logged in as Store Administrator" />
+          </div>
+        </header>
+
+        <!-- TAB 1: INVENTORY (Exact Match to Screenshot) -->
+        <section class="admin-tab-view active" id="admin-tab-inventory">
+          <div class="inventory-container">
+            
+            <!-- Left Column: Current Stock -->
+            <div class="inventory-left-col">
+              <h3 class="inventory-subheading">Current Stock</h3>
+              <div class="stock-items-list" id="admin-stock-items-list">
+                <!-- Dynamically populated with Lays, Oreo, Dairy Milk, etc. -->
+              </div>
+            </div>
+
+            <!-- Right Column: Detail View with Discrepancy Reconciliation -->
+            <div class="inventory-right-col">
+              <div class="inventory-detail-panel" id="admin-detail-panel">
+                <!-- Dynamically populated via AdminApp with Expected, Physical, Difference (-3 in red) -->
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- TAB 2: DASHBOARD (Matches media_1788895850088.jpg and media_1788895850087.jpg) -->
+        <section class="admin-tab-view" id="admin-tab-dashboard">
+          <div class="dashboard-view-toggles">
+            <button class="dashboard-toggle-btn active" data-subview="today" onclick="window.adminApp.setDashboardSubView('today')">
+              ⚡ Today's Overview & Conversion Funnel
+            </button>
+            <button class="dashboard-toggle-btn" data-subview="30days" onclick="window.adminApp.setDashboardSubView('30days')">
+              📅 30-Day Overview & System States
+            </button>
+          </div>
+
+          <div id="dashboard-dynamic-content">
+            <!-- Dynamically populated by AdminApp.renderDashboard() -->
+          </div>
+        </section>
+
+        <!-- TAB 3: SALES -->
+        <section class="admin-tab-view" id="admin-tab-sales">
+          <div class="admin-table-card">
+            <h3>Live Transactions Feed</h3>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Order ID</th>
+                  <th>Timestamp</th>
+                  <th>Items Purchased</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th>Channel</th>
+                </tr>
+              </thead>
+              <tbody id="sales-table-body">
+                <!-- Populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- TAB 4: USERS / ACTIVITY -->
+        <section class="admin-tab-view" id="admin-tab-users">
+          <div class="admin-table-card">
+            <h3>Visitor & Trust Telemetry</h3>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Visitor ID</th>
+                  <th>Time</th>
+                  <th>Event</th>
+                  <th>Verification</th>
+                  <th>Cart Value</th>
+                </tr>
+              </thead>
+              <tbody id="users-activity-body">
+                <!-- Populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- TAB 5: SETTINGS -->
+        <section class="admin-tab-view" id="admin-tab-settings">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 1000px;">
+            <!-- Business Settings -->
+            <div class="admin-table-card">
+              <h3>Store Configuration & Honor System Rules</h3>
+              <div style="display: flex; flex-direction: column; gap: 14px; margin-top: 16px;">
+                <div>
+                  <label style="font-size: 13px; font-weight: 700; display: block; margin-bottom: 6px;">Store Name</label>
+                  <input type="text" value="Honesty Store - Innovation Hub" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;" />
+                </div>
+                <div>
+                  <label style="font-size: 13px; font-weight: 700; display: block; margin-bottom: 6px;">Quote on Catalog Header</label>
+                  <input type="text" value='"Good choices start with simple actions."' style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;" />
+                </div>
+                <div>
+                  <label style="font-size: 13px; font-weight: 700; display: block; margin-bottom: 6px;">Discrepancy Threshold</label>
+                  <input type="number" value="5" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Cloud & Payment Integrations Settings -->
+            <div class="admin-table-card">
+              <h3>Supabase & Cashfree Integrations</h3>
+              <p style="font-size: 12px; color: #64748b; margin-bottom: 14px;">Connect your live production database and payment gateway.</p>
+              
+              <div style="display: flex; flex-direction: column; gap: 12px;">
+                <div>
+                  <label style="font-size: 12px; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">Supabase Project URL</label>
+                  <input type="text" id="cfg-supabase-url" placeholder="https://xyzcompany.supabase.co" 
+                         style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px;" />
+                </div>
+                <div>
+                  <label style="font-size: 12px; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">Supabase Anon Key</label>
+                  <input type="password" id="cfg-supabase-key" placeholder="eyJhbGciOiJIUzI1NiIsIn..." 
+                         style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px;" />
+                </div>
+                <div>
+                  <label style="font-size: 12px; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">Cashfree App ID</label>
+                  <input type="text" id="cfg-cashfree-appid" placeholder="CF_APP_12345678" 
+                         style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px;" />
+                </div>
+                <div>
+                  <label style="font-size: 12px; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">Cashfree Environment</label>
+                  <select id="cfg-cashfree-env" style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px;">
+                    <option value="SANDBOX">SANDBOX (Test Mode)</option>
+                    <option value="PRODUCTION">PRODUCTION (Live UPI)</option>
+                  </select>
+                </div>
+
+                <button type="button" onclick="window.AppConfig.saveLiveCredentials({
+                  supabaseUrl: document.getElementById('cfg-supabase-url').value,
+                  supabaseAnonKey: document.getElementById('cfg-supabase-key').value,
+                  cashfreeAppId: document.getElementById('cfg-cashfree-appid').value,
+                  cashfreeEnv: document.getElementById('cfg-cashfree-env').value
+                })" class="btn-adjust-stock" style="background:#0f172a; color:#fff; border:none; margin-top:8px; padding:12px; border-radius:10px;">
+                  💾 Save & Connect Production Credentials
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+
+  </main>
+
+  <!-- ============================================================ -->
+  <!-- MODALS -->
+  <!-- ============================================================ -->
+
+  <!-- 1. PAYMENT MODAL (UPI QR & TRUST PAY) -->
+  <div class="modal-overlay" id="payment-modal">
+    <div class="modal-dialog">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <h3 class="modal-title" style="margin: 0;">Honor Checkout</h3>
+        <button class="btn-close-modal" style="border:none; background:none; font-size:18px; cursor:pointer;">✕</button>
+      </div>
+      <p style="font-size: 13px; color: #64748b; margin-bottom: 16px;">
+        Total: <strong style="color: #0f172a; font-size: 18px;" id="pay-modal-amount">₹0</strong>
+      </p>
+
+      <!-- Simulated UPI QR Code -->
+      <div style="background: #f8fafc; border-radius: 14px; padding: 16px; text-align: center; border: 1px solid #e2e8f0; margin-bottom: 16px;">
+        <svg width="150" height="150" viewBox="0 0 100 100" style="margin: 0 auto; display: block;">
+          <!-- QR Pattern Mockup -->
+          <rect width="100" height="100" fill="#ffffff" rx="6"></rect>
+          <!-- Corner Position Boxes -->
+          <rect x="10" y="10" width="24" height="24" fill="#000000"></rect>
+          <rect x="14" y="14" width="16" height="16" fill="#ffffff"></rect>
+          <rect x="18" y="18" width="8" height="8" fill="#000000"></rect>
+
+          <rect x="66" y="10" width="24" height="24" fill="#000000"></rect>
+          <rect x="70" y="14" width="16" height="16" fill="#ffffff"></rect>
+          <rect x="74" y="18" width="8" height="8" fill="#000000"></rect>
+
+          <rect x="10" y="66" width="24" height="24" fill="#000000"></rect>
+          <rect x="14" y="70" width="16" height="16" fill="#ffffff"></rect>
+          <rect x="18" y="74" width="8" height="8" fill="#000000"></rect>
+
+          <!-- Middle Pattern Data -->
+          <rect x="42" y="12" width="6" height="6" fill="#000000"></rect>
+          <rect x="52" y="18" width="6" height="6" fill="#000000"></rect>
+          <rect x="42" y="30" width="16" height="6" fill="#000000"></rect>
+          <rect x="14" y="44" width="6" height="12" fill="#000000"></rect>
+          <rect x="28" y="42" width="12" height="6" fill="#000000"></rect>
+          <rect x="48" y="44" width="10" height="10" fill="#000000"></rect>
+          <rect x="66" y="42" width="12" height="6" fill="#000000"></rect>
+          <rect x="78" y="52" width="10" height="10" fill="#000000"></rect>
+          <rect x="42" y="64" width="8" height="8" fill="#000000"></rect>
+          <rect x="56" y="66" width="8" height="8" fill="#000000"></rect>
+          <rect x="72" y="74" width="16" height="6" fill="#000000"></rect>
+          <rect x="48" y="80" width="10" height="10" fill="#000000"></rect>
+        </svg>
+        <p style="font-size: 11px; font-weight: 700; color: #475569; margin-top: 8px;">Scan with Google Pay / PhonePe / Paytm</p>
+      </div>
+
+      <!-- Quick Payment Triggers -->
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <button onclick="window.customerApp.confirmPayment('Google Pay')" 
+                style="background: #0f172a; color:#fff; border:none; padding:12px; border-radius:12px; font-weight:700; cursor:pointer;">
+          Pay via Instant UPI (Simulate)
+        </button>
+        <button onclick="window.customerApp.confirmPayment('Cash Box')" 
+                style="background: #f1f5f9; color:#0f172a; border:1px solid #cbd5e1; padding:12px; border-radius:12px; font-weight:700; cursor:pointer;">
+          Deposited Cash in Store Honor Box
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. PAYMENT CONFIRMATION SUCCESS MODAL -->
+  <div class="modal-overlay" id="success-modal">
+    <div class="modal-dialog" style="text-align: center;">
+      <div style="font-size: 48px; margin-bottom: 12px;">🎉</div>
+      <h3 style="font-size: 20px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">Payment Confirmed!</h3>
+      <p style="font-size: 14px; color: #059669; font-weight: 700;" id="success-order-amount">₹50</p>
+      <p style="font-size: 12px; color: #64748b; margin: 6px 0 16px;">Order ID: <span id="success-order-id">HS10453</span></p>
+
+      <div style="background: #eafaf1; border: 1px solid #d3f3e1; border-radius: 12px; padding: 14px; margin-bottom: 20px;">
+        <p style="font-size: 13px; color: #2b8a3e; font-weight: 600;">
+          👉 Please take your items from the shelf now.<br/>Thank you for your honesty!
+        </p>
+      </div>
+
+      <button class="btn-close-modal" onclick="window.customerApp.switchScreen('screen-orders')" 
+              style="background: #000; color: #fff; border:none; width:100%; padding: 12px; border-radius: 20px; font-weight: 700; cursor:pointer;">
+        View My Order Receipt
+      </button>
+    </div>
+  </div>
+
+  <!-- 3. ORDER RECEIPT MODAL -->
+  <div class="modal-overlay" id="receipt-modal">
+    <div class="modal-dialog">
+      <div style="display: flex; justify-content: flex-end;">
+        <button class="btn-close-modal" style="border:none; background:none; font-size:18px; cursor:pointer;">✕</button>
+      </div>
+      <div id="receipt-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- 4. SHELF SCANNER MODAL -->
+  <div class="modal-overlay" id="scanner-modal">
+    <div class="modal-dialog" style="text-align: center;">
+      <h3 class="modal-title">Scan Store QR</h3>
+      <p style="font-size: 13px; color: #64748b; margin-bottom: 16px;">
+        Point camera at the shelf barcode or QR badge
+      </p>
+      <div style="width: 100%; height: 180px; background: #0f172a; border-radius: 14px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; margin-bottom: 16px;">
+        <div style="border: 2px dashed rgba(255,255,255,0.7); width: 120px; height: 120px; border-radius: 12px; display:flex; align-items:center; justify-content:center; color:#fff;">
+          [ Camera View ]
+        </div>
+      </div>
+      <button class="action-pill-btn" id="btn-simulate-shelf-scan" style="background:#0f172a; color:#fff; width:100%; padding:12px; justify-content:center; font-weight:700; border-radius:20px;">
+        ✓ Unlock Shelf & Enter Store
+      </button>
+    </div>
+  </div>
+
+  <!-- 5. ADJUST STOCK MODAL (Admin) -->
+  <div class="modal-overlay" id="adjust-stock-modal">
+    <div class="modal-dialog">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <h3 class="modal-title" style="margin: 0;">Adjust Inventory Stock</h3>
+        <button class="btn-close-modal" style="border:none; background:none; font-size:18px; cursor:pointer;">✕</button>
+      </div>
+      <p style="font-size: 13px; color: #64748b; margin-bottom: 14px;" id="adjust-modal-prod-name">Lays Classic</p>
+      <form id="adjust-stock-form" style="display: flex; flex-direction: column; gap: 14px;">
+        <div>
+          <label style="font-size: 12px; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">New Stock Count</label>
+          <input type="number" id="adjust-stock-input" required min="0" style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:8px;" />
+        </div>
+        <div>
+          <label style="font-size: 12px; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Adjustment Reason / Audit Note</label>
+          <input type="text" id="adjust-stock-note" placeholder="e.g. Physical inventory audit / Restocked 20 units" style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:8px;" />
+        </div>
+        <button type="submit" class="btn-adjust-stock" style="background:#0f172a; color:#fff; border:none; margin:0;">
+          Save & Update Stock
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 6. ADD PRODUCT MODAL (Admin) -->
+  <div class="modal-overlay" id="add-product-modal">
+    <div class="modal-dialog">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <h3 class="modal-title" style="margin: 0;">Add Shelf Product</h3>
+        <button class="btn-close-modal" style="border:none; background:none; font-size:18px; cursor:pointer;">✕</button>
+      </div>
+      <form id="add-product-form" style="display: flex; flex-direction: column; gap: 12px;">
+        <div>
+          <label style="font-size: 12px; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Product Name</label>
+          <input type="text" id="new-prod-name" placeholder="e.g. Kurkure" required style="width:100%; padding:9px; border:1px solid #e2e8f0; border-radius:8px;" />
+        </div>
+        <div>
+          <label style="font-size: 12px; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Subtitle / Variant</label>
+          <input type="text" id="new-prod-variant" placeholder="e.g. Masala Munch 45g" style="width:100%; padding:9px; border:1px solid #e2e8f0; border-radius:8px;" />
+        </div>
+        <div>
+          <label style="font-size: 12px; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Category</label>
+          <select id="new-prod-category" style="width:100%; padding:9px; border:1px solid #e2e8f0; border-radius:8px;">
+            <option value="Chips">Chips</option>
+            <option value="Biscuits">Biscuits</option>
+            <option value="Chocolates">Chocolates</option>
+          </select>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div>
+            <label style="font-size: 12px; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Price (₹)</label>
+            <input type="number" id="new-prod-price" value="20" required min="1" style="width:100%; padding:9px; border:1px solid #e2e8f0; border-radius:8px;" />
+          </div>
+          <div>
+            <label style="font-size: 12px; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Initial Stock</label>
+            <input type="number" id="new-prod-stock" value="15" required min="0" style="width:100%; padding:9px; border:1px solid #e2e8f0; border-radius:8px;" />
+          </div>
+        </div>
+        <button type="submit" class="btn-adjust-stock" style="background:#0f172a; color:#fff; border:none; margin-top:8px;">
+          Add to Shelf
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 7. PHONE OTP AUTHENTICATION MODAL (Persistent Customer Login) -->
+  <div class="modal-overlay" id="auth-modal">
+    <div class="modal-dialog">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 20px;">📱</span>
+          <h3 class="modal-title" style="margin: 0;">Phone Authentication</h3>
+        </div>
+        <button class="btn-close-modal" style="border:none; background:none; font-size:18px; cursor:pointer;">✕</button>
+      </div>
+
+      <!-- Step 1: Phone Input -->
+      <div id="auth-step-phone">
+        <p style="font-size: 13px; color: #64748b; margin-bottom: 16px;">
+          Enter your mobile number to associate receipts, trust score, and loyalty credits.
+        </p>
+        <form id="phone-login-form" style="display: flex; flex-direction: column; gap: 14px;">
+          <div style="display: flex; gap: 8px;">
+            <div style="background: #f1f5f9; padding: 12px 14px; border-radius: 10px; font-weight: 700; font-size: 14px; border: 1px solid #e2e8f0;">
+              🇮🇳 +91
+            </div>
+            <input type="tel" id="auth-phone-input" placeholder="98765 43210" maxlength="10" required 
+                   style="flex: 1; padding: 12px; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 16px; font-weight: 700; letter-spacing: 1px;" />
+          </div>
+          <button type="submit" class="btn-adjust-stock" id="btn-send-otp" style="background:#000; color:#fff; border:none; margin: 4px 0 0; padding: 14px; border-radius: 20px;">
+            Get OTP via SMS →
+          </button>
+        </form>
+        <div style="text-align: center; margin-top: 12px; font-size: 11px; color: #94a3b8;">
+          🔒 Session will stay persistently logged in on this phone.
+        </div>
+      </div>
+
+      <!-- Step 2: OTP Input -->
+      <div id="auth-step-otp" style="display: none;">
+        <p style="font-size: 13px; color: #64748b; margin-bottom: 12px;">
+          Enter the 6-digit OTP code sent to <strong id="otp-sent-phone-display">+91 9876543210</strong>
+        </p>
+        <form id="verify-otp-form" style="display: flex; flex-direction: column; gap: 14px;">
+          <input type="text" id="auth-otp-input" placeholder="• • • • • •" maxlength="6" required 
+                 style="width: 100%; text-align: center; font-size: 24px; font-weight: 800; letter-spacing: 8px; padding: 12px; border: 1.5px solid #000; border-radius: 12px;" />
+          
+          <button type="submit" class="btn-adjust-stock" id="btn-verify-otp" style="background:#000; color:#fff; border:none; padding: 14px; border-radius: 20px;">
+            Verify & Sign In →
+          </button>
+        </form>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px;">
+          <button type="button" id="btn-autofill-otp" style="background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; padding: 6px 12px; border-radius: 12px; font-size: 11px; font-weight: 700; cursor: pointer;">
+            ⚡ Auto-fill Test OTP (123456)
+          </button>
+          <button type="button" onclick="document.getElementById('auth-step-otp').style.display='none'; document.getElementById('auth-step-phone').style.display='block';" style="background: none; border: none; color: #64748b; font-size: 12px; cursor: pointer; text-decoration: underline;">
+            Change Number
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 3: Logged-in Profile View -->
+      <div id="auth-step-profile" style="display: none; text-align: center;">
+        <div style="width: 60px; height: 60px; border-radius: 50%; background: #e6fcf5; color: #0ca678; font-size: 28px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px;">
+          ✓
+        </div>
+        <h4 style="font-size: 18px; font-weight: 800; margin-bottom: 4px;">Verified Customer</h4>
+        <p style="font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 14px;" id="profile-modal-phone">+91 98765 43210</p>
+        
+        <div style="background: #f8fafc; border-radius: 12px; padding: 12px; border: 1px solid #edf2f7; text-align: left; font-size: 12px; margin-bottom: 18px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span style="color: #64748b;">Community Trust Score:</span>
+            <strong style="color: #0ca678;">100% (High Trust)</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: #64748b;">Receipt Delivery:</span>
+            <strong>WhatsApp & SMS</strong>
+          </div>
+        </div>
+
+        <button type="button" id="btn-auth-logout" style="width: 100%; background: #fee2e2; color: #b91c1c; border: none; padding: 12px; border-radius: 20px; font-size: 13px; font-weight: 700; cursor: pointer;">
+          Log Out of this Device
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 8. CASHFREE PAYMENT GATEWAY MODAL (Official SDK & UPI Drop-in) -->
+  <div class="modal-overlay" id="cashfree-gateway-modal">
+    <div class="modal-dialog" style="max-width: 420px; padding: 0; overflow: hidden; border-radius: 22px;">
+      <!-- Cashfree Header -->
+      <div style="background: #5b21b6; color: #ffffff; padding: 18px 20px; display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="background: #fff; color: #5b21b6; width: 26px; height: 26px; border-radius: 6px; font-weight: 900; display: flex; align-items: center; justify-content: center; font-size: 14px;">
+            CF
+          </div>
+          <span style="font-weight: 800; font-size: 16px; letter-spacing: 0.5px;">Cashfree Payments</span>
+        </div>
+        <button class="btn-close-modal" style="background:none; border:none; color:#fff; font-size:18px; cursor:pointer;">✕</button>
+      </div>
+
+      <!-- Cashfree Body -->
+      <div style="padding: 22px 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid #f1f5f9;">
+          <div>
+            <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Amount to Pay</span>
+            <div style="font-size: 26px; font-weight: 800; color: #0f172a;" id="cf-amount-display">₹50</div>
+          </div>
+          <div style="text-align: right; font-size: 11px; color: #64748b;">
+            Order ID: <strong id="cf-order-id-display">HS10455</strong><br/>
+            Phone: <span id="cf-phone-display">+91 9876543210</span>
+          </div>
+        </div>
+
+        <!-- UPI Apps Grid -->
+        <p style="font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 10px;">Select UPI App</p>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;">
+          <button onclick="window.cashfreeClient.handlePaymentSuccess(document.getElementById('cf-order-id-display').innerText, 50, 'Cashfree (Google Pay)')" 
+                  style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 700; font-size: 13px;">
+            <span style="font-size: 18px;">🟢</span> Google Pay
+          </button>
+          <button onclick="window.cashfreeClient.handlePaymentSuccess(document.getElementById('cf-order-id-display').innerText, 50, 'Cashfree (PhonePe)')" 
+                  style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 700; font-size: 13px;">
+            <span style="font-size: 18px;">🟣</span> PhonePe
+          </button>
+          <button onclick="window.cashfreeClient.handlePaymentSuccess(document.getElementById('cf-order-id-display').innerText, 50, 'Cashfree (Paytm)')" 
+                  style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 700; font-size: 13px;">
+            <span style="font-size: 18px;">🔵</span> Paytm UPI
+          </button>
+          <button onclick="window.cashfreeClient.handlePaymentSuccess(document.getElementById('cf-order-id-display').innerText, 50, 'Cashfree (BHIM)')" 
+                  style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 700; font-size: 13px;">
+            <span style="font-size: 18px;">🟠</span> BHIM UPI
+          </button>
+        </div>
+
+        <button onclick="window.cashfreeClient.handlePaymentSuccess(document.getElementById('cf-order-id-display').innerText, 50, 'Cashfree Dynamic QR')" 
+                style="width: 100%; background: #5b21b6; color: #ffffff; border: none; padding: 14px; border-radius: 20px; font-weight: 700; cursor: pointer; font-size: 14px;">
+          ✓ Confirm Cashfree Payment (Instant Simulation)
+        </button>
+        
+        <div style="text-align: center; margin-top: 14px; font-size: 11px; color: #94a3b8;">
+          🔒 PCI-DSS Certified 256-Bit Bank Grade Encryption
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Application Scripts -->
+  <script src="js/config.js"></script>
+  <script src="js/store-db.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/cashfree-client.js"></script>
+  <script src="js/supabase-client.js"></script>
+  <script src="js/customer-app.js"></script>
+  <script src="js/admin-app.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
