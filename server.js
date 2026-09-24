@@ -215,6 +215,7 @@ function getCashfreeConfig() {
               customer_id: 'cust_' + cleanPhone,
               customer_phone: cleanPhone,
               customer_name: customerName || 'Honesty Customer'
+            },
             order_meta: {
               return_url: (function() {
                 let orig = req.headers.origin || req.headers.referer || 'https://honesty-store.onrender.com';
