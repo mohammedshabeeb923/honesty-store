@@ -118,18 +118,17 @@ function getCashfreeConfig() {
 
   // Gateway Diagnostic Route
   if (req.method === 'GET' && reqPath === '/api/gateway-status') {
-    const cf = getCashfreeConfig();
-    const matchingEnvKeys = Object.keys(process.env).filter(k => 
-      /cash|cf_|app_id|secret|supabase/i.test(k)
-    );
+    const rawAppId = (process.env.CASHFREE_APP_ID || '').trim();
+    const rawSecret = (process.env.CASHFREE_SECRET_KEY || '').trim();
+    const rawEnv = (process.env.CASHFREE_ENV || '').trim();
+    
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
-      hasAppId: !!cf.appId,
-      appIdPrefix: cf.appId ? cf.appId.slice(0, 6) + '...' : null,
-      hasSecretKey: !!cf.secretKey,
-      secretKeyPrefix: cf.secretKey ? cf.secretKey.slice(0, 10) + '...' : null,
-      env: cf.env,
-      detectedEnvVars: matchingEnvKeys
+      appIdLength: rawAppId.length,
+      appIdPreview: rawAppId ? (rawAppId.slice(0, 4) + '***' + rawAppId.slice(-4)) : null,
+      secretLength: rawSecret.length,
+      secretPreview: rawSecret ? (rawSecret.slice(0, 10) + '***' + rawSecret.slice(-4)) : null,
+      envVal: rawEnv
     }));
     return;
   }
