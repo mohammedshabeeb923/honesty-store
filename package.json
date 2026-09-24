@@ -1,0 +1,20 @@
+{
+  "name": "honesty-store",
+  "version": "1.0.0",
+  "description": "Honesty Store - Autonomous Micro-Retail Platform",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "build": "echo 'Build complete'"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "honesty-store",
+    "micro-retail",
+    "supabase",
+    "cashfree"
+  ],
+  "license": "MIT"
+}
