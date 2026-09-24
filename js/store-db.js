@@ -8,6 +8,19 @@ const STORAGE_KEY = 'honesty_store_v1';
 const DEFAULT_DATA = {
   products: [
     {
+      id: 'upitest',
+      name: '₹1 Live UPI Test',
+      variant: 'Gateway Verification Item',
+      category: 'Chips',
+      price: 1,
+      stock: 99,
+      expectedStock: 99,
+      physicalStock: 99,
+      image: 'assets/lays.png',
+      badge: 'TEST ₹1',
+      lowStockThreshold: 5
+    },
+    {
       id: 'lays',
       name: 'Lays',
       variant: 'Classic Potato Chips',
