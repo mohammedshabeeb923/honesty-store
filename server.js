@@ -215,9 +215,22 @@ function getCashfreeConfig() {
               customer_id: 'cust_' + cleanPhone,
               customer_phone: cleanPhone,
               customer_name: customerName || 'Honesty Customer'
-            },
             order_meta: {
-              return_url: `${req.headers.origin || 'http://localhost:3000'}?order_id={order_id}`
+              return_url: (function() {
+                let orig = req.headers.origin || req.headers.referer || 'https://honesty-store.onrender.com';
+                try {
+                  const u = new URL(orig);
+                  if (env === 'PRODUCTION' || u.hostname === 'localhost') {
+                    u.protocol = 'https:';
+                    if (u.hostname === 'localhost' || u.hostname === '127.0.0.1') {
+                      u.host = 'honesty-store.onrender.com';
+                    }
+                  }
+                  return `${u.origin}/?order_id={order_id}`;
+                } catch (e) {
+                  return 'https://honesty-store.onrender.com/?order_id={order_id}';
+                }
+              })()
             }
           })
         });
