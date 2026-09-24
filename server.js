@@ -137,7 +137,10 @@ const server = http.createServer(async (req, res) => {
   // 5. Test Supabase Connection
   if (req.method === 'POST' && reqPath === '/api/test-supabase') {
     try {
-      const { url, anonKey } = await parseJsonBody(req);
+      const body = await parseJsonBody(req);
+      const url = body.url || body.supabaseUrl || process.env.SUPABASE_URL;
+      const anonKey = body.anonKey || body.supabaseAnonKey || process.env.SUPABASE_ANON_KEY;
+
       if (!url || !anonKey) {
         throw new Error('Supabase URL and Anon Key are required');
       }
@@ -158,11 +161,12 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         success: true,
+        ok: true,
         message: 'Successfully verified connection to Supabase database!'
       }));
     } catch (err) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: false, error: err.message }));
+      res.end(JSON.stringify({ success: false, ok: false, error: err.message, message: err.message }));
     }
     return;
   }
