@@ -21,7 +21,7 @@ const AppConfig = {
     // Cashfree Environment: 'SANDBOX' or 'PRODUCTION'
     environment: localStorage.getItem('HONESTY_CASHFREE_ENV') || 'SANDBOX',
     // Cashfree App ID from Cashfree Merchant Dashboard
-    appId: localStorage.getItem('HONESTY_CASHFREE_APP_ID') || 'TEST_APP_ID',
+    appId: localStorage.getItem('HONESTY_CASHFREE_APP_ID') || '1442420ede8ec2d801e7dc059140242441',
     // Cashfree API Version
     apiVersion: '2023-08-01',
     isConfigured: function() {
