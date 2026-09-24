@@ -27,6 +27,18 @@ class AdminApp {
     this.searchInput = document.getElementById('admin-search-input');
     this.stockListContainer = document.getElementById('admin-stock-items-list');
     this.detailPanel = document.getElementById('admin-detail-panel');
+    this.populateSettings();
+  }
+
+  populateSettings() {
+    const urlEl = document.getElementById('cfg-supabase-url');
+    const keyEl = document.getElementById('cfg-supabase-key');
+    const cfEl = document.getElementById('cfg-cashfree-appid');
+    const envEl = document.getElementById('cfg-cashfree-env');
+    if (urlEl && localStorage.getItem('HONESTY_SUPABASE_URL')) urlEl.value = localStorage.getItem('HONESTY_SUPABASE_URL');
+    if (keyEl && localStorage.getItem('HONESTY_SUPABASE_ANON_KEY')) keyEl.value = localStorage.getItem('HONESTY_SUPABASE_ANON_KEY');
+    if (cfEl && localStorage.getItem('HONESTY_CASHFREE_APP_ID')) cfEl.value = localStorage.getItem('HONESTY_CASHFREE_APP_ID');
+    if (envEl && localStorage.getItem('HONESTY_CASHFREE_ENV')) envEl.value = localStorage.getItem('HONESTY_CASHFREE_ENV');
   }
 
   bindEvents() {
@@ -293,7 +305,7 @@ class AdminApp {
           <div class="kpi-card">
             <div class="kpi-card-header">
               <span class="kpi-title">TODAY'S SALES</span>
-              <div class="kpi-icon-pill">₹</div>
+              <div class="kpi-icon-pill" style="font-weight: 700; font-size: 13px;">₹</div>
             </div>
             <div class="kpi-val">₹2,480</div>
             <div class="kpi-sub positive">
@@ -304,7 +316,9 @@ class AdminApp {
           <div class="kpi-card">
             <div class="kpi-card-header">
               <span class="kpi-title">ORDERS</span>
-              <div class="kpi-icon-pill">🧾</div>
+              <div class="kpi-icon-pill">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8H8"/><path d="M16 12H8"/><path d="M13 16H8"/></svg>
+              </div>
             </div>
             <div class="kpi-val">94</div>
             <div class="kpi-sub">Across 3 locations</div>
@@ -313,7 +327,9 @@ class AdminApp {
           <div class="kpi-card">
             <div class="kpi-card-header">
               <span class="kpi-title">ITEMS SOLD</span>
-              <div class="kpi-icon-pill">🛍️</div>
+              <div class="kpi-icon-pill">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+              </div>
             </div>
             <div class="kpi-val">127</div>
             <div class="kpi-sub">Top item: Cold Coffee</div>
@@ -322,7 +338,9 @@ class AdminApp {
           <div class="kpi-card">
             <div class="kpi-card-header">
               <span class="kpi-title">SUCCESSFUL PAYMENTS</span>
-              <div class="kpi-icon-pill">🛡️</div>
+              <div class="kpi-icon-pill">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+              </div>
             </div>
             <div class="kpi-val">91</div>
             <div class="kpi-sub">96.8% completion rate</div>
@@ -404,7 +422,9 @@ class AdminApp {
         <div class="dashboard-kpi-grid">
           <div class="kpi-card">
             <div class="kpi-card-header">
-              <span class="kpi-icon-pill">💳</span>
+              <span class="kpi-icon-pill">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+              </span>
               <span class="kpi-badge-pill">+12%</span>
             </div>
             <span class="kpi-title">Revenue</span>
@@ -413,7 +433,9 @@ class AdminApp {
 
           <div class="kpi-card">
             <div class="kpi-card-header">
-              <span class="kpi-icon-pill">📈</span>
+              <span class="kpi-icon-pill">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+              </span>
               <span class="kpi-badge-pill">+4.2%</span>
             </div>
             <span class="kpi-title">Conversion</span>
@@ -422,7 +444,9 @@ class AdminApp {
 
           <div class="kpi-card">
             <div class="kpi-card-header">
-              <span class="kpi-icon-pill">📲</span>
+              <span class="kpi-icon-pill">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+              </span>
             </div>
             <span class="kpi-title">QR Scans</span>
             <div class="kpi-val">127</div>
@@ -430,7 +454,9 @@ class AdminApp {
 
           <div class="kpi-card">
             <div class="kpi-card-header">
-              <span class="kpi-icon-pill">👥</span>
+              <span class="kpi-icon-pill">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              </span>
             </div>
             <span class="kpi-title">Unique Visitors</span>
             <div class="kpi-val">93</div>
@@ -506,7 +532,9 @@ class AdminApp {
           <div class="system-states-grid">
             <!-- State 1: Cart Waiting -->
             <div class="state-preview-card">
-              <div class="state-icon-circle">🛍️</div>
+              <div class="state-icon-circle">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+              </div>
               <div class="state-title">Your cart is waiting</div>
               <p class="state-desc">Discover fresh snacks and beverages in the store.</p>
               <button class="state-btn-action" onclick="window.customerApp.switchScreen('screen-catalog')">
@@ -516,14 +544,18 @@ class AdminApp {
 
             <!-- State 2: No Orders Yet -->
             <div class="state-preview-card">
-              <div class="state-icon-circle">🧾</div>
+              <div class="state-icon-circle">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8H8"/><path d="M16 12H8"/><path d="M13 16H8"/></svg>
+              </div>
               <div class="state-title">No orders yet</div>
               <p class="state-desc">Your history will appear here once you make your first purchase.</p>
             </div>
 
             <!-- State 3: Everything in Sync -->
             <div class="state-preview-card">
-              <div class="state-icon-circle mint">✓</div>
+              <div class="state-icon-circle mint">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
               <div class="state-title">Everything is in sync</div>
               <p class="state-desc">No inventory discrepancies found across all locations.</p>
             </div>
@@ -593,3 +625,35 @@ class AdminApp {
 }
 
 window.AdminApp = AdminApp;
+
+window.testSupabaseConnection = async function() {
+  const url = document.getElementById('cfg-supabase-url')?.value.trim();
+  const anonKey = document.getElementById('cfg-supabase-key')?.value.trim();
+  const feedback = document.getElementById('supabase-test-feedback');
+  if (!feedback) return;
+
+  if (!url || !anonKey) {
+    feedback.style.display = 'block';
+    feedback.innerHTML = '<span style="color:#ef4444; font-weight:700;">Please enter both Supabase Project URL and Anon Key.</span>';
+    return;
+  }
+
+  feedback.style.display = 'block';
+  feedback.innerHTML = '<span style="color:#64748b; font-weight:600;">Testing Supabase connection...</span>';
+
+  try {
+    const res = await fetch('/api/test-supabase', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ supabaseUrl: url, supabaseAnonKey: anonKey })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      feedback.innerHTML = `<span style="color:#16a34a; font-weight:700;">✓ Connected! Tables detected: products (${data.tables?.products ?? 0}), orders (${data.tables?.orders ?? 0}).</span>`;
+    } else {
+      feedback.innerHTML = `<span style="color:#ef4444; font-weight:700;">✗ Connection Failed: ${data.message || 'Check URL and Anon Key.'}</span>`;
+    }
+  } catch (err) {
+    feedback.innerHTML = `<span style="color:#64748b; font-weight:600;">Saved locally. Once the backend server is running, table sync will activate automatically.</span>`;
+  }
+};

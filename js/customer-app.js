@@ -217,7 +217,7 @@ class CustomerApp {
           </div>
           <div class="product-name">${prod.name}</div>
           <div class="product-stock-line ${isLowStock ? 'warning' : ''}">
-            ${isLowStock ? '⚠️ ' : ''}${prod.stock} IN STOCK
+            ${isLowStock ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:-1px; margin-right:3px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' : ''}${prod.stock} IN STOCK
           </div>
           <div class="product-bottom-row">
             <div class="product-price">₹${prod.price}</div>
@@ -260,7 +260,9 @@ class CustomerApp {
       if (cart.length === 0) {
         this.cartItemsList.innerHTML = `
           <div style="text-align:center; padding: 30px 10px; color: #94a3b8;">
-            <div style="font-size: 32px; margin-bottom: 8px;">🛒</div>
+            <div style="margin-bottom: 8px; display: flex; justify-content: center;">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.7"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+            </div>
             <p style="font-size: 14px; font-weight: 600;">Your cart is empty</p>
             <p style="font-size: 12px; margin-top: 4px;">Pick snacks from the shelf to begin</p>
           </div>
@@ -348,7 +350,9 @@ class CustomerApp {
     if (cart.length === 0) {
       this.cartFullItemsList.innerHTML = `
         <div style="text-align:center; padding: 40px 10px;">
-          <div style="width: 56px; height: 56px; border-radius: 50%; background: #f8fafc; border: 1px solid #edf2f7; display: inline-flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 16px;">🛒</div>
+          <div style="width: 56px; height: 56px; border-radius: 50%; background: #f8fafc; border: 1px solid #edf2f7; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="1.8"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+          </div>
           <h3 style="font-size: 18px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">Your cart is waiting</h3>
           <p style="font-size: 13px; color: #64748b; margin-bottom: 20px;">Discover fresh snacks and beverages in the store.</p>
           <button onclick="window.customerApp.switchScreen('screen-catalog')" 

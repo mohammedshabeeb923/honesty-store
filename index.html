@@ -23,20 +23,24 @@
     <!-- Mode Selector -->
     <div class="view-mode-selector">
       <button class="view-btn" data-mode="customer" title="Show only Customer Mobile App">
-        📱 Customer App
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+        Customer App
       </button>
       <button class="view-btn active" data-mode="dual" title="Side-by-side Dual Mode">
-        ↔️ Dual View (Live Sync)
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="12" y1="3" x2="12" y2="21"></line></svg>
+        Dual View
       </button>
       <button class="view-btn" data-mode="admin" title="Show only Business Admin Console">
-        💻 Admin Console
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+        Admin Console
       </button>
     </div>
 
     <!-- Quick Utilities -->
     <div class="quick-actions">
       <button class="action-pill-btn" id="btn-reset-demo" title="Reset all data to exact screenshot defaults">
-        🔄 Reset Demo State
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+        Reset State
       </button>
     </div>
   </header>
@@ -52,9 +56,13 @@
 
         <!-- Mobile Top Status Bar -->
         <div class="mobile-status-bar">
-          <span>9:41</span>
+          <span style="font-weight: 700; letter-spacing: 0.2px;">9:41</span>
           <div class="notch-pill"></div>
-          <span>📶 5G 🔋</span>
+          <div style="display: flex; align-items: center; gap: 5px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="1" y="16" width="3" height="6" rx="1"></rect><rect x="6" y="12" width="3" height="10" rx="1"></rect><rect x="11" y="8" width="3" height="14" rx="1"></rect><rect x="16" y="4" width="3" height="18" rx="1"></rect></svg>
+            <span style="font-size: 10px; font-weight: 800;">5G</span>
+            <svg width="18" height="11" viewBox="0 0 24 13" fill="none" stroke="currentColor" stroke-width="2" style="margin-left: 2px;"><rect x="1" y="1" width="19" height="11" rx="3"></rect><path d="M22 4v5" stroke-linecap="round"></path><rect x="3" y="3" width="12" height="7" fill="currentColor"></rect></svg>
+          </div>
         </div>
 
         <!-- Mobile Header (Hidden on Splash) -->
@@ -209,7 +217,7 @@
               </div>
 
               <div class="cart-verification-notice">
-                <span>🛡️</span>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
                 <span>Your payment will be verified before your order is completed.</span>
               </div>
 
@@ -291,15 +299,19 @@
                 <div class="sales-card-val" id="community-sales-today">₹1,620</div>
               </div>
 
-              <!-- Two Stat Cards -->
+              <!-- Two Stat Cards (Clean SVG Icons Matching media_1788895479646.jpg) -->
               <div class="honesty-stats-grid">
                 <div class="honesty-stat-card">
-                  <div class="stat-icon-wrap">🏪</div>
+                  <div class="stat-icon-wrap" style="color: #0f172a; display: flex; justify-content: center;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                  </div>
                   <div class="stat-card-val" id="community-visits-count">127</div>
                   <div class="stat-card-label">STORE VISITS</div>
                 </div>
                 <div class="honesty-stat-card">
-                  <div class="stat-icon-wrap" style="color:#0ca678;">🛡️</div>
+                  <div class="stat-icon-wrap" style="color: #0ca678; display: flex; justify-content: center;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline></svg>
+                  </div>
                   <div class="stat-card-val" id="community-payments-count">81</div>
                   <div class="stat-card-label">COMPLETED PAYMENTS</div>
                 </div>
@@ -307,7 +319,9 @@
 
               <!-- Mint Green Honesty Card -->
               <div class="mint-honesty-card">
-                <div class="mint-card-icon">💚</div>
+                <div class="mint-card-icon" style="color: #0ca678; display: flex;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                </div>
                 <div class="mint-card-text">
                   Thank you for honoring the honor code. Your integrity keeps this initiative running smoothly.
                 </div>
@@ -315,30 +329,38 @@
 
               <!-- Honor Code Pledge Button -->
               <button class="btn-pledge-action" id="btn-sign-pledge">
-                🤝 Sign Community Honor Code
+                Sign Community Honor Code
               </button>
             </div>
           </section>
 
         </div>
 
-        <!-- Bottom Navigation Bar (Hidden on Splash) -->
+        <!-- Bottom Navigation Bar (Clean Minimalist Vector Icons) -->
         <nav class="mobile-bottom-nav" id="mobile-bottom-nav" style="display: none;">
           <button class="nav-tab-item active" data-target="screen-catalog">
-            <span class="nav-tab-icon">🏠</span>
+            <span class="nav-tab-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+            </span>
             <span class="nav-tab-label">Home</span>
           </button>
           <button class="nav-tab-item" data-target="cart">
-            <span class="nav-tab-icon">🛒</span>
-            <span class="nav-tab-label">Cart</span>
+            <span class="nav-tab-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
+            </span>
+            <span class="nav-tab-label">Tray</span>
             <span class="cart-nav-badge" id="cart-nav-badge" style="display: none;">0</span>
           </button>
           <button class="nav-tab-item" data-target="screen-orders">
-            <span class="nav-tab-icon">🕒</span>
+            <span class="nav-tab-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            </span>
             <span class="nav-tab-label">History</span>
           </button>
           <button class="nav-tab-item" data-target="screen-honesty">
-            <span class="nav-tab-icon">👥</span>
+            <span class="nav-tab-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+            </span>
             <span class="nav-tab-label">Community</span>
           </button>
         </nav>
@@ -347,7 +369,9 @@
         <div class="cart-drawer-sheet" id="cart-drawer">
           <div class="cart-drawer-header">
             <div class="cart-drawer-title">Shopping Tray</div>
-            <button id="btn-close-cart" style="border:none; background:none; font-size:18px; cursor:pointer;">✕</button>
+            <button id="btn-close-cart" style="border:none; background:none; cursor:pointer; color:#64748b; display:flex;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
           </div>
           <div class="cart-items-scroll" id="cart-items-list">
             <!-- Dynamically populated -->
@@ -357,7 +381,7 @@
             <span id="cart-total-amount">₹0</span>
           </div>
           <button class="btn-pay-now" id="btn-pay-now">
-            Proceed to Honor Checkout →
+            Proceed to Checkout →
           </button>
         </div>
 
@@ -369,35 +393,45 @@
     <!-- ============================================================ -->
     <div class="admin-wrapper">
 
-      <!-- Left Navigation Sidebar -->
+      <!-- Left Navigation Sidebar (Clean Enterprise SVG Icons Matching media_1788895479631.jpg) -->
       <aside class="admin-sidebar">
         <div class="sidebar-title">Admin Console</div>
         <ul class="sidebar-nav-list">
           <li class="sidebar-nav-item" data-tab="dashboard">
-            <span class="sidebar-nav-icon">📊</span>
+            <span class="sidebar-nav-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            </span>
             <span>Dashboard</span>
           </li>
           <li class="sidebar-nav-item active" data-tab="inventory">
-            <span class="sidebar-nav-icon">📦</span>
+            <span class="sidebar-nav-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+            </span>
             <span>Inventory</span>
           </li>
           <li class="sidebar-nav-item" data-tab="sales">
-            <span class="sidebar-nav-icon">💵</span>
+            <span class="sidebar-nav-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1z"></path><line x1="8" y1="7" x2="16" y2="7"></line><line x1="8" y1="11" x2="16" y2="11"></line><line x1="8" y1="15" x2="12" y2="15"></line></svg>
+            </span>
             <span>Sales</span>
           </li>
           <li class="sidebar-nav-item" data-tab="users">
-            <span class="sidebar-nav-icon">👤</span>
+            <span class="sidebar-nav-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+            </span>
             <span>Users</span>
           </li>
           <li class="sidebar-nav-item" data-tab="settings">
-            <span class="sidebar-nav-icon">⚙️</span>
+            <span class="sidebar-nav-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            </span>
             <span>Settings</span>
           </li>
         </ul>
 
         <div class="sidebar-bottom-info">
-          <h5>Honesty Store v1.0</h5>
-          <p>Autonomous Retail Node #1<br/>Innovation Center Floor 3</p>
+          <h5>Honesty Store Node</h5>
+          <p>Autonomous Retail System<br/>Floor 3 Innovation Hub</p>
         </div>
       </aside>
 
@@ -408,13 +442,17 @@
           <h2 class="admin-page-heading" id="admin-page-heading">INVENTORY</h2>
           <div class="admin-header-actions">
             <div class="admin-search-wrap">
-              <span class="admin-search-icon">🔍</span>
+              <span class="admin-search-icon" style="display: flex;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              </span>
               <input type="text" class="admin-search-input" id="admin-search-input" placeholder="Search products..." />
             </div>
             <button class="action-pill-btn" id="btn-open-add-product" style="background:#0f172a; color:#fff; border:none; padding:8px 14px; font-weight:600;">
               + Add Product
             </button>
-            <div style="cursor: pointer; font-size: 18px; color: #64748b;" title="Notifications">🔔</div>
+            <div style="cursor: pointer; display: flex; color: #64748b;" title="Notifications">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+            </div>
             <img src="assets/avatar.png" alt="Admin Profile" class="admin-profile-avatar" title="Logged in as Store Administrator" />
           </div>
         </header>
@@ -445,10 +483,10 @@
         <section class="admin-tab-view" id="admin-tab-dashboard">
           <div class="dashboard-view-toggles">
             <button class="dashboard-toggle-btn active" data-subview="today" onclick="window.adminApp.setDashboardSubView('today')">
-              ⚡ Today's Overview & Conversion Funnel
+              Today's Overview & Funnel
             </button>
             <button class="dashboard-toggle-btn" data-subview="30days" onclick="window.adminApp.setDashboardSubView('30days')">
-              📅 30-Day Overview & System States
+              30-Day Performance & States
             </button>
           </div>
 
@@ -551,14 +589,20 @@
                   </select>
                 </div>
 
-                <button type="button" onclick="window.AppConfig.saveLiveCredentials({
-                  supabaseUrl: document.getElementById('cfg-supabase-url').value,
-                  supabaseAnonKey: document.getElementById('cfg-supabase-key').value,
-                  cashfreeAppId: document.getElementById('cfg-cashfree-appid').value,
-                  cashfreeEnv: document.getElementById('cfg-cashfree-env').value
-                })" class="btn-adjust-stock" style="background:#0f172a; color:#fff; border:none; margin-top:8px; padding:12px; border-radius:10px;">
-                  💾 Save & Connect Production Credentials
-                </button>
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                  <button type="button" onclick="window.testSupabaseConnection()" class="btn-adjust-stock" style="background:#f1f5f9; color:#0f172a; border:1px solid #cbd5e1; margin:0; padding:10px 16px; border-radius:10px; font-size:12px; font-weight:700;">
+                    Test Connection
+                  </button>
+                  <button type="button" onclick="window.AppConfig.saveLiveCredentials({
+                    supabaseUrl: document.getElementById('cfg-supabase-url').value,
+                    supabaseAnonKey: document.getElementById('cfg-supabase-key').value,
+                    cashfreeAppId: document.getElementById('cfg-cashfree-appid').value,
+                    cashfreeEnv: document.getElementById('cfg-cashfree-env').value
+                  })" class="btn-adjust-stock" style="background:#0f172a; color:#fff; border:none; margin:0; padding:10px 18px; border-radius:10px; font-size:12px; font-weight:700; flex:1;">
+                    Save & Connect
+                  </button>
+                </div>
+                <div id="supabase-test-feedback" style="font-size: 11px; margin-top: 4px; display: none;"></div>
               </div>
             </div>
           </div>
@@ -577,8 +621,10 @@
   <div class="modal-overlay" id="payment-modal">
     <div class="modal-dialog">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-        <h3 class="modal-title" style="margin: 0;">Honor Checkout</h3>
-        <button class="btn-close-modal" style="border:none; background:none; font-size:18px; cursor:pointer;">✕</button>
+        <h3 class="modal-title" style="margin: 0;">Checkout Payment</h3>
+        <button class="btn-close-modal" style="border:none; background:none; cursor:pointer; color:#64748b; display:flex;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
       </div>
       <p style="font-size: 13px; color: #64748b; margin-bottom: 16px;">
         Total: <strong style="color: #0f172a; font-size: 18px;" id="pay-modal-amount">₹0</strong>
@@ -621,13 +667,13 @@
 
       <!-- Quick Payment Triggers -->
       <div style="display: flex; flex-direction: column; gap: 8px;">
-        <button onclick="window.customerApp.confirmPayment('Google Pay')" 
+        <button onclick="window.customerApp.confirmPayment('Cashfree UPI')" 
                 style="background: #0f172a; color:#fff; border:none; padding:12px; border-radius:12px; font-weight:700; cursor:pointer;">
-          Pay via Instant UPI (Simulate)
+          Pay via Instant UPI
         </button>
         <button onclick="window.customerApp.confirmPayment('Cash Box')" 
                 style="background: #f1f5f9; color:#0f172a; border:1px solid #cbd5e1; padding:12px; border-radius:12px; font-weight:700; cursor:pointer;">
-          Deposited Cash in Store Honor Box
+          Cash Box Deposit
         </button>
       </div>
     </div>
@@ -636,20 +682,22 @@
   <!-- 2. PAYMENT CONFIRMATION SUCCESS MODAL -->
   <div class="modal-overlay" id="success-modal">
     <div class="modal-dialog" style="text-align: center;">
-      <div style="font-size: 48px; margin-bottom: 12px;">🎉</div>
-      <h3 style="font-size: 20px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">Payment Confirmed!</h3>
+      <div style="width: 64px; height: 64px; border-radius: 50%; background: #e6fcf5; color: #0ca678; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#0ca678" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+      </div>
+      <h3 style="font-size: 20px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">Payment Confirmed</h3>
       <p style="font-size: 14px; color: #059669; font-weight: 700;" id="success-order-amount">₹50</p>
-      <p style="font-size: 12px; color: #64748b; margin: 6px 0 16px;">Order ID: <span id="success-order-id">HS10453</span></p>
+      <p style="font-size: 12px; color: #64748b; margin: 6px 0 16px;">Order Reference: <span id="success-order-id">HS10453</span></p>
 
       <div style="background: #eafaf1; border: 1px solid #d3f3e1; border-radius: 12px; padding: 14px; margin-bottom: 20px;">
         <p style="font-size: 13px; color: #2b8a3e; font-weight: 600;">
-          👉 Please take your items from the shelf now.<br/>Thank you for your honesty!
+          Please take your selected items from the shelf now.<br/>Thank you for your honesty.
         </p>
       </div>
 
       <button class="btn-close-modal" onclick="window.customerApp.switchScreen('screen-orders')" 
               style="background: #000; color: #fff; border:none; width:100%; padding: 12px; border-radius: 20px; font-weight: 700; cursor:pointer;">
-        View My Order Receipt
+        View Order Receipt
       </button>
     </div>
   </div>
@@ -752,51 +800,54 @@
     <div class="modal-dialog">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
         <div style="display: flex; align-items: center; gap: 8px;">
-          <span style="font-size: 20px;">📱</span>
-          <h3 class="modal-title" style="margin: 0;">Phone Authentication</h3>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+          <h3 class="modal-title" style="margin: 0; font-size: 17px;">Customer Sign In</h3>
         </div>
-        <button class="btn-close-modal" style="border:none; background:none; font-size:18px; cursor:pointer;">✕</button>
+        <button class="btn-close-modal" style="border:none; background:none; cursor:pointer; color:#64748b; display:flex;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
       </div>
 
       <!-- Step 1: Phone Input -->
       <div id="auth-step-phone">
-        <p style="font-size: 13px; color: #64748b; margin-bottom: 16px;">
-          Enter your mobile number to associate receipts, trust score, and loyalty credits.
+        <p style="font-size: 13px; color: #64748b; margin-bottom: 16px; line-height: 1.4;">
+          Enter your mobile number to link receipts and stay authenticated on this shelf device.
         </p>
         <form id="phone-login-form" style="display: flex; flex-direction: column; gap: 14px;">
           <div style="display: flex; gap: 8px;">
-            <div style="background: #f1f5f9; padding: 12px 14px; border-radius: 10px; font-weight: 700; font-size: 14px; border: 1px solid #e2e8f0;">
-              🇮🇳 +91
+            <div style="background: #f1f5f9; padding: 12px 14px; border-radius: 10px; font-weight: 700; font-size: 14px; border: 1px solid #e2e8f0; color: #0f172a;">
+              +91
             </div>
             <input type="tel" id="auth-phone-input" placeholder="98765 43210" maxlength="10" required 
                    style="flex: 1; padding: 12px; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 16px; font-weight: 700; letter-spacing: 1px;" />
           </div>
           <button type="submit" class="btn-adjust-stock" id="btn-send-otp" style="background:#000; color:#fff; border:none; margin: 4px 0 0; padding: 14px; border-radius: 20px;">
-            Get OTP via SMS →
+            Send Verification Code →
           </button>
         </form>
-        <div style="text-align: center; margin-top: 12px; font-size: 11px; color: #94a3b8;">
-          🔒 Session will stay persistently logged in on this phone.
+        <div style="text-align: center; margin-top: 12px; font-size: 11px; color: #94a3b8; display: flex; align-items: center; justify-content: center; gap: 4px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          Session remains permanently authenticated on this device.
         </div>
       </div>
 
       <!-- Step 2: OTP Input -->
       <div id="auth-step-otp" style="display: none;">
         <p style="font-size: 13px; color: #64748b; margin-bottom: 12px;">
-          Enter the 6-digit OTP code sent to <strong id="otp-sent-phone-display">+91 9876543210</strong>
+          Enter the 6-digit code sent to <strong id="otp-sent-phone-display">+91 9876543210</strong>
         </p>
         <form id="verify-otp-form" style="display: flex; flex-direction: column; gap: 14px;">
-          <input type="text" id="auth-otp-input" placeholder="• • • • • •" maxlength="6" required 
+          <input type="text" id="auth-otp-input" placeholder="••••••" maxlength="6" required 
                  style="width: 100%; text-align: center; font-size: 24px; font-weight: 800; letter-spacing: 8px; padding: 12px; border: 1.5px solid #000; border-radius: 12px;" />
           
           <button type="submit" class="btn-adjust-stock" id="btn-verify-otp" style="background:#000; color:#fff; border:none; padding: 14px; border-radius: 20px;">
-            Verify & Sign In →
+            Verify & Continue →
           </button>
         </form>
 
         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px;">
           <button type="button" id="btn-autofill-otp" style="background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; padding: 6px 12px; border-radius: 12px; font-size: 11px; font-weight: 700; cursor: pointer;">
-            ⚡ Auto-fill Test OTP (123456)
+            Use Demo Code (123456)
           </button>
           <button type="button" onclick="document.getElementById('auth-step-otp').style.display='none'; document.getElementById('auth-step-phone').style.display='block';" style="background: none; border: none; color: #64748b; font-size: 12px; cursor: pointer; text-decoration: underline;">
             Change Number
@@ -806,8 +857,8 @@
 
       <!-- Step 3: Logged-in Profile View -->
       <div id="auth-step-profile" style="display: none; text-align: center;">
-        <div style="width: 60px; height: 60px; border-radius: 50%; background: #e6fcf5; color: #0ca678; font-size: 28px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px;">
-          ✓
+        <div style="width: 54px; height: 54px; border-radius: 50%; background: #e6fcf5; color: #0ca678; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px;">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#0ca678" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
         </div>
         <h4 style="font-size: 18px; font-weight: 800; margin-bottom: 4px;">Verified Customer</h4>
         <p style="font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 14px;" id="profile-modal-phone">+91 98765 43210</p>
@@ -824,7 +875,7 @@
         </div>
 
         <button type="button" id="btn-auth-logout" style="width: 100%; background: #fee2e2; color: #b91c1c; border: none; padding: 12px; border-radius: 20px; font-size: 13px; font-weight: 700; cursor: pointer;">
-          Log Out of this Device
+          Log Out of Device
         </button>
       </div>
 
@@ -842,7 +893,9 @@
           </div>
           <span style="font-weight: 800; font-size: 16px; letter-spacing: 0.5px;">Cashfree Payments</span>
         </div>
-        <button class="btn-close-modal" style="background:none; border:none; color:#fff; font-size:18px; cursor:pointer;">✕</button>
+        <button class="btn-close-modal" style="background:none; border:none; color:#fff; cursor:pointer; display:flex;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
       </div>
 
       <!-- Cashfree Body -->
@@ -862,30 +915,31 @@
         <p style="font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 10px;">Select UPI App</p>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;">
           <button onclick="window.cashfreeClient.handlePaymentSuccess(document.getElementById('cf-order-id-display').innerText, 50, 'Cashfree (Google Pay)')" 
-                  style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 700; font-size: 13px;">
-            <span style="font-size: 18px;">🟢</span> Google Pay
+                  style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 700; font-size: 13px;">
+            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #4285f4;"></span> Google Pay
           </button>
           <button onclick="window.cashfreeClient.handlePaymentSuccess(document.getElementById('cf-order-id-display').innerText, 50, 'Cashfree (PhonePe)')" 
-                  style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 700; font-size: 13px;">
-            <span style="font-size: 18px;">🟣</span> PhonePe
+                  style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 700; font-size: 13px;">
+            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #5f259f;"></span> PhonePe
           </button>
           <button onclick="window.cashfreeClient.handlePaymentSuccess(document.getElementById('cf-order-id-display').innerText, 50, 'Cashfree (Paytm)')" 
-                  style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 700; font-size: 13px;">
-            <span style="font-size: 18px;">🔵</span> Paytm UPI
+                  style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 700; font-size: 13px;">
+            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #00baf2;"></span> Paytm UPI
           </button>
           <button onclick="window.cashfreeClient.handlePaymentSuccess(document.getElementById('cf-order-id-display').innerText, 50, 'Cashfree (BHIM)')" 
-                  style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 700; font-size: 13px;">
-            <span style="font-size: 18px;">🟠</span> BHIM UPI
+                  style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 700; font-size: 13px;">
+            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #00796b;"></span> BHIM UPI
           </button>
         </div>
 
         <button onclick="window.cashfreeClient.handlePaymentSuccess(document.getElementById('cf-order-id-display').innerText, 50, 'Cashfree Dynamic QR')" 
                 style="width: 100%; background: #5b21b6; color: #ffffff; border: none; padding: 14px; border-radius: 20px; font-weight: 700; cursor: pointer; font-size: 14px;">
-          ✓ Confirm Cashfree Payment (Instant Simulation)
+          Confirm Payment Receipt
         </button>
         
-        <div style="text-align: center; margin-top: 14px; font-size: 11px; color: #94a3b8;">
-          🔒 PCI-DSS Certified 256-Bit Bank Grade Encryption
+        <div style="text-align: center; margin-top: 14px; font-size: 11px; color: #94a3b8; display: flex; align-items: center; justify-content: center; gap: 4px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          PCI-DSS Certified 256-Bit Bank Grade Encryption
         </div>
       </div>
     </div>

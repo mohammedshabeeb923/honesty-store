@@ -134,6 +134,39 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // 5. Test Supabase Connection
+  if (req.method === 'POST' && reqPath === '/api/test-supabase') {
+    try {
+      const { url, anonKey } = await parseJsonBody(req);
+      if (!url || !anonKey) {
+        throw new Error('Supabase URL and Anon Key are required');
+      }
+
+      const cleanUrl = url.replace(/\/+$/, '');
+      const testRes = await fetch(`${cleanUrl}/rest/v1/products?select=count`, {
+        headers: {
+          'apikey': anonKey,
+          'Authorization': `Bearer ${anonKey}`
+        }
+      });
+
+      if (!testRes.ok) {
+        const errText = await testRes.text();
+        throw new Error(`Supabase returned HTTP ${testRes.status}: ${errText}`);
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        message: 'Successfully verified connection to Supabase database!'
+      }));
+    } catch (err) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: err.message }));
+    }
+    return;
+  }
+
   // ============================================================
   // STATIC ASSETS SERVING
   // ============================================================
