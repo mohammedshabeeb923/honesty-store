@@ -99,19 +99,68 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'POST' && reqPath === '/api/create-cashfree-order') {
     try {
       const { orderId, orderAmount, customerPhone, customerName } = await parseJsonBody(req);
+      const cleanPhone = (customerPhone || '9999999999').replace(/\D/g, '').slice(-10);
+      const appId = process.env.CASHFREE_APP_ID;
+      const secretKey = process.env.CASHFREE_SECRET_KEY;
+      const env = (process.env.CASHFREE_ENV || 'SANDBOX').toUpperCase();
 
-      console.log(`[Cashfree PG] Initiating order ${orderId} for ₹${orderAmount} (Customer: ${customerPhone})`);
+      console.log(`[Cashfree PG] Initiating order ${orderId} for ₹${orderAmount} (Customer: ${cleanPhone}) [${env}]`);
 
-      // Mock session ID for seamless checkout flow
+      // If live Cashfree credentials exist, call Cashfree API
+      if (appId && secretKey && appId !== 'TEST_APP_ID') {
+        const baseUrl = env === 'PRODUCTION' 
+          ? 'https://api.cashfree.com/pg/orders' 
+          : 'https://sandbox.cashfree.com/pg/orders';
+
+        const cfRes = await fetch(baseUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-client-id': appId,
+            'x-client-secret': secretKey,
+            'x-api-version': '2023-08-01'
+          },
+          body: JSON.stringify({
+            order_id: String(orderId),
+            order_amount: Number(orderAmount),
+            order_currency: 'INR',
+            customer_details: {
+              customer_id: 'cust_' + cleanPhone,
+              customer_phone: cleanPhone,
+              customer_name: customerName || 'Honesty Customer'
+            },
+            order_meta: {
+              return_url: `${req.headers.origin || 'http://localhost:3000'}?order_id={order_id}`
+            }
+          })
+        });
+
+        const cfData = await cfRes.json();
+        if (cfRes.ok && cfData.payment_session_id) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            success: true,
+            orderId,
+            orderAmount,
+            paymentSessionId: cfData.payment_session_id,
+            environment: env
+          }));
+          return;
+        } else {
+          console.warn('[Cashfree PG API Warning]:', cfData);
+        }
+      }
+
+      // Fallback: mock payment session for testing
       const paymentSessionId = 'session_' + Buffer.from(orderId + '_' + Date.now()).toString('base64');
-
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         success: true,
         orderId,
         orderAmount,
         paymentSessionId,
-        environment: process.env.CASHFREE_ENV || 'SANDBOX'
+        environment: env,
+        isSimulated: true
       }));
     } catch (err) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
