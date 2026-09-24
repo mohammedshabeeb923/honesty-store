@@ -36,27 +36,6 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.setItem('honesty_store_view_mode', mode);
   }
 
-  // Global Access Functions for Admin & Customer Portals
-  window.openAdminConsole = function() {
-    const isAuth = isAdminLoggedIn();
-    if (!isAuth) {
-      pendingAdminMode = 'admin';
-      if (adminAuthModal) adminAuthModal.classList.add('active');
-    } else {
-      setViewMode('admin');
-    }
-  };
-
-  window.openCustomerStore = function() {
-    setViewMode('customer');
-  };
-
-  window.quickAdminLogin = function() {
-    localStorage.setItem('honesty_admin_auth', 'true');
-    if (adminAuthModal) adminAuthModal.classList.remove('active');
-    setViewMode('admin');
-  };
-
   viewBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       setViewMode(btn.dataset.mode);

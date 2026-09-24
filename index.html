@@ -74,9 +74,9 @@
             <img src="assets/logo.jpg" alt="Logo" />
             <span>Honesty Store</span>
           </div>
-            <button class="header-btn" id="btn-header-admin" onclick="window.openAdminConsole()" title="Admin Portal" style="color: #0f172a; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 20px; cursor: pointer; padding: 4px 10px; display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700;">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-              Admin
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <button class="header-btn" id="btn-header-admin" title="Admin Portal" style="color: #64748b; background: none; border: none; cursor: pointer; padding: 6px; display: flex; align-items: center;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
             </button>
             <div class="header-avatar" title="Customer Profile" style="position: relative; width: 34px; height: 34px; cursor: pointer;">
               <img src="assets/avatar.png" alt="Avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" />
@@ -159,10 +159,10 @@
                 <span>→ ENTER STORE</span>
               </button>
               <div class="splash-footer-note">Simple, transparent, and built on trust.</div>
-              <div style="text-align: center; margin-top: 14px;">
-                <button type="button" id="btn-splash-admin" onclick="window.openAdminConsole()" style="background: #ffffff; border: 1.5px solid #0f172a; color: #0f172a; border-radius: 14px; padding: 12px 20px; font-size: 13px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; box-shadow: 0 2px 4px rgba(0,0,0,0.04);">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                  Store Owner & Admin Portal →
+              <div style="text-align: center; margin-top: 12px;">
+                <button type="button" id="btn-splash-admin" style="background: none; border: none; font-size: 11px; font-weight: 700; color: #94a3b8; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; padding: 6px;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                  Store Owner Portal
                 </button>
               </div>
             </div>
@@ -376,12 +376,6 @@
             </span>
             <span class="nav-tab-label">Community</span>
           </button>
-          <button class="nav-tab-item" id="nav-tab-admin" onclick="window.openAdminConsole()" title="Store Owner Portal">
-            <span class="nav-tab-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-            </span>
-            <span class="nav-tab-label">Admin</span>
-          </button>
         </nav>
 
         <!-- CART DRAWER SHEET -->
@@ -464,8 +458,8 @@
         <header class="admin-top-nav">
           <h2 class="admin-page-heading" id="admin-page-heading">INVENTORY</h2>
           <div class="admin-header-actions">
-            <button class="action-pill-btn" id="btn-admin-switch-store" onclick="window.openCustomerStore()" style="background:#fff; color:#0f172a; border:1px solid #cbd5e1; padding:7px 14px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:5px;">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
+            <button class="action-pill-btn" id="btn-admin-switch-store" style="background:#fff; color:#0f172a; border:1px solid #cbd5e1; padding:7px 12px; font-weight:700; cursor:pointer;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:3px;"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
               Customer Store
             </button>
             <div class="admin-search-wrap">
@@ -1002,16 +996,6 @@
       </p>
 
       <form id="admin-login-form" style="display: flex; flex-direction: column; gap: 14px;">
-        <button type="button" onclick="window.quickAdminLogin()" style="width: 100%; background: #10b981; color: #fff; border: none; padding: 13px; border-radius: 12px; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 2px 6px rgba(16, 185, 129, 0.25);">
-          ⚡ Instant 1-Click Login (admin / admin123)
-        </button>
-
-        <div style="display: flex; align-items: center; gap: 10px; margin: 2px 0;">
-          <div style="flex: 1; height: 1px; background: #e2e8f0;"></div>
-          <span style="font-size: 11px; color: #94a3b8; font-weight: 600;">OR ENTER CREDENTIALS</span>
-          <div style="flex: 1; height: 1px; background: #e2e8f0;"></div>
-        </div>
-
         <div>
           <label style="font-size: 12px; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Admin Username</label>
           <input type="text" id="admin-username-input" value="admin" required
@@ -1038,14 +1022,14 @@
   </div>
 
   <!-- Application Scripts with Cache-Busting Versioning -->
-  <script src="js/config.js?v=5.0"></script>
-  <script src="js/store-db.js?v=5.0"></script>
-  <script src="js/auth.js?v=5.0"></script>
-  <script src="js/cashfree-client.js?v=5.0"></script>
-  <script src="js/supabase-client.js?v=5.0"></script>
-  <script src="js/customer-app.js?v=5.0"></script>
-  <script src="js/admin-app.js?v=5.0"></script>
-  <script src="js/app.js?v=5.0"></script>
+  <script src="js/config.js?v=4.0"></script>
+  <script src="js/store-db.js?v=4.0"></script>
+  <script src="js/auth.js?v=4.0"></script>
+  <script src="js/cashfree-client.js?v=4.0"></script>
+  <script src="js/supabase-client.js?v=4.0"></script>
+  <script src="js/customer-app.js?v=4.0"></script>
+  <script src="js/admin-app.js?v=4.0"></script>
+  <script src="js/app.js?v=4.0"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
