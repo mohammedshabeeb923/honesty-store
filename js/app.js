@@ -1,5 +1,6 @@
 /**
  * Honesty Store - Main Application Coordinator
+ * Handles view switching, admin authentication, and global modal bindings
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -9,9 +10,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const stage = document.getElementById('master-stage');
   const viewBtns = document.querySelectorAll('.view-btn');
+  const adminAuthModal = document.getElementById('admin-auth-modal');
+  let pendingAdminMode = null;
+
+  function isAdminLoggedIn() {
+    return localStorage.getItem('honesty_admin_auth') === 'true';
+  }
 
   // Switch View Mode (Customer / Admin / Dual)
   function setViewMode(mode) {
+    if ((mode === 'admin' || mode === 'dual') && !isAdminLoggedIn()) {
+      pendingAdminMode = mode;
+      if (adminAuthModal) adminAuthModal.classList.add('active');
+      return;
+    }
+
     stage.className = `master-stage mode-${mode}`;
     viewBtns.forEach(btn => {
       if (btn.dataset.mode === mode) {
@@ -29,9 +42,52 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Load preferred mode or default to dual for easiest demonstration
-  const savedMode = localStorage.getItem('honesty_store_view_mode') || 'dual';
-  setViewMode(savedMode);
+  // Handle Admin Login Form
+  const adminLoginForm = document.getElementById('admin-login-form');
+  if (adminLoginForm) {
+    adminLoginForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const u = document.getElementById('admin-username-input')?.value.trim();
+      const p = document.getElementById('admin-password-input')?.value.trim();
+      const errEl = document.getElementById('admin-login-error');
+
+      if (u === 'admin' && p === 'admin123') {
+        localStorage.setItem('honesty_admin_auth', 'true');
+        if (errEl) errEl.style.display = 'none';
+        if (adminAuthModal) adminAuthModal.classList.remove('active');
+        const targetMode = pendingAdminMode || localStorage.getItem('honesty_store_view_mode') || 'admin';
+        pendingAdminMode = null;
+        setViewMode(targetMode);
+      } else {
+        if (errEl) {
+          errEl.style.display = 'block';
+          errEl.innerText = 'Invalid username or password. Default is admin / admin123';
+        }
+      }
+    });
+  }
+
+  // Handle Admin Logout button
+  const btnAdminLogout = document.getElementById('btn-admin-logout');
+  if (btnAdminLogout) {
+    btnAdminLogout.addEventListener('click', () => {
+      localStorage.removeItem('honesty_admin_auth');
+      alert('Admin Console has been locked.');
+      setViewMode('customer');
+    });
+  }
+
+  // Load preferred mode or default to customer for authentic customer-first experience
+  const savedMode = localStorage.getItem('honesty_store_view_mode') || 'customer';
+  if ((savedMode === 'admin' || savedMode === 'dual') && !isAdminLoggedIn()) {
+    stage.className = 'master-stage mode-customer';
+    viewBtns.forEach(btn => {
+      if (btn.dataset.mode === 'customer') btn.classList.add('active');
+      else btn.classList.remove('active');
+    });
+  } else {
+    setViewMode(savedMode);
+  }
 
   // Close modals when clicking overlay
   document.querySelectorAll('.modal-overlay').forEach(modal => {

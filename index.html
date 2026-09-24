@@ -432,6 +432,10 @@
         <div class="sidebar-bottom-info">
           <h5>Honesty Store Node</h5>
           <p>Autonomous Retail System<br/>Floor 3 Innovation Hub</p>
+          <button id="btn-admin-logout" style="margin-top: 10px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; background: #fff; border: 1px solid #cbd5e1; padding: 7px 10px; border-radius: 8px; font-size: 11px; font-weight: 700; color: #475569; cursor: pointer;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+            Lock Admin Console
+          </button>
         </div>
       </aside>
 
@@ -811,18 +815,26 @@
       <!-- Step 1: Phone Input -->
       <div id="auth-step-phone">
         <p style="font-size: 13px; color: #64748b; margin-bottom: 16px; line-height: 1.4;">
-          Enter your mobile number to link receipts and stay authenticated on this shelf device.
+          Enter your name and mobile number to stay authenticated and link your receipts.
         </p>
         <form id="phone-login-form" style="display: flex; flex-direction: column; gap: 14px;">
-          <div style="display: flex; gap: 8px;">
-            <div style="background: #f1f5f9; padding: 12px 14px; border-radius: 10px; font-weight: 700; font-size: 14px; border: 1px solid #e2e8f0; color: #0f172a;">
-              +91
+          <div>
+            <label style="font-size: 12px; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Your Name / Username</label>
+            <input type="text" id="auth-name-input" placeholder="e.g. Mohammed Shabeeb" required 
+                   style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 14px; font-weight: 600;" />
+          </div>
+          <div>
+            <label style="font-size: 12px; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Mobile Phone Number</label>
+            <div style="display: flex; gap: 8px;">
+              <div style="background: #f1f5f9; padding: 12px 14px; border-radius: 10px; font-weight: 700; font-size: 14px; border: 1px solid #e2e8f0; color: #0f172a;">
+                +91
+              </div>
+              <input type="tel" id="auth-phone-input" placeholder="98765 43210" maxlength="10" required 
+                     style="flex: 1; padding: 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 16px; font-weight: 700; letter-spacing: 1px;" />
             </div>
-            <input type="tel" id="auth-phone-input" placeholder="98765 43210" maxlength="10" required 
-                   style="flex: 1; padding: 12px; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 16px; font-weight: 700; letter-spacing: 1px;" />
           </div>
           <button type="submit" class="btn-adjust-stock" id="btn-send-otp" style="background:#000; color:#fff; border:none; margin: 4px 0 0; padding: 14px; border-radius: 20px;">
-            Send Verification Code →
+            Continue to Verification Code →
           </button>
         </form>
         <div style="text-align: center; margin-top: 12px; font-size: 11px; color: #94a3b8; display: flex; align-items: center; justify-content: center; gap: 4px;">
@@ -860,7 +872,7 @@
         <div style="width: 54px; height: 54px; border-radius: 50%; background: #e6fcf5; color: #0ca678; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px;">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#0ca678" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
         </div>
-        <h4 style="font-size: 18px; font-weight: 800; margin-bottom: 4px;">Verified Customer</h4>
+        <h4 style="font-size: 18px; font-weight: 800; margin-bottom: 4px;" id="profile-modal-name">Verified Customer</h4>
         <p style="font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 14px;" id="profile-modal-phone">+91 98765 43210</p>
         
         <div style="background: #f8fafc; border-radius: 12px; padding: 12px; border: 1px solid #edf2f7; text-align: left; font-size: 12px; margin-bottom: 18px;">
@@ -941,6 +953,47 @@
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
           PCI-DSS Certified 256-Bit Bank Grade Encryption
         </div>
+      </div>
+    </div>
+  <!-- 8. ADMIN LOGIN MODAL -->
+  <div class="modal-overlay" id="admin-auth-modal">
+    <div class="modal-dialog">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          <h3 class="modal-title" style="margin: 0; font-size: 17px;">Admin Console Login</h3>
+        </div>
+        <button class="btn-close-modal" style="border:none; background:none; cursor:pointer; color:#64748b; display:flex;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+
+      <p style="font-size: 13px; color: #64748b; margin-bottom: 16px; line-height: 1.4;">
+        Enter your management credentials to access store analytics, inventory reconciliations, and settings.
+      </p>
+
+      <form id="admin-login-form" style="display: flex; flex-direction: column; gap: 14px;">
+        <div>
+          <label style="font-size: 12px; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Admin Username</label>
+          <input type="text" id="admin-username-input" value="admin" required
+                 style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 14px; font-weight: 600;" />
+        </div>
+        <div>
+          <label style="font-size: 12px; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Admin Password</label>
+          <input type="password" id="admin-password-input" value="admin123" required
+                 style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 14px;" />
+        </div>
+        <div id="admin-login-error" style="color: #ef4444; font-size: 12px; font-weight: 700; display: none;">
+          Invalid username or password.
+        </div>
+        <button type="submit" class="btn-adjust-stock" style="background:#0f172a; color:#fff; border:none; margin: 4px 0 0; padding: 14px; border-radius: 12px; font-weight: 700; cursor: pointer;">
+          Unlock Admin Console →
+        </button>
+      </form>
+
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; margin-top: 14px; font-size: 11px; color: #64748b;">
+        <strong>Default Credentials:</strong><br/>
+        Username: <code style="font-weight:700; color:#0f172a;">admin</code> | Password: <code style="font-weight:700; color:#0f172a;">admin123</code>
       </div>
     </div>
   </div>

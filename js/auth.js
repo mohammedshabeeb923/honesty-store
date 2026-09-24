@@ -70,14 +70,22 @@ class AuthManager {
     if (sendOtpForm) {
       sendOtpForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        const nameInput = document.getElementById('auth-name-input');
         const phoneInput = document.getElementById('auth-phone-input');
+        const name = nameInput ? nameInput.value.trim() : '';
         const phone = phoneInput.value.trim().replace(/\D/g, '');
+
+        if (!name) {
+          alert('Please enter your name or username.');
+          return;
+        }
 
         if (phone.length !== 10) {
           alert('Please enter a valid 10-digit Indian mobile number.');
           return;
         }
 
+        this.pendingName = name;
         await this.requestOtp(phone);
       });
     }
@@ -200,7 +208,7 @@ class AuthManager {
       if (data.success || otp === '123456') {
         this.saveSession({
           phone: this.otpPendingPhone,
-          fullName: `Shopper (${this.otpPendingPhone.slice(-4)})`,
+          fullName: this.pendingName || `Shopper (${this.otpPendingPhone.slice(-4)})`,
           token: data.token || 'token_' + Date.now()
         });
 
@@ -214,7 +222,7 @@ class AuthManager {
           cb();
         }
 
-        alert(`Welcome to Honesty Store! You are signed in as +91 ${this.otpPendingPhone}.`);
+        alert(`Welcome, ${this.session.fullName}! You are signed in as +91 ${this.otpPendingPhone}.`);
       } else {
         alert(data.message || 'Invalid OTP. Please enter 123456 for testing.');
       }
@@ -223,7 +231,7 @@ class AuthManager {
       if (otp === '123456' || otp.length === 6) {
         this.saveSession({
           phone: this.otpPendingPhone || '9876543210',
-          fullName: 'Verified Customer',
+          fullName: this.pendingName || 'Verified Customer',
           token: 'token_' + Date.now()
         });
         const modal = document.getElementById('auth-modal');
@@ -235,7 +243,7 @@ class AuthManager {
           cb();
         }
 
-        alert('Welcome! Phone number verified successfully.');
+        alert(`Welcome, ${this.session.fullName}! Phone number verified successfully.`);
       } else {
         alert('Invalid OTP. Use 123456 for testing.');
       }
@@ -252,18 +260,24 @@ class AuthManager {
     if (dot) {
       if (this.session.isLoggedIn) {
         dot.style.background = '#10b981'; // green
-        dot.title = `Logged in persistently as +91 ${this.session.phone}`;
+        dot.title = `Logged in as ${this.session.fullName} (+91 ${this.session.phone})`;
       } else {
         dot.style.background = '#94a3b8'; // grey
-        dot.title = 'Not logged in. Click to authenticate via Phone OTP.';
+        dot.title = 'Not logged in. Click to authenticate.';
       }
     }
+
+    const profName = document.getElementById('profile-modal-name');
+    if (profName) profName.innerText = this.session.fullName || 'Verified Customer';
+
+    const profPhone = document.getElementById('profile-modal-phone');
+    if (profPhone) profPhone.innerText = this.session.isLoggedIn ? `+91 ${this.session.phone}` : '+91 98765 43210';
 
     const authStatusBadges = document.querySelectorAll('.auth-user-status');
     authStatusBadges.forEach(el => {
       if (this.session.isLoggedIn) {
-        el.innerText = `+91 ${this.session.phone}`;
-        el.title = `Signed in as +91 ${this.session.phone}`;
+        el.innerText = this.session.fullName || `+91 ${this.session.phone}`;
+        el.title = `Signed in as ${this.session.fullName} (+91 ${this.session.phone})`;
       } else {
         el.innerText = 'Sign In';
       }
