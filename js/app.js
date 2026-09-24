@@ -77,8 +77,36 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Load preferred mode or default to customer for authentic customer-first experience
-  const savedMode = localStorage.getItem('honesty_store_view_mode') || 'customer';
+  // Handle mobile shortcuts to Admin Console
+  const btnHeaderAdmin = document.getElementById('btn-header-admin');
+  if (btnHeaderAdmin) {
+    btnHeaderAdmin.addEventListener('click', () => {
+      setViewMode('admin');
+    });
+  }
+
+  const btnSplashAdmin = document.getElementById('btn-splash-admin');
+  if (btnSplashAdmin) {
+    btnSplashAdmin.addEventListener('click', () => {
+      setViewMode('admin');
+    });
+  }
+
+  // Handle Switch to Customer Store button inside Admin
+  const btnAdminSwitchStore = document.getElementById('btn-admin-switch-store');
+  if (btnAdminSwitchStore) {
+    btnAdminSwitchStore.addEventListener('click', () => {
+      setViewMode('customer');
+    });
+  }
+
+  // Load preferred mode or check URL parameters (e.g. ?view=admin)
+  const urlParams = new URLSearchParams(window.location.search);
+  let savedMode = localStorage.getItem('honesty_store_view_mode') || 'customer';
+  if (urlParams.has('admin') || urlParams.get('view') === 'admin') {
+    savedMode = 'admin';
+  }
+
   if ((savedMode === 'admin' || savedMode === 'dual') && !isAdminLoggedIn()) {
     stage.className = 'master-stage mode-customer';
     viewBtns.forEach(btn => {

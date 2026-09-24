@@ -1,51 +1,40 @@
-/* Customer Mobile App Styles */
+/* Customer Mobile App Styles - Native Responsive PWA */
 
 .customer-wrapper {
-  background: #f1f3f5;
+  background: #ffffff;
   height: 100%;
+  width: 100%;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
-  padding: 12px;
+  padding: 0;
   overflow: hidden;
 }
 
-/* Simulated Mobile Phone Bezel */
+/* Fullstack Responsive Application Viewport */
 .mobile-device {
   width: 100%;
-  max-width: 412px;
-  height: 94vh;
-  max-height: 860px;
+  max-width: 520px;
+  height: 100%;
   background: #ffffff;
-  border-radius: 40px;
-  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.25), 0 0 0 8px #1e293b;
+  border-radius: 0;
+  box-shadow: none;
+  border: none;
   display: flex;
   flex-direction: column;
   position: relative;
   overflow: hidden;
 }
 
-/* Top Notch / Dynamic Island Bar */
-.mobile-status-bar {
-  height: 28px;
-  padding: 6px 20px 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 11px;
-  font-weight: 600;
-  color: #111;
-  background: #ffffff;
-  z-index: 50;
-  user-select: none;
-}
-
-.notch-pill {
-  width: 70px;
-  height: 14px;
-  background: #000;
-  border-radius: 10px;
-  margin: 0 auto;
+@media (min-width: 840px) {
+  .customer-wrapper {
+    background: #f8fafc;
+  }
+  .master-stage.mode-customer .mobile-device {
+    box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.08);
+    border-left: 1px solid #e2e8f0;
+    border-right: 1px solid #e2e8f0;
+  }
 }
 
 .mobile-content-area {
@@ -54,6 +43,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   background: #fafafa;
+  -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
 }
 .mobile-content-area::-webkit-scrollbar {
