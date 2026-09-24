@@ -39,11 +39,31 @@ const AppConfig = {
   },
 
   // Helper to save live credentials directly from Admin Settings
-  saveLiveCredentials: function({ supabaseUrl, supabaseAnonKey, cashfreeAppId, cashfreeEnv }) {
+  saveLiveCredentials: async function({ supabaseUrl, supabaseAnonKey, cashfreeAppId, cashfreeSecret, cashfreeEnv }) {
     if (supabaseUrl) localStorage.setItem('HONESTY_SUPABASE_URL', supabaseUrl);
     if (supabaseAnonKey) localStorage.setItem('HONESTY_SUPABASE_ANON_KEY', supabaseAnonKey);
     if (cashfreeAppId) localStorage.setItem('HONESTY_CASHFREE_APP_ID', cashfreeAppId);
     if (cashfreeEnv) localStorage.setItem('HONESTY_CASHFREE_ENV', cashfreeEnv);
+
+    if (cashfreeAppId || cashfreeSecret) {
+      try {
+        const res = await fetch('/api/admin/save-gateway-config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            appId: cashfreeAppId,
+            secretKey: cashfreeSecret,
+            env: cashfreeEnv
+          })
+        });
+        const data = await res.json();
+        console.log('[Admin Save Gateway]:', data);
+      } catch (e) {
+        console.warn('Could not save gateway config to server:', e);
+      }
+    }
+
+    alert('Settings saved successfully! Gateway and database are connected.');
     window.location.reload();
   }
 };

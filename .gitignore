@@ -22,4 +22,5 @@ Thumbs.db
 
 # Environment variables
 .env
+.gateway-config.json
 

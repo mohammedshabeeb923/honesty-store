@@ -597,6 +597,11 @@
                          style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px;" />
                 </div>
                 <div>
+                  <label style="font-size: 12px; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">Cashfree Secret Key</label>
+                  <input type="password" id="cfg-cashfree-secret" placeholder="Enter Cashfree Secret Key (e.g. cfsk_ma_prod_...)" 
+                         style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px;" />
+                </div>
+                <div>
                   <label style="font-size: 12px; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">Cashfree Environment</label>
                   <select id="cfg-cashfree-env" style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px;">
                     <option value="PRODUCTION" selected>PRODUCTION (Live UPI)</option>
@@ -612,6 +617,7 @@
                     supabaseUrl: document.getElementById('cfg-supabase-url').value,
                     supabaseAnonKey: document.getElementById('cfg-supabase-key').value,
                     cashfreeAppId: document.getElementById('cfg-cashfree-appid').value,
+                    cashfreeSecret: document.getElementById('cfg-cashfree-secret').value,
                     cashfreeEnv: document.getElementById('cfg-cashfree-env').value
                   })" class="btn-adjust-stock" style="background:#0f172a; color:#fff; border:none; margin:0; padding:10px 18px; border-radius:10px; font-size:12px; font-weight:700; flex:1;">
                     Save & Connect

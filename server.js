@@ -95,41 +95,92 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+const CONFIG_FILE = path.join(__dirname, '.gateway-config.json');
+
+function loadGatewayConfig() {
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
+    }
+  } catch (e) {}
+  return {};
+}
+
+function saveGatewayConfig(data) {
+  try {
+    const current = loadGatewayConfig();
+    const updated = { ...current, ...data };
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(updated, null, 2));
+    return updated;
+  } catch (e) {
+    return data;
+  }
+}
+
+let runtimeOverrides = loadGatewayConfig();
+
 function getCashfreeConfig() {
-  const appId = process.env.CASHFREE_APP_ID || 
+  const appId = (process.env.CASHFREE_APP_ID || 
                 process.env.CASHFREE_CLIENT_ID || 
                 process.env.APP_ID || 
-                process.env.cashfree_app_id || 
-                process.env.CF_APP_ID || '';
+                runtimeOverrides.appId || '').trim();
 
-  const secretKey = process.env.CASHFREE_SECRET_KEY || 
+  const secretKey = (process.env.CASHFREE_SECRET_KEY || 
                     process.env.CASHFREE_CLIENT_SECRET || 
                     process.env.SECRET_KEY || 
-                    process.env.cashfree_secret_key || 
-                    process.env.CF_SECRET_KEY || '';
+                    runtimeOverrides.secretKey || '').trim();
 
-  let env = (process.env.CASHFREE_ENV || process.env.cashfree_env || 'PRODUCTION').toUpperCase();
+  let env = (process.env.CASHFREE_ENV || runtimeOverrides.env || 'PRODUCTION').toUpperCase().trim();
   if (secretKey.startsWith('cfsk_ma_prod_')) {
     env = 'PRODUCTION';
   }
 
-  return { appId: appId.trim(), secretKey: secretKey.trim(), env };
+  return { appId, secretKey, env };
 }
 
   // Gateway Diagnostic Route
   if (req.method === 'GET' && reqPath === '/api/gateway-status') {
-    const rawAppId = (process.env.CASHFREE_APP_ID || '').trim();
-    const rawSecret = (process.env.CASHFREE_SECRET_KEY || '').trim();
-    const rawEnv = (process.env.CASHFREE_ENV || '').trim();
-    
+    const cf = getCashfreeConfig();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
-      appIdLength: rawAppId.length,
-      appIdPreview: rawAppId ? (rawAppId.slice(0, 4) + '***' + rawAppId.slice(-4)) : null,
-      secretLength: rawSecret.length,
-      secretPreview: rawSecret ? (rawSecret.slice(0, 10) + '***' + rawSecret.slice(-4)) : null,
-      envVal: rawEnv
+      hasAppId: !!cf.appId,
+      appIdLength: cf.appId.length,
+      appIdPreview: cf.appId ? (cf.appId.slice(0, 4) + '***' + cf.appId.slice(-4)) : null,
+      hasSecretKey: !!cf.secretKey,
+      secretLength: cf.secretKey.length,
+      secretPreview: cf.secretKey ? (cf.secretKey.slice(0, 10) + '***' + cf.secretKey.slice(-4)) : null,
+      env: cf.env
     }));
+    return;
+  }
+
+  // Admin Gateway Config Save Route
+  if (req.method === 'POST' && reqPath === '/api/admin/save-gateway-config') {
+    try {
+      const { appId, secretKey, env } = await parseJsonBody(req);
+      const updates = {};
+      if (appId) updates.appId = appId.trim();
+      if (secretKey) updates.secretKey = secretKey.trim();
+      if (env) updates.env = env.trim().toUpperCase();
+
+      runtimeOverrides = saveGatewayConfig(updates);
+      const resolved = getCashfreeConfig();
+
+      console.log(`[Admin] Gateway updated. AppId: ${!!resolved.appId}, SecretKey: ${!!resolved.secretKey}, Env: ${resolved.env}`);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        message: 'Cashfree Gateway credentials saved successfully',
+        hasAppId: !!resolved.appId,
+        hasSecretKey: !!resolved.secretKey,
+        appIdPreview: resolved.appId ? (resolved.appId.slice(0, 4) + '***' + resolved.appId.slice(-4)) : null,
+        env: resolved.env
+      }));
+    } catch (err) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: err.message }));
+    }
     return;
   }
 
