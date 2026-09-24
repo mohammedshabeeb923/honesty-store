@@ -877,6 +877,100 @@
   color: #0f172a;
 }
 
+.cart-item-card-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cart-qty-pill {
+  display: flex;
+  align-items: center;
+  background: #f1f5f9;
+  border-radius: 999px;
+  padding: 3px 6px;
+  gap: 6px;
+  border: 1px solid #e2e8f0;
+}
+
+.cart-qty-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  transition: all 0.15s ease;
+}
+
+.cart-qty-btn:active {
+  transform: scale(0.92);
+}
+
+.cart-qty-btn.plus {
+  background: #0f172a;
+  color: #ffffff;
+}
+
+.cart-qty-val {
+  font-weight: 700;
+  font-size: 14px;
+  color: #0f172a;
+  min-width: 18px;
+  text-align: center;
+}
+
+/* Catalog Product Card Stepper */
+.product-stepper {
+  display: flex;
+  align-items: center;
+  background: #0f172a;
+  border-radius: 999px;
+  padding: 3px 6px;
+  gap: 5px;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
+}
+
+.stepper-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s ease;
+}
+
+.stepper-btn:active {
+  transform: scale(0.9);
+}
+
+.stepper-btn.plus {
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.stepper-count {
+  font-weight: 700;
+  font-size: 13px;
+  color: #ffffff;
+  min-width: 16px;
+  text-align: center;
+}
+
 .cart-summary-divider {
   height: 1px;
   background: #e2e8f0;

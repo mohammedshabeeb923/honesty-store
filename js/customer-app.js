@@ -204,10 +204,13 @@ class CustomerApp {
   renderCatalog() {
     if (!this.productsGrid) return;
     const products = window.storeDB.getProducts(this.activeCategory);
+    const cart = window.storeDB.getCart() || [];
 
     this.productsGrid.innerHTML = products.map(prod => {
       const isOutOfStock = prod.stock <= 0;
       const isLowStock = prod.stock > 0 && prod.stock <= (prod.lowStockThreshold || 5);
+      const cartItem = cart.find(i => i.id === prod.id);
+      const cartQty = cartItem ? cartItem.qty : 0;
 
       return `
         <div class="product-card ${isOutOfStock ? 'out-of-stock' : ''}" data-id="${prod.id}">
@@ -221,11 +224,21 @@ class CustomerApp {
           </div>
           <div class="product-bottom-row">
             <div class="product-price">₹${prod.price}</div>
-            <button class="btn-add-item ${isOutOfStock ? 'disabled' : ''}" 
-                    onclick="window.customerApp.addToCart('${prod.id}')"
-                    ${isOutOfStock ? 'disabled title="Out of stock"' : 'title="Add to cart"'}>
-              ${isOutOfStock ? '⊘' : '+'}
-            </button>
+            ${cartQty > 0 ? `
+              <div class="product-stepper">
+                <button class="stepper-btn minus" onclick="window.customerApp.reduceCartItem('${prod.id}')" title="Reduce quantity">
+                  −
+                </button>
+                <span class="stepper-count">${cartQty}</span>
+                <button class="stepper-btn plus" onclick="window.customerApp.addToCart('${prod.id}')" title="Add one more">+</button>
+              </div>
+            ` : `
+              <button class="btn-add-item ${isOutOfStock ? 'disabled' : ''}" 
+                      onclick="window.customerApp.addToCart('${prod.id}')"
+                      ${isOutOfStock ? 'disabled title="Out of stock"' : 'title="Add to cart"'}>
+                ${isOutOfStock ? '⊘' : '+'}
+              </button>
+            `}
           </div>
         </div>
       `;
@@ -241,6 +254,26 @@ class CustomerApp {
     // Haptic / visual feedback
     this.playChime();
     this.updateCartUI();
+    this.renderCatalog();
+    this.renderFullCart();
+  }
+
+  reduceCartItem(productId) {
+    window.storeDB.updateCartQty(productId, -1);
+    this.updateCartUI();
+    this.renderCatalog();
+    this.renderFullCart();
+  }
+
+  increaseCartItem(productId) {
+    this.addToCart(productId);
+  }
+
+  removeCartItem(productId) {
+    window.storeDB.updateCartQty(productId, -999);
+    this.updateCartUI();
+    this.renderCatalog();
+    this.renderFullCart();
   }
 
   updateCartUI() {
@@ -278,9 +311,9 @@ class CustomerApp {
               </div>
             </div>
             <div class="cart-qty-ctrls">
-              <button class="qty-btn" onclick="window.storeDB.updateCartQty('${item.id}', -1)">-</button>
+              <button class="qty-btn" onclick="window.customerApp.reduceCartItem('${item.id}')" title="Reduce quantity">−</button>
               <span style="font-weight: 700; font-size: 14px; min-width: 16px; text-align: center;">${item.qty}</span>
-              <button class="qty-btn" onclick="window.storeDB.updateCartQty('${item.id}', 1)">+</button>
+              <button class="qty-btn" onclick="window.customerApp.increaseCartItem('${item.id}')" title="Add one more">+</button>
               <div style="font-weight: 800; font-size: 14px; margin-left: 8px;">₹${item.price * item.qty}</div>
             </div>
           </div>
@@ -385,10 +418,21 @@ class CustomerApp {
           </div>
           <div class="cart-item-card-meta">
             <h4>${item.name}</h4>
-            <p>x${item.qty}</p>
+            <p>₹${item.price} each</p>
           </div>
         </div>
-        <div class="cart-item-card-price">₹${item.price * item.qty}</div>
+        <div class="cart-item-card-right">
+          <div class="cart-qty-pill">
+            <button class="cart-qty-btn minus" onclick="window.customerApp.reduceCartItem('${item.id}')" title="${item.qty === 1 ? 'Remove from cart' : 'Reduce quantity'}">
+              ${item.qty === 1 ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' : '−'}
+            </button>
+            <span class="cart-qty-val">${item.qty}</span>
+            <button class="cart-qty-btn plus" onclick="window.customerApp.increaseCartItem('${item.id}')" title="Add one more">
+              +
+            </button>
+          </div>
+          <div class="cart-item-card-price">₹${item.price * item.qty}</div>
+        </div>
       </div>
     `).join('');
   }
