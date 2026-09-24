@@ -1,4 +1,4 @@
-const CACHE_NAME = 'honesty-store-v4';
+const CACHE_NAME = 'honesty-store-v5';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
