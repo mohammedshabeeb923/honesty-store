@@ -57,7 +57,9 @@ class AuthManager {
     localStorage.removeItem(this.storageKey);
     this.updateUI();
     this.switchView('signin');
-    alert('You have logged out of this device.');
+    if (window.showToast) {
+      window.showToast('You have logged out of this device.', 'info');
+    }
   }
 
   initUI() {
@@ -281,7 +283,7 @@ class AuthManager {
       el.innerText = msg;
       el.style.display = 'block';
     } else {
-      alert(msg);
+      if (window.showToast) window.showToast(msg, 'error');
     }
   }
 

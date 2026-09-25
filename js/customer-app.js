@@ -6,6 +6,7 @@ class CustomerApp {
   constructor() {
     this.currentScreen = 'screen-splash';
     this.activeCategory = 'All';
+    this.scannerStream = null;
     this.initElements();
     this.bindEvents();
     this.subscribeToStore();
@@ -13,6 +14,11 @@ class CustomerApp {
     this.renderOrders();
     this.renderCommunity();
     this.updateCartUI();
+
+    // Auto-bypass splash screen if user is already authenticated
+    if (window.authManager && window.authManager.session && window.authManager.session.isLoggedIn) {
+      this.switchScreen('screen-catalog');
+    }
   }
 
   initElements() {
@@ -67,6 +73,13 @@ class CustomerApp {
     if (scanStep) {
       scanStep.addEventListener('click', () => {
         this.openScannerModal();
+      });
+    }
+
+    const btnCloseScanner = document.getElementById('btn-close-scanner');
+    if (btnCloseScanner) {
+      btnCloseScanner.addEventListener('click', () => {
+        this.closeScannerModal();
       });
     }
 
@@ -149,7 +162,9 @@ class CustomerApp {
         btnPledge.innerText = '✓ Honor Pledge Signed!';
         btnPledge.style.background = '#0ca678';
         btnPledge.style.color = '#ffffff';
-        alert('Thank you for upholding community trust! Your pledge makes this store possible.');
+        if (window.showToast) {
+          window.showToast('Thank you for upholding community trust! Your pledge makes this store possible.', 'success');
+        }
       });
     }
   }
@@ -248,7 +263,7 @@ class CustomerApp {
   addToCart(productId) {
     const success = window.storeDB.addToCart(productId);
     if (!success) {
-      alert('This item is currently out of stock or max inventory reached!');
+      if (window.showToast) window.showToast('This item is out of stock or maximum limit reached.', 'error');
       return;
     }
     // Haptic / visual feedback
@@ -365,7 +380,7 @@ class CustomerApp {
   openPaymentModal() {
     const { total, count } = window.storeDB.getCartTotal();
     if (total <= 0) {
-      alert('Please add items to your cart first!');
+      if (window.showToast) window.showToast('Please add snacks or beverages to your cart first!', 'info');
       return;
     }
 
@@ -536,7 +551,49 @@ class CustomerApp {
   openScannerModal() {
     const scannerModal = document.getElementById('scanner-modal');
     if (scannerModal) scannerModal.classList.add('active');
+    this.startScannerCamera();
   }
+
+  closeScannerModal() {
+    const scannerModal = document.getElementById('scanner-modal');
+    if (scannerModal) scannerModal.classList.remove('active');
+    this.stopScannerCamera();
+  }
+
+  async startScannerCamera() {
+    const video = document.getElementById('scanner-video');
+    const fallback = document.getElementById('scanner-fallback-msg');
+    if (!video) return;
+    if (fallback) fallback.style.display = 'none';
+
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' } }
+        });
+        this.scannerStream = stream;
+        video.srcObject = stream;
+        video.play().catch(() => {});
+      } else {
+        if (fallback) fallback.style.display = 'block';
+      }
+    } catch (e) {
+      console.warn('[Scanner] Camera access not available:', e);
+      if (fallback) fallback.style.display = 'block';
+    }
+  }
+
+  stopScannerCamera() {
+    if (this.scannerStream) {
+      try {
+        this.scannerStream.getTracks().forEach(t => t.stop());
+      } catch (e) {}
+      this.scannerStream = null;
+    }
+    const video = document.getElementById('scanner-video');
+    if (video) video.srcObject = null;
+  }
+
 
   playChime() {
     try {

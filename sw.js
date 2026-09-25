@@ -1,4 +1,4 @@
-const CACHE_NAME = 'honesty-store-v5';
+const CACHE_NAME = 'honesty-store-v8';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();

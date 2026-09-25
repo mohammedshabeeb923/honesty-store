@@ -71,8 +71,96 @@
       "updated_at": "2026-09-24T18:50:13.068469+00:00"
     }
   ],
-  "orders": [],
-  "profiles": [],
+  "orders": [
+    {
+      "id": "HS_MUH9E6XP_5A74D8",
+      "customer_phone": "9876543210",
+      "amount": 1,
+      "item_count": 1,
+      "items": [
+        {
+          "id": "upitest",
+          "name": "₹1 Live UPI Test",
+          "variant": null,
+          "price": 1,
+          "qty": 1,
+          "image": "assets/lays.png"
+        }
+      ],
+      "status": "PENDING",
+      "payment_method": "UPI",
+      "payment_gateway": "Cashfree",
+      "time_label": "TODAY",
+      "created_at": "2026-09-25T17:53:04.534Z"
+    },
+    {
+      "id": "HS_MUH9DA7X_A4F533",
+      "customer_phone": "9876543210",
+      "amount": 1,
+      "item_count": 1,
+      "items": [
+        {
+          "id": "upitest",
+          "name": "₹1 Live UPI Test",
+          "variant": null,
+          "price": 1,
+          "qty": 1,
+          "image": "assets/lays.png"
+        }
+      ],
+      "status": "PENDING",
+      "payment_method": "UPI",
+      "payment_gateway": "Cashfree",
+      "time_label": "TODAY",
+      "created_at": "2026-09-25T17:52:22.257Z"
+    }
+  ],
+  "profiles": [
+    {
+      "id": "819e3cb8-c761-4b86-92b6-fb3d906888c0",
+      "phone": "9745729218",
+      "full_name": "mohammed",
+      "trust_score": 100,
+      "total_orders": 0,
+      "total_spent": 0,
+      "pledge_signed": false,
+      "created_at": "2026-09-25T16:43:47.033+00:00",
+      "password_hash": "1b3056f67fead4b5818afc9922a49547:24117358e2a20d832b02d09b557ed258d4a4a1841532485c1c23828241888658793d84d00050e80eeb10454679ec4f4dfea5482553922cd2de2dc6bdd3fc2599"
+    },
+    {
+      "id": "40660cbe-834d-4df4-a853-beb1e2504d37",
+      "phone": "9876543210",
+      "full_name": "Shabinsha Live",
+      "trust_score": 100,
+      "total_orders": 0,
+      "total_spent": 0,
+      "pledge_signed": false,
+      "created_at": "2026-09-25T16:42:11.536+00:00",
+      "password_hash": "2715ebd50069e93d5f3e46898e914a3f:9e1d5acea2fe3f166c3b0705281eec38c616b389949331156d74da07c8791c89c23503dbc751ad2d300af7a7af9126526999d0d8e5c9fa6b5afe56c4f07e48f9"
+    },
+    {
+      "id": "2940593a-59ba-46a7-bcc3-510220676885",
+      "phone": "9999900001",
+      "full_name": "Live Verified User",
+      "trust_score": 100,
+      "total_orders": 0,
+      "total_spent": 0,
+      "pledge_signed": false,
+      "created_at": "2026-09-25T16:41:55.984258+00:00",
+      "password_hash": "salt_test:hash_test"
+    },
+    {
+      "id": "04460fac-f375-4636-9fdb-2bd66f07f134",
+      "phone": "8075763270",
+      "full_name": "Adithyan B",
+      "trust_score": 100,
+      "total_orders": 0,
+      "total_spent": 0,
+      "pledge_signed": false,
+      "created_at": "2026-09-25T16:41:18.544+00:00",
+      "password_hash": "d1d82e9683738e7ca22d5c5755935574:22fb443d3d0474cf719293eab93b33a76dc5630f24336b07d1ea3806d5007a80f712d216e7eff698ee2b1b122e39bcc4c24fd91f253606626903808e9a5ec101"
+    }
+  ],
   "stock_audits": [],
   "community_metrics": {
     "sales_today": 20,

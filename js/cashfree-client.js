@@ -46,7 +46,7 @@ class CashfreeClient {
     const cart = window.storeDB.getCart();
 
     if (!cart || cart.length === 0) {
-      alert('Your tray is empty! Please add snacks or beverages before paying.');
+      if (window.showToast) window.showToast('Your tray is empty! Please add snacks or beverages before paying.', 'info');
       return;
     }
 
@@ -100,7 +100,7 @@ class CashfreeClient {
 
           this.cashfree.checkout(checkoutOptions).then(async (result) => {
             if (result && result.error) {
-              alert('Payment cancelled or could not be completed: ' + (result.error.message || ''));
+              if (window.showToast) window.showToast('Payment cancelled: ' + (result.error.message || 'Cancelled'), 'error');
               return;
             }
 
@@ -116,7 +116,7 @@ class CashfreeClient {
       }
     } catch (err) {
       console.error('[Cashfree Checkout Error]:', err);
-      alert('Payment Notice: ' + err.message);
+      if (window.showToast) window.showToast('Payment Notice: ' + err.message, 'error');
     } finally {
       if (btnPay) {
         btnPay.innerHTML = originalText || `PAY ₹${total} →`;
@@ -143,11 +143,11 @@ class CashfreeClient {
           payment_method: 'Cashfree UPI'
         });
       } else {
-        alert(`Payment Status: ${verifyData.orderStatus || 'Pending'}. If money was deducted, your order will update automatically.`);
+        if (window.showToast) window.showToast(`Payment Status: ${verifyData.orderStatus || 'Pending'}. If deducted, your order will update shortly.`, 'info');
       }
     } catch (vErr) {
       console.warn('[Cashfree Client] Verification error:', vErr);
-      alert('Could not verify payment status with server. Please check your order history.');
+      if (window.showToast) window.showToast('Could not verify payment status with server. Please check your order history.', 'error');
     }
   }
 

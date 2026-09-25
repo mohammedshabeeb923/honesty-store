@@ -741,14 +741,23 @@
 
   <!-- 4. SHELF SCANNER MODAL -->
   <div class="modal-overlay" id="scanner-modal">
-    <div class="modal-dialog" style="text-align: center;">
-      <h3 class="modal-title">Scan Store QR</h3>
+    <div class="modal-dialog" style="text-align: center; max-width: 400px; position: relative;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <h3 class="modal-title" style="margin: 0; font-size: 18px;">Scan Store QR</h3>
+        <button class="btn-close-modal" id="btn-close-scanner" style="border:none; background:none; font-size:20px; color:#64748b; cursor:pointer; line-height: 1;">✕</button>
+      </div>
       <p style="font-size: 13px; color: #64748b; margin-bottom: 16px;">
         Point camera at the shelf barcode or QR badge
       </p>
-      <div style="width: 100%; height: 180px; background: #0f172a; border-radius: 14px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; margin-bottom: 16px;">
-        <div style="border: 2px dashed rgba(255,255,255,0.7); width: 120px; height: 120px; border-radius: 12px; display:flex; align-items:center; justify-content:center; color:#fff;">
-          [ Camera View ]
+      <div style="width: 100%; height: 210px; background: #0f172a; border-radius: 14px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; margin-bottom: 16px;">
+        <video id="scanner-video" playsinline autoplay muted style="width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;"></video>
+        <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none;">
+          <div style="border: 2px dashed rgba(255,255,255,0.85); width: 130px; height: 130px; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(0,0,0,0.35); position: relative;">
+            <div class="scan-laser-line"></div>
+          </div>
+        </div>
+        <div id="scanner-fallback-msg" style="position: absolute; color: #94a3b8; font-size: 12px; display: none; padding: 12px; text-align: center;">
+          Camera preview unavailable.<br/>You can unlock directly below.
         </div>
       </div>
       <button class="action-pill-btn" id="btn-simulate-shelf-scan" style="background:#0f172a; color:#fff; width:100%; padding:12px; justify-content:center; font-weight:700; border-radius:20px;">
@@ -780,6 +789,28 @@
       </form>
     </div>
   </div>
+
+  <!-- 5B. PHYSICAL STOCK COUNT MODAL (Admin Quick Count) -->
+  <div class="modal-overlay" id="physical-stock-modal">
+    <div class="modal-dialog" style="max-width: 380px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <h3 class="modal-title" style="margin: 0; font-size: 17px;">Physical Stock Count</h3>
+        <button class="btn-close-modal" id="btn-close-physical-stock" style="border:none; background:none; font-size:18px; cursor:pointer;">✕</button>
+      </div>
+      <p style="font-size: 13px; color: #64748b; margin-bottom: 14px;" id="physical-stock-prod-name">Reconcile shelf inventory</p>
+      <form id="physical-stock-form" style="display: flex; flex-direction: column; gap: 14px;">
+        <div>
+          <label style="font-size: 12px; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">ACTUAL SHELF UNITS COUNTED</label>
+          <input type="number" id="physical-stock-input" required min="0" style="width:100%; padding:11px 14px; border:1px solid #cbd5e1; border-radius:10px; font-size:16px; font-weight:700;" />
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button type="button" id="btn-cancel-physical-stock" style="flex:1; padding:11px; border:1px solid #e2e8f0; background:#f8fafc; border-radius:10px; font-weight:600; cursor:pointer;">Cancel</button>
+          <button type="submit" style="flex:1; padding:11px; border:none; background:#0f172a; color:#fff; border-radius:10px; font-weight:700; cursor:pointer;">Update</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
 
   <!-- 6. ADD PRODUCT MODAL (Admin) -->
   <div class="modal-overlay" id="add-product-modal">
@@ -1013,15 +1044,61 @@
     </div>
   </div>
 
+  <!-- Toast Notification Container -->
+  <div id="toast-container"></div>
+
+  <script>
+    // Global Toast Notification Utility
+    window.showToast = function(message, type = 'info', duration = 3500) {
+      try {
+        let container = document.getElementById('toast-container');
+        if (!container) {
+          container = document.createElement('div');
+          container.id = 'toast-container';
+          document.body.appendChild(container);
+        }
+        const toast = document.createElement('div');
+        toast.className = `toast-item toast-${type}`;
+        
+        let icon = 'ℹ️';
+        if (type === 'success') icon = '✓';
+        if (type === 'error') icon = '✕';
+
+        toast.innerHTML = `<span style="font-weight:800; font-size:15px;">${icon}</span><span style="flex:1;">${message}</span>`;
+        container.appendChild(toast);
+
+        setTimeout(() => {
+          toast.classList.add('toast-leaving');
+          setTimeout(() => {
+            if (toast.parentNode) toast.parentNode.removeChild(toast);
+          }, 260);
+        }, duration);
+      } catch (e) {
+        console.log(`[Toast ${type}]:`, message);
+      }
+    };
+
+    // Global Online / Offline Network Resilience Listeners
+    window.addEventListener('offline', () => {
+      window.showToast('You are offline. Showing cached catalog.', 'error', 4500);
+    });
+    window.addEventListener('online', () => {
+      window.showToast('Back online! Syncing latest store data...', 'success', 3000);
+      if (window.storeDB && typeof window.storeDB.syncWithServer === 'function') {
+        window.storeDB.syncWithServer();
+      }
+    });
+  </script>
+
   <!-- Application Scripts with Cache-Busting Versioning -->
-  <script src="js/config.js?v=7.0"></script>
-  <script src="js/store-db.js?v=7.0"></script>
-  <script src="js/auth.js?v=7.0"></script>
-  <script src="js/cashfree-client.js?v=7.0"></script>
-  <script src="js/supabase-client.js?v=7.0"></script>
-  <script src="js/customer-app.js?v=7.0"></script>
-  <script src="js/admin-app.js?v=7.0"></script>
-  <script src="js/app.js?v=7.0"></script>
+  <script src="js/config.js?v=8.0"></script>
+  <script src="js/store-db.js?v=8.0"></script>
+  <script src="js/auth.js?v=8.0"></script>
+  <script src="js/cashfree-client.js?v=8.0"></script>
+  <script src="js/supabase-client.js?v=8.0"></script>
+  <script src="js/customer-app.js?v=8.0"></script>
+  <script src="js/admin-app.js?v=8.0"></script>
+  <script src="js/app.js?v=8.0"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

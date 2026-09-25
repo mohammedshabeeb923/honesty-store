@@ -115,6 +115,38 @@ class AdminApp {
         this.render();
       });
     }
+
+    // Save Physical Stock Count Form
+    const physForm = document.getElementById('physical-stock-form');
+    if (physForm) {
+      physForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const inputVal = document.getElementById('physical-stock-input').value;
+        if (this.selectedProductId && inputVal !== '') {
+          window.storeDB.updatePhysicalStock(this.selectedProductId, Number(inputVal));
+          if (window.showToast) window.showToast(`Physical shelf units updated to ${inputVal}`, 'success');
+        }
+        const modal = document.getElementById('physical-stock-modal');
+        if (modal) modal.classList.remove('active');
+        this.render();
+      });
+    }
+
+    const btnCancelPhys = document.getElementById('btn-cancel-physical-stock');
+    if (btnCancelPhys) {
+      btnCancelPhys.addEventListener('click', () => {
+        const modal = document.getElementById('physical-stock-modal');
+        if (modal) modal.classList.remove('active');
+      });
+    }
+
+    const btnClosePhys = document.getElementById('btn-close-physical-stock');
+    if (btnClosePhys) {
+      btnClosePhys.addEventListener('click', () => {
+        const modal = document.getElementById('physical-stock-modal');
+        if (modal) modal.classList.remove('active');
+      });
+    }
   }
 
   subscribeToStore() {
@@ -273,10 +305,18 @@ class AdminApp {
   }
 
   promptPhysicalStock(productId, currentVal) {
-    const val = prompt('Enter actual counted units on shelf for physical reconciliation:', currentVal);
-    if (val !== null && !isNaN(val)) {
-      window.storeDB.updatePhysicalStock(productId, Number(val));
+    this.selectedProductId = productId;
+    const prod = window.storeDB.getProduct(productId);
+    const modal = document.getElementById('physical-stock-modal');
+    const titleEl = document.getElementById('physical-stock-prod-name');
+    const inputEl = document.getElementById('physical-stock-input');
+
+    if (titleEl && prod) titleEl.innerText = `${prod.name} (${prod.variant})`;
+    if (inputEl) {
+      inputEl.value = currentVal;
+      setTimeout(() => inputEl.focus(), 100);
     }
+    if (modal) modal.classList.add('active');
   }
 
   openAdjustStockModal() {
@@ -306,7 +346,9 @@ class AdminApp {
     };
 
     try {
-      const res = await fetch('/api/admin/dashboard');
+      const adminToken = localStorage.getItem('honesty_admin_token') || '';
+      const headers = adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {};
+      const res = await fetch('/api/admin/dashboard', { headers });
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
@@ -559,7 +601,9 @@ class AdminApp {
     if (!usersBody) return;
 
     try {
-      const res = await fetch('/api/admin/users');
+      const adminToken = localStorage.getItem('honesty_admin_token') || '';
+      const headers = adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {};
+      const res = await fetch('/api/admin/users', { headers });
       if (res.ok) {
         const data = await res.json();
         const profiles = data.profiles || [];

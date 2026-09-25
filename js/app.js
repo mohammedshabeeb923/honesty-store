@@ -45,23 +45,49 @@ document.addEventListener('DOMContentLoaded', () => {
   // Handle Admin Login Form
   const adminLoginForm = document.getElementById('admin-login-form');
   if (adminLoginForm) {
-    adminLoginForm.addEventListener('submit', (e) => {
+    adminLoginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const u = document.getElementById('admin-username-input')?.value.trim();
       const p = document.getElementById('admin-password-input')?.value.trim();
       const errEl = document.getElementById('admin-login-error');
 
-      if (u === 'admin' && p === 'admin123') {
-        localStorage.setItem('honesty_admin_auth', 'true');
-        if (errEl) errEl.style.display = 'none';
-        if (adminAuthModal) adminAuthModal.classList.remove('active');
-        const targetMode = pendingAdminMode || localStorage.getItem('honesty_store_view_mode') || 'admin';
-        pendingAdminMode = null;
-        setViewMode(targetMode);
-      } else {
-        if (errEl) {
-          errEl.style.display = 'block';
-          errEl.innerText = 'Invalid username or password. Default is admin / admin123';
+      try {
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: u, password: p })
+        });
+        const data = await res.json();
+        if (data.success && data.adminToken) {
+          localStorage.setItem('honesty_admin_token', data.adminToken);
+          localStorage.setItem('honesty_admin_auth', 'true');
+          if (errEl) errEl.style.display = 'none';
+          if (adminAuthModal) adminAuthModal.classList.remove('active');
+          const targetMode = pendingAdminMode || localStorage.getItem('honesty_store_view_mode') || 'admin';
+          pendingAdminMode = null;
+          setViewMode(targetMode);
+          if (window.adminApp && typeof window.adminApp.render === 'function') {
+            window.adminApp.render();
+          }
+          if (window.showToast) window.showToast('Admin Console unlocked.', 'success');
+        } else {
+          if (errEl) {
+            errEl.style.display = 'block';
+            errEl.innerText = data.message || 'Invalid username or password.';
+          }
+        }
+      } catch (err) {
+        // Fallback for offline mode if default credentials
+        if (u === 'admin' && p === 'admin123') {
+          localStorage.setItem('honesty_admin_auth', 'true');
+          if (errEl) errEl.style.display = 'none';
+          if (adminAuthModal) adminAuthModal.classList.remove('active');
+          setViewMode('admin');
+        } else {
+          if (errEl) {
+            errEl.style.display = 'block';
+            errEl.innerText = 'Connection error. Please try again.';
+          }
         }
       }
     });
@@ -72,7 +98,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnAdminLogout) {
     btnAdminLogout.addEventListener('click', () => {
       localStorage.removeItem('honesty_admin_auth');
-      alert('Admin Console has been locked.');
+      localStorage.removeItem('honesty_admin_token');
+      if (window.showToast) window.showToast('Admin Console has been locked.', 'info');
       setViewMode('customer');
     });
   }
@@ -163,10 +190,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnSimulateScan = document.getElementById('btn-simulate-shelf-scan');
   if (btnSimulateScan) {
     btnSimulateScan.addEventListener('click', () => {
-      const modal = document.getElementById('scanner-modal');
-      if (modal) modal.classList.remove('active');
-      window.customerApp.switchScreen('screen-catalog');
-      window.customerApp.playSuccessTone();
+      if (window.customerApp && typeof window.customerApp.closeScannerModal === 'function') {
+        window.customerApp.closeScannerModal();
+      } else {
+        const modal = document.getElementById('scanner-modal');
+        if (modal) modal.classList.remove('active');
+      }
+      if (window.customerApp && typeof window.customerApp.switchScreen === 'function') {
+        window.customerApp.switchScreen('screen-catalog');
+        window.customerApp.playSuccessTone();
+      }
+      if (window.showToast) window.showToast('Shelf QR verified! Shelf unlocked.', 'success');
     });
   }
 });

@@ -35,6 +35,98 @@ const PUBLIC_DIR = __dirname;
 
 const crypto = require('crypto');
 
+// Cryptographic HMAC Secret for Session Signing
+const SERVER_SECRET = process.env.SERVER_SECRET || process.env.SUPABASE_ANON_KEY || 'honesty-store-cryptographic-token-salt-2026';
+
+function signCustomerToken(phone, name) {
+  const payload = {
+    phone,
+    name,
+    role: 'customer',
+    iat: Date.now(),
+    exp: Date.now() + 30 * 24 * 3600 * 1000 // 30 days
+  };
+  const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const sig = crypto.createHmac('sha256', SERVER_SECRET).update(body).digest('base64url');
+  return `hs_sess_${body}.${sig}`;
+}
+
+function verifyCustomerToken(token) {
+  if (!token) return null;
+  if (!token.startsWith('hs_sess_')) return null;
+  const raw = token.slice('hs_sess_'.length);
+  const parts = raw.split('.');
+  if (parts.length === 1) {
+    // Backwards compatibility for existing local sessions
+    try {
+      const decoded = Buffer.from(raw, 'base64').toString('utf8');
+      const [ph] = decoded.split('_');
+      if (ph && ph.length === 10) return { phone: ph, role: 'customer' };
+    } catch (e) {}
+    return null;
+  }
+  const [body, sig] = parts;
+  const expected = crypto.createHmac('sha256', SERVER_SECRET).update(body).digest('base64url');
+  if (sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
+    return null;
+  }
+  try {
+    const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
+    if (payload.exp && payload.exp < Date.now()) return null;
+    return payload;
+  } catch (e) {
+    return null;
+  }
+}
+
+function signAdminToken(username) {
+  const payload = {
+    username,
+    role: 'admin',
+    iat: Date.now(),
+    exp: Date.now() + 7 * 24 * 3600 * 1000 // 7 days
+  };
+  const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const sig = crypto.createHmac('sha256', SERVER_SECRET).update(body).digest('base64url');
+  return `admin_sess_${body}.${sig}`;
+}
+
+function verifyAdminToken(token) {
+  if (!token) return false;
+  if (!token.startsWith('admin_sess_')) return false;
+  const raw = token.slice('admin_sess_'.length);
+  const parts = raw.split('.');
+  if (parts.length === 1) {
+    // Backwards compatibility for existing local admin session
+    try {
+      const decoded = Buffer.from(raw, 'base64').toString('utf8');
+      if (decoded.startsWith('admin_')) return true;
+    } catch (e) {}
+    return false;
+  }
+  const [body, sig] = parts;
+  const expected = crypto.createHmac('sha256', SERVER_SECRET).update(body).digest('base64url');
+  if (sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
+    return false;
+  }
+  try {
+    const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
+    if (payload.exp && payload.exp < Date.now()) return false;
+    return payload.role === 'admin';
+  } catch (e) {
+    return false;
+  }
+}
+
+function isAuthorizedAdmin(req) {
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  if (token && verifyAdminToken(token)) return true;
+  const customHeader = req.headers['x-admin-token'];
+  if (customHeader && verifyAdminToken(customHeader)) return true;
+  return false;
+}
+
 // Secure Salted Password / PIN Hashing
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString('hex');
@@ -50,7 +142,6 @@ function verifyPassword(password, storedHash) {
   const testHash = crypto.scryptSync(String(password), salt, 64).toString('hex');
   return crypto.timingSafeEqual(Buffer.from(key, 'hex'), Buffer.from(testHash, 'hex'));
 }
-
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=UTF-8',
@@ -80,6 +171,25 @@ function parseJsonBody(req) {
     req.on('error', reject);
   });
 }
+
+// Helper to parse raw body and JSON (for Webhook HMAC verification)
+function parseRawBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', chunk => chunks.push(chunk));
+    req.on('end', () => {
+      const rawBody = Buffer.concat(chunks).toString('utf8');
+      try {
+        const json = rawBody ? JSON.parse(rawBody) : {};
+        resolve({ rawBody, json });
+      } catch (err) {
+        resolve({ rawBody, json: {} });
+      }
+    });
+    req.on('error', reject);
+  });
+}
+
 
 // Gateway Config Management
 const CONFIG_FILE = path.join(__dirname, '.gateway-config.json');
@@ -183,7 +293,7 @@ const server = http.createServer(async (req, res) => {
 
       const pHash = hashPassword(cleanPass);
       const profile = await serverSupabase.registerUser(cleanName, cleanPhone, pHash);
-      const token = 'hs_sess_' + Buffer.from(cleanPhone + '_' + Date.now()).toString('base64');
+      const token = signCustomerToken(cleanPhone, cleanName);
       console.log(`[Auth] Registered customer: ${cleanName} (+91 ${cleanPhone})`);
 
       sendJson(200, {
@@ -227,7 +337,7 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      const token = 'hs_sess_' + Buffer.from(cleanPhone + '_' + Date.now()).toString('base64');
+      const token = signCustomerToken(cleanPhone, profile.full_name || 'Customer');
       console.log(`[Auth] Customer signed in: ${profile.full_name || 'Customer'} (+91 ${cleanPhone})`);
 
       sendJson(200, {
@@ -280,6 +390,10 @@ const server = http.createServer(async (req, res) => {
 
   // 6. Admin Dashboard Aggregated Telemetry
   if (req.method === 'GET' && reqPath === '/api/admin/dashboard') {
+    if (!isAuthorizedAdmin(req)) {
+      sendJson(401, { success: false, message: 'Admin authorization required' });
+      return;
+    }
     try {
       const dashboard = await serverSupabase.getDashboardMetrics();
       sendJson(200, { success: true, ...dashboard });
@@ -289,10 +403,18 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 7. Admin Users Telemetry
+  // 7. Admin Users Telemetry (Sanitized - no password hashes exposed)
   if (req.method === 'GET' && reqPath === '/api/admin/users') {
+    if (!isAuthorizedAdmin(req)) {
+      sendJson(401, { success: false, message: 'Admin authorization required' });
+      return;
+    }
     try {
-      const profiles = serverSupabase.fallbackData.profiles || [];
+      const rawProfiles = await serverSupabase.getProfiles();
+      const profiles = (rawProfiles || []).map(p => {
+        const { password_hash, ...safe } = p;
+        return safe;
+      });
       const orders = await serverSupabase.getOrders();
       sendJson(200, { success: true, profiles, totalProfiles: profiles.length, totalOrders: orders.length });
     } catch (err) {
@@ -303,6 +425,10 @@ const server = http.createServer(async (req, res) => {
 
   // 8. Admin Adjust Stock
   if (req.method === 'POST' && reqPath === '/api/admin/adjust-stock') {
+    if (!isAuthorizedAdmin(req)) {
+      sendJson(401, { success: false, message: 'Admin authorization required' });
+      return;
+    }
     try {
       const { productId, newStockLevel, auditNote, auditedBy } = await parseJsonBody(req);
       if (!productId || newStockLevel === undefined) {
@@ -318,6 +444,10 @@ const server = http.createServer(async (req, res) => {
 
   // 9. Admin Add Product
   if (req.method === 'POST' && reqPath === '/api/admin/add-product') {
+    if (!isAuthorizedAdmin(req)) {
+      sendJson(401, { success: false, message: 'Admin authorization required' });
+      return;
+    }
     try {
       const productData = await parseJsonBody(req);
       if (!productData.name || !productData.price) {
@@ -339,9 +469,10 @@ const server = http.createServer(async (req, res) => {
       const expectedPass = process.env.ADMIN_PASSWORD || 'admin123';
 
       if (username === expectedUser && password === expectedPass) {
+        const adminToken = signAdminToken(username);
         sendJson(200, {
           success: true,
-          adminToken: 'admin_sess_' + Buffer.from(username + '_' + Date.now()).toString('base64'),
+          adminToken,
           username
         });
       } else {
@@ -370,6 +501,10 @@ const server = http.createServer(async (req, res) => {
 
   // 12. Admin Gateway Config Save Route
   if (req.method === 'POST' && reqPath === '/api/admin/save-gateway-config') {
+    if (!isAuthorizedAdmin(req)) {
+      sendJson(401, { success: false, message: 'Admin authorization required' });
+      return;
+    }
     try {
       const { appId, secretKey, env } = await parseJsonBody(req);
       const updates = {};
@@ -401,7 +536,12 @@ const server = http.createServer(async (req, res) => {
     try {
       const { orderId: requestedOrderId, items, orderAmount, customerPhone, customerName } = await parseJsonBody(req);
       const cleanPhone = (customerPhone || '9999999999').replace(/\D/g, '').slice(-10);
-      const orderId = String(requestedOrderId || ('HS' + Date.now().toString().slice(-6)));
+      
+      // Collision-proof order ID (Cashfree compliant: alphanumeric, hyphen, underscore only)
+      const safeRandom = crypto.randomBytes(3).toString('hex').toUpperCase();
+      const generatedOrderId = 'HS_' + Date.now().toString(36).toUpperCase() + '_' + safeRandom;
+      const orderId = String(requestedOrderId || generatedOrderId).replace(/[^a-zA-Z0-9_-]/g, '');
+
       const { appId, secretKey, env } = getCashfreeConfig();
 
       // AUTHORITATIVE PRICE & STOCK VALIDATION:
@@ -532,10 +672,25 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 14. Cashfree Payment Webhook (Idempotent background confirmation)
+  // 14. Cashfree Payment Webhook (Idempotent background confirmation with HMAC verification)
   if (req.method === 'POST' && reqPath === '/api/cashfree-webhook') {
     try {
-      const webhookData = await parseJsonBody(req);
+      const { rawBody, json: webhookData } = await parseRawBody(req);
+      const signature = req.headers['x-webhook-signature'];
+      const timestamp = req.headers['x-webhook-timestamp'];
+      const { secretKey } = getCashfreeConfig();
+
+      if (signature && timestamp && secretKey) {
+        const computedSignature = crypto.createHmac('sha256', secretKey)
+          .update(timestamp + rawBody)
+          .digest('base64');
+        if (signature !== computedSignature) {
+          console.warn('[Cashfree Webhook] Invalid signature rejected!');
+          sendJson(401, { error: 'Invalid webhook signature' });
+          return;
+        }
+      }
+
       console.log('[Cashfree Webhook Received]:', JSON.stringify(webhookData).slice(0, 300));
       
       const orderId = webhookData?.data?.order?.order_id || webhookData?.order_id;

@@ -54,9 +54,13 @@ const AppConfig = {
 
     if (cashfreeAppId || cashfreeSecret) {
       try {
+        const adminToken = localStorage.getItem('honesty_admin_token') || '';
         const res = await fetch('/api/admin/save-gateway-config', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            ...(adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {})
+          },
           body: JSON.stringify({
             appId: cashfreeAppId,
             secretKey: cashfreeSecret,
@@ -70,8 +74,10 @@ const AppConfig = {
       }
     }
 
-    alert('Settings saved successfully! Gateway and database are connected.');
-    window.location.reload();
+    if (window.showToast) {
+      window.showToast('Settings saved successfully! Gateway and database are connected.', 'success');
+    }
+    setTimeout(() => window.location.reload(), 1200);
   }
 };
 

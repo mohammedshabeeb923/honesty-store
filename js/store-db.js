@@ -226,9 +226,13 @@ class StoreDB {
 
     // Persist to server & Supabase
     try {
+      const adminToken = localStorage.getItem('honesty_admin_token') || '';
       await fetch('/api/admin/add-product', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {})
+        },
         body: JSON.stringify(product)
       });
       await this.syncWithServer();
@@ -372,9 +376,13 @@ class StoreDB {
 
     // Persist to server & Supabase
     try {
+      const adminToken = localStorage.getItem('honesty_admin_token') || '';
       await fetch('/api/admin/adjust-stock', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {})
+        },
         body: JSON.stringify({
           productId,
           newStockLevel: Number(newStockLevel),

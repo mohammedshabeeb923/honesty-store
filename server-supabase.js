@@ -79,7 +79,13 @@ class ServerSupabase {
     }
 
     if (res.status === 204) return null;
-    return await res.json();
+    const text = await res.text();
+    if (!text || text.trim() === '') return null;
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      return null;
+    }
   }
 
   // 1. GET ALL ACTIVE PRODUCTS
@@ -339,6 +345,23 @@ class ServerSupabase {
       // Fallback
     }
     return (this.fallbackData.profiles || []).find(p => p.phone === cleanPhone);
+  }
+
+  // 7b-2. GET ALL PROFILES (ADMIN)
+  async getProfiles() {
+    try {
+      const res = await this.fetchApi('profiles', {
+        query: '?select=*&order=created_at.desc'
+      });
+      if (res && Array.isArray(res) && res.length > 0) {
+        this.fallbackData.profiles = res;
+        this.saveFallback();
+        return res;
+      }
+    } catch (err) {
+      console.warn('[ServerSupabase] getProfiles fallback:', err.message);
+    }
+    return this.fallbackData.profiles || [];
   }
 
   // 7c. REGISTER USER PROFILE (PHONE + PASSWORD HASH)
