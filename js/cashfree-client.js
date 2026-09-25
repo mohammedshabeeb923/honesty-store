@@ -1,6 +1,6 @@
 /**
  * Honesty Store - Cashfree Payment Gateway Client SDK Integration
- * Supports UPI Intent, Dynamic QR, Netbanking, and Cards
+ * Production UPI, Dynamic QR, Netbanking, and Card checkout
  */
 
 class CashfreeClient {
@@ -22,42 +22,54 @@ class CashfreeClient {
       this.initCashfree();
     };
     script.onerror = () => {
-      console.warn('Cashfree SDK script failed to load, falling back to embedded modal.');
+      console.warn('Cashfree SDK script failed to load from CDN.');
     };
     document.head.appendChild(script);
   }
 
   initCashfree() {
     try {
-      const mode = window.AppConfig.cashfree.environment === 'PRODUCTION' ? 'production' : 'sandbox';
-      this.cashfree = window.Cashfree({ mode });
-      this.sdkLoaded = true;
-      console.log('Cashfree SDK initialized in', mode, 'mode');
+      const env = (window.AppConfig && window.AppConfig.cashfree && window.AppConfig.cashfree.environment) || 'PRODUCTION';
+      const mode = env.toLowerCase() === 'production' ? 'production' : 'sandbox';
+      if (typeof window.Cashfree === 'function') {
+        this.cashfree = window.Cashfree({ mode });
+        this.sdkLoaded = true;
+        console.log('[Cashfree Client] SDK initialized in', mode, 'mode');
+      }
     } catch (e) {
-      console.warn('Cashfree initialization warning:', e);
+      console.warn('[Cashfree Client] Initialization warning:', e);
     }
   }
 
-  async initiatePayment(orderData) {
+  async initiatePayment(orderData = {}) {
     const phone = window.authManager.getUserPhone();
-    const amount = orderData.amount;
+    const cart = window.storeDB.getCart();
+
+    if (!cart || cart.length === 0) {
+      alert('Your tray is empty! Please add snacks or beverages before paying.');
+      return;
+    }
+
+    const { total } = window.storeDB.getCartTotal();
     const orderId = orderData.id || `HS${Date.now().toString().slice(-6)}`;
 
-    // Show loading indicator
+    // Show loading indicator on Pay button
     const btnPay = document.getElementById('btn-cart-fullpage-pay');
+    const originalText = btnPay ? btnPay.innerHTML : '';
     if (btnPay) {
-      btnPay.innerText = 'Connecting to Cashfree UPI...';
+      btnPay.innerText = 'Connecting to Cashfree Gateway...';
       btnPay.disabled = true;
     }
 
     try {
-      // 1. Request Payment Session ID from backend
+      // 1. Authoritative order initiation on backend with item validation & stock check
       const response = await fetch('/api/create-cashfree-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           orderId,
-          orderAmount: amount,
+          items: cart.map(i => ({ id: i.id, qty: i.qty })),
+          orderAmount: total,
           customerPhone: phone,
           customerName: window.authManager.session.fullName || 'Honesty Customer'
         })
@@ -65,70 +77,84 @@ class CashfreeClient {
 
       const session = await response.json();
 
-      // If Cashfree credentials are live and SDK is loaded
-      if (session.paymentSessionId && this.cashfree) {
-        const checkoutOptions = {
-          paymentSessionId: session.paymentSessionId,
-          redirectTarget: '_modal'
-        };
+      if (!session.success) {
+        throw new Error(session.error || 'Failed to initialize payment session');
+      }
 
-        this.cashfree.checkout(checkoutOptions).then(async (result) => {
-          if (result.error) {
-            alert('Payment could not be completed: ' + result.error.message);
-            return;
-          }
-          if (result.paymentDetails || result.redirect) {
-            // Confirm payment server-side via GET /pg/orders/{order_id}
-            try {
-              const verifyRes = await fetch('/api/verify-cashfree-order', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ orderId })
-              });
-              const verifyData = await verifyRes.json();
-              if (verifyData.isPaid) {
-                this.handlePaymentSuccess(orderId, amount, 'Cashfree UPI (Verified)');
-                return;
-              }
-            } catch (vErr) {
-              console.warn('Server verification warning:', vErr);
+      // If Cashfree SDK is ready, launch standard Cashfree Checkout Modal
+      if (session.paymentSessionId) {
+        if (!this.cashfree && window.Cashfree) {
+          this.initCashfree();
+        }
+
+        if (this.cashfree) {
+          const checkoutOptions = {
+            paymentSessionId: session.paymentSessionId,
+            redirectTarget: '_modal'
+          };
+
+          this.cashfree.checkout(checkoutOptions).then(async (result) => {
+            if (result.error) {
+              alert('Payment cancelled or could not be completed: ' + (result.error.message || ''));
+              return;
             }
-            this.handlePaymentSuccess(orderId, amount, 'Cashfree UPI');
-          }
-        });
-      } else {
-        // Embedded Cashfree UPI Simulator Modal (Full Gateway UI)
-        this.openCashfreeSimulatorModal(orderId, amount, phone);
+
+            // Verify payment server-side via GET /pg/orders/{order_id}
+            await this.verifyAndCompletePayment(orderId, session.orderAmount || total, cart);
+          });
+        } else {
+          // If Cashfree JS SDK is blocked by browser, redirect to Cashfree checkout directly
+          window.location.href = `https://payments.cashfree.com/order/#${session.paymentSessionId}`;
+        }
       }
     } catch (err) {
-      console.warn('Cashfree API error, opening simulator:', err);
-      this.openCashfreeSimulatorModal(orderId, amount, phone);
+      console.error('[Cashfree Checkout Error]:', err);
+      alert('Payment Notice: ' + err.message);
     } finally {
       if (btnPay) {
-        btnPay.innerText = `PAY ₹${amount} →`;
+        btnPay.innerHTML = originalText || `PAY ₹${total} →`;
         btnPay.disabled = false;
       }
     }
   }
 
-  openCashfreeSimulatorModal(orderId, amount, phone) {
-    const modal = document.getElementById('cashfree-gateway-modal');
-    if (!modal) return;
+  async verifyAndCompletePayment(orderId, expectedAmount, fallbackItems) {
+    try {
+      const verifyRes = await fetch('/api/verify-cashfree-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId })
+      });
+      const verifyData = await verifyRes.json();
 
-    document.getElementById('cf-order-id-display').innerText = orderId;
-    document.getElementById('cf-amount-display').innerText = `₹${amount}`;
-    document.getElementById('cf-phone-display').innerText = phone;
-
-    modal.classList.add('active');
+      if (verifyData.success && verifyData.isPaid) {
+        this.handlePaymentSuccess(verifyData.order || {
+          id: orderId,
+          amount: expectedAmount,
+          items: fallbackItems,
+          status: 'Paid',
+          payment_method: 'Cashfree UPI'
+        });
+      } else {
+        alert(`Payment Status: ${verifyData.orderStatus || 'Pending'}. If money was deducted, your order will update automatically.`);
+      }
+    } catch (vErr) {
+      console.warn('[Cashfree Client] Verification error:', vErr);
+      alert('Could not verify payment status with server. Please check your order history.');
+    }
   }
 
-  handlePaymentSuccess(orderId, amount, method = 'Cashfree UPI') {
-    // Close simulator if open
-    const modal = document.getElementById('cashfree-gateway-modal');
-    if (modal) modal.classList.remove('active');
+  handlePaymentSuccess(order) {
+    // 1. Record confirmed order in store database
+    const confirmed = window.storeDB.recordConfirmedOrder(order);
 
-    // Process order in StoreDB & Supabase
-    window.customerApp.confirmPayment(method);
+    // 2. Synchronize store with Supabase
+    window.storeDB.syncWithServer();
+
+    // 3. Show Verified Screen in Customer Mobile App
+    if (window.customerApp) {
+      window.customerApp.showVerifiedScreen(confirmed);
+    }
   }
 }
 

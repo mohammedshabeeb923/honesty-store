@@ -441,7 +441,32 @@ class CustomerApp {
   }
 
   confirmPayment(method = 'UPI') {
-    const order = window.storeDB.checkout(method);
+    if (method.includes('Cashfree') || method === 'UPI') {
+      const payModal = document.getElementById('payment-modal');
+      if (payModal) payModal.classList.remove('active');
+      this.toggleCartDrawer(false);
+      window.cashfreeClient.initiatePayment();
+      return;
+    }
+
+    const { total } = window.storeDB.getCartTotal();
+    if (total <= 0) return;
+    const cart = window.storeDB.getCart();
+
+    const newOrder = {
+      id: `HS${Date.now().toString().slice(-6)}`,
+      amount: total,
+      itemCount: cart.reduce((s, i) => s + i.qty, 0),
+      items: JSON.parse(JSON.stringify(cart)),
+      status: 'Paid',
+      payment_method: method
+    };
+
+    const confirmed = window.storeDB.recordConfirmedOrder(newOrder);
+    this.showVerifiedScreen(confirmed);
+  }
+
+  showVerifiedScreen(order) {
     if (!order) return;
 
     const payModal = document.getElementById('payment-modal');
@@ -456,7 +481,7 @@ class CustomerApp {
     if (verifiedAmount) verifiedAmount.innerText = `₹${order.amount}`;
     if (verifiedOrderNo) verifiedOrderNo.innerText = `#${order.id}`;
 
-    if (verifiedItemsList) {
+    if (verifiedItemsList && Array.isArray(order.items)) {
       verifiedItemsList.innerHTML = order.items.map(item => `
         <div class="verified-item-row">
           <span>${item.name}</span>
@@ -467,7 +492,12 @@ class CustomerApp {
 
     this.switchScreen('screen-verified');
     this.playSuccessTone();
+    this.updateCartUI();
+    this.renderCatalog();
+    this.renderFullCart();
+    this.renderOrders();
   }
+
 
   viewReceipt(orderId) {
     const order = window.storeDB.data.orders.find(o => o.id === orderId);

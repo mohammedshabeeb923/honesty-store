@@ -1,6 +1,6 @@
 /**
- * Honesty Store - Reactive Data Layer & State Store
- * Synchronizes state between Customer Mobile App and Business Admin Console
+ * Honesty Store - Reactive Data Layer & Supabase State Store
+ * Synchronizes state between Customer Mobile App, Supabase PostgreSQL, and Admin Console
  */
 
 const STORAGE_KEY = 'honesty_store_v1';
@@ -28,7 +28,7 @@ const DEFAULT_DATA = {
       price: 20,
       stock: 18,
       expectedStock: 18,
-      physicalStock: 15, // -3 difference as seen in Admin screenshot
+      physicalStock: 15,
       image: 'assets/lays.png',
       badge: '',
       lowStockThreshold: 5
@@ -73,36 +73,12 @@ const DEFAULT_DATA = {
       lowStockThreshold: 3
     }
   ],
-  orders: [
-    {
-      id: 'HS10452',
-      timeLabel: 'TODAY, 10:42 AM',
-      createdAt: new Date().toISOString(),
-      amount: 50,
-      itemCount: 3,
-      status: 'Paid',
-      items: [
-        { id: 'lays', name: 'Lays Classic', qty: 1, price: 20 },
-        { id: 'oreo', name: 'Oreo', qty: 1, price: 30 }
-      ]
-    },
-    {
-      id: 'HS10431',
-      timeLabel: 'YESTERDAY, 2:15 PM',
-      createdAt: new Date(Date.now() - 86400000).toISOString(),
-      amount: 20,
-      itemCount: 1,
-      status: 'Paid',
-      items: [
-        { id: 'lays', name: 'Lays Classic', qty: 1, price: 20 }
-      ]
-    }
-  ],
+  orders: [],
   community: {
-    salesToday: 1620,
-    storeVisits: 127,
-    completedPayments: 81,
-    pledgesCount: 342,
+    salesToday: 0,
+    storeVisits: 0,
+    completedPayments: 0,
+    pledgesCount: 0,
     storeLocation: 'Floor 3, Innovation Hub'
   },
   cart: [],
@@ -114,6 +90,7 @@ class StoreDB {
   constructor() {
     this.listeners = [];
     this.data = this.load();
+    this.syncWithServer();
   }
 
   load() {
@@ -136,6 +113,66 @@ class StoreDB {
       console.error('Could not save to localStorage', e);
     }
     this.notify();
+  }
+
+  // Authoritative server synchronization with Supabase & Cashfree backend
+  async syncWithServer() {
+    try {
+      // 1. Fetch live products from Supabase
+      const prodRes = await fetch('/api/products');
+      if (prodRes.ok) {
+        const prodData = await prodRes.json();
+        if (prodData.success && Array.isArray(prodData.products) && prodData.products.length > 0) {
+          this.data.products = prodData.products.map(p => ({
+            id: p.id,
+            name: p.name,
+            variant: p.variant || '',
+            category: p.category || 'Chips',
+            price: Number(p.price) || 0,
+            stock: Number(p.stock) || 0,
+            expectedStock: Number(p.expected_stock !== undefined ? p.expected_stock : p.stock) || 0,
+            physicalStock: Number(p.physical_stock !== undefined ? p.physical_stock : p.stock) || 0,
+            image: p.image_url || p.image || 'assets/lays.png',
+            badge: Number(p.stock) <= 0 ? 'OUT OF STOCK' : (Number(p.stock) <= (p.low_stock_threshold || 5) ? 'LOW STOCK' : ''),
+            lowStockThreshold: p.low_stock_threshold || 5
+          }));
+        }
+      }
+
+      // 2. Fetch live orders
+      const orderRes = await fetch('/api/orders');
+      if (orderRes.ok) {
+        const orderData = await orderRes.json();
+        if (orderData.success && Array.isArray(orderData.orders)) {
+          this.data.orders = orderData.orders.map(o => ({
+            id: o.id,
+            timeLabel: o.time_label || new Date(o.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            createdAt: o.created_at,
+            amount: Number(o.amount) || 0,
+            itemCount: Number(o.item_count) || (Array.isArray(o.items) ? o.items.length : 1),
+            status: o.status || 'Paid',
+            paymentMethod: o.payment_method || 'UPI',
+            items: Array.isArray(o.items) ? o.items : []
+          }));
+        }
+      }
+
+      // 3. Fetch community metrics
+      const metricRes = await fetch('/api/community-metrics');
+      if (metricRes.ok) {
+        const metricData = await metricRes.json();
+        if (metricData.success && metricData.metrics) {
+          const m = metricData.metrics;
+          this.data.community.salesToday = Number(m.sales_today) || 0;
+          this.data.community.storeVisits = Number(m.store_visits) || 0;
+          this.data.community.completedPayments = Number(m.completed_payments) || 0;
+        }
+      }
+
+      this.save();
+    } catch (err) {
+      console.warn('[StoreDB] Sync with server skipped (offline or booting):', err.message);
+    }
   }
 
   resetToDefault() {
@@ -169,8 +206,8 @@ class StoreDB {
     return this.data.products.find(p => p.id === id);
   }
 
-  addProduct(newProduct) {
-    const id = 'prod_' + Date.now();
+  async addProduct(newProduct) {
+    const id = newProduct.id || ('prod_' + Date.now());
     const product = {
       id,
       name: newProduct.name,
@@ -186,6 +223,19 @@ class StoreDB {
     };
     this.data.products.push(product);
     this.save();
+
+    // Persist to server & Supabase
+    try {
+      await fetch('/api/admin/add-product', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(product)
+      });
+      await this.syncWithServer();
+    } catch (e) {
+      console.warn('Could not persist product to backend:', e);
+    }
+
     return product;
   }
 
@@ -243,53 +293,46 @@ class StoreDB {
     return { total, count };
   }
 
-  checkout(paymentMethod = 'UPI') {
-    const cart = this.data.cart;
-    if (!cart || cart.length === 0) return null;
-
-    const { total, count } = this.getCartTotal();
-    const orderNumber = 10450 + this.data.orders.length + 1;
-    const orderId = `HS${orderNumber}`;
-
+  // Local record helper called after server confirms payment
+  recordConfirmedOrder(serverOrder) {
+    if (!serverOrder) return;
     const now = new Date();
     const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-    const timeLabel = `TODAY, ${timeStr.toUpperCase()}`;
 
-    cart.forEach(item => {
-      const prod = this.getProduct(item.id);
-      if (prod) {
-        prod.stock = Math.max(0, prod.stock - item.qty);
-        prod.expectedStock = prod.stock;
-        prod.physicalStock = Math.max(0, prod.physicalStock - item.qty);
-        if (prod.stock === 0) {
-          prod.badge = 'OUT OF STOCK';
-        } else if (prod.stock <= prod.lowStockThreshold) {
-          prod.badge = 'LOW STOCK';
-        } else {
-          prod.badge = '';
-        }
-      }
-    });
-
-    const newOrder = {
-      id: orderId,
-      timeLabel,
-      createdAt: now.toISOString(),
-      amount: total,
-      itemCount: count,
+    const formattedOrder = {
+      id: serverOrder.id,
+      timeLabel: `TODAY, ${timeStr.toUpperCase()}`,
+      createdAt: serverOrder.created_at || now.toISOString(),
+      amount: Number(serverOrder.amount),
+      itemCount: Number(serverOrder.item_count || (serverOrder.items ? serverOrder.items.length : 1)),
       status: 'Paid',
-      paymentMethod,
-      items: JSON.parse(JSON.stringify(cart))
+      paymentMethod: serverOrder.payment_method || 'Cashfree UPI',
+      items: serverOrder.items || []
     };
 
-    this.data.orders.unshift(newOrder);
-    this.data.community.salesToday += total;
+    // Deduct stock in memory immediately
+    if (Array.isArray(formattedOrder.items)) {
+      formattedOrder.items.forEach(item => {
+        const prod = this.getProduct(item.id);
+        if (prod) {
+          prod.stock = Math.max(0, prod.stock - item.qty);
+          prod.expectedStock = prod.stock;
+          prod.physicalStock = Math.max(0, prod.physicalStock - item.qty);
+          prod.badge = prod.stock === 0 ? 'OUT OF STOCK' : (prod.stock <= prod.lowStockThreshold ? 'LOW STOCK' : '');
+        }
+      });
+    }
+
+    const exists = this.data.orders.some(o => o.id === formattedOrder.id);
+    if (!exists) {
+      this.data.orders.unshift(formattedOrder);
+    }
+    this.data.community.salesToday += formattedOrder.amount;
     this.data.community.completedPayments += 1;
-    this.data.community.storeVisits += 1;
     this.data.cart = [];
     this.save();
 
-    return newOrder;
+    return formattedOrder;
   }
 
   getSelectedAuditProduct() {
@@ -309,7 +352,7 @@ class StoreDB {
     this.save();
   }
 
-  adjustStock(productId, newStockLevel, auditNote = '') {
+  async adjustStock(productId, newStockLevel, auditNote = '') {
     const prod = this.getProduct(productId);
     if (!prod) return;
 
@@ -326,6 +369,23 @@ class StoreDB {
     }
 
     this.save();
+
+    // Persist to server & Supabase
+    try {
+      await fetch('/api/admin/adjust-stock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId,
+          newStockLevel: Number(newStockLevel),
+          auditNote,
+          auditedBy: 'Admin'
+        })
+      });
+      await this.syncWithServer();
+    } catch (e) {
+      console.warn('Could not persist stock adjustment to backend:', e);
+    }
   }
 
   logVisit() {
@@ -334,7 +394,7 @@ class StoreDB {
   }
 
   signHonorPledge() {
-    this.data.community.pledgesCount = (this.data.community.pledgesCount || 340) + 1;
+    this.data.community.pledgesCount = (this.data.community.pledgesCount || 0) + 1;
     this.save();
   }
 }

@@ -1,0 +1,89 @@
+{
+  "products": [
+    {
+      "id": "upitest",
+      "name": "₹1 Live UPI Test",
+      "variant": null,
+      "category": "Chips",
+      "price": 1,
+      "stock": 99,
+      "expected_stock": 99,
+      "physical_stock": 99,
+      "image_url": "assets/lays.png",
+      "low_stock_threshold": 5,
+      "is_active": true,
+      "updated_at": "2026-09-24T20:48:53.526267+00:00"
+    },
+    {
+      "id": "dairymilk",
+      "name": "Dairy Milk",
+      "variant": "Milk Chocolate Bar",
+      "category": "Chocolates",
+      "price": 20,
+      "stock": 0,
+      "expected_stock": 0,
+      "physical_stock": 0,
+      "image_url": "assets/dairymilk.png",
+      "low_stock_threshold": 3,
+      "is_active": true,
+      "updated_at": "2026-09-24T18:50:13.068469+00:00"
+    },
+    {
+      "id": "lays",
+      "name": "Lays",
+      "variant": "Classic Potato Chips",
+      "category": "Chips",
+      "price": 20,
+      "stock": 18,
+      "expected_stock": 18,
+      "physical_stock": 15,
+      "image_url": "assets/lays.png",
+      "low_stock_threshold": 5,
+      "is_active": true,
+      "updated_at": "2026-09-24T18:50:13.068469+00:00"
+    },
+    {
+      "id": "oreo",
+      "name": "Oreo",
+      "variant": "Chocolate Sandwich Cookies",
+      "category": "Biscuits",
+      "price": 30,
+      "stock": 3,
+      "expected_stock": 3,
+      "physical_stock": 3,
+      "image_url": "assets/oreo.png",
+      "low_stock_threshold": 5,
+      "is_active": true,
+      "updated_at": "2026-09-24T18:50:13.068469+00:00"
+    },
+    {
+      "id": "parleg",
+      "name": "Parle-G",
+      "variant": "Glucose Biscuits",
+      "category": "Biscuits",
+      "price": 10,
+      "stock": 25,
+      "expected_stock": 25,
+      "physical_stock": 25,
+      "image_url": "assets/parleg.png",
+      "low_stock_threshold": 5,
+      "is_active": true,
+      "updated_at": "2026-09-24T18:50:13.068469+00:00"
+    }
+  ],
+  "orders": [],
+  "profiles": [
+    {
+      "phone": "9999999999",
+      "total_orders": 1,
+      "total_spent": 20,
+      "last_visit": "2026-09-25T16:05:05.672Z"
+    }
+  ],
+  "stock_audits": [],
+  "community_metrics": {
+    "sales_today": 20,
+    "store_visits": 0,
+    "completed_payments": 1
+  }
+}
