@@ -835,15 +835,53 @@
         </button>
       </div>
 
-      <!-- Step 1: Phone Input -->
-      <div id="auth-step-phone">
+      <!-- View 1: Customer Sign In Form -->
+      <div id="auth-view-signin">
         <p style="font-size: 13px; color: #64748b; margin-bottom: 16px; line-height: 1.4;">
-          Enter your name and mobile number to stay authenticated and link your receipts.
+          Enter your registered mobile number and PIN to sign in to your store account.
         </p>
-        <form id="phone-login-form" style="display: flex; flex-direction: column; gap: 14px;">
+        <form id="customer-signin-form" style="display: flex; flex-direction: column; gap: 14px;">
           <div>
-            <label style="font-size: 12px; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Your Name / Username</label>
-            <input type="text" id="auth-name-input" placeholder="e.g. Mohammed Shabeeb" required 
+            <label style="font-size: 12px; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Mobile Phone Number</label>
+            <div style="display: flex; gap: 8px;">
+              <div style="background: #f1f5f9; padding: 12px 14px; border-radius: 10px; font-weight: 700; font-size: 14px; border: 1px solid #e2e8f0; color: #0f172a;">
+                +91
+              </div>
+              <input type="tel" id="login-phone-input" placeholder="98765 43210" maxlength="10" required 
+                     style="flex: 1; padding: 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 16px; font-weight: 700; letter-spacing: 1px;" />
+            </div>
+          </div>
+          <div>
+            <label style="font-size: 12px; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">4-Digit PIN or Password</label>
+            <input type="password" id="login-password-input" placeholder="Enter your PIN / password" required 
+                   style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 16px; font-weight: 600; letter-spacing: 2px;" />
+          </div>
+          <div id="login-error-msg" style="color: #ef4444; font-size: 12px; font-weight: 700; display: none;"></div>
+          <button type="submit" class="btn-adjust-stock" id="btn-login-submit" style="background:#000; color:#fff; border:none; margin: 4px 0 0; padding: 14px; border-radius: 20px; font-weight: 700; cursor: pointer;">
+            Sign In →
+          </button>
+        </form>
+
+        <div style="text-align: center; margin-top: 16px; font-size: 13px;">
+          <span style="color: #64748b;">Don't have an account?</span> 
+          <a href="#" onclick="window.authManager.switchView('signup'); return false;" style="color: #0f172a; font-weight: 800; text-decoration: underline; margin-left: 4px;">Create an Account</a>
+        </div>
+
+        <div style="text-align: center; margin-top: 14px; font-size: 11px; color: #94a3b8; display: flex; align-items: center; justify-content: center; gap: 4px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          Session remains permanently authenticated on this device.
+        </div>
+      </div>
+
+      <!-- View 2: Customer Sign Up Form -->
+      <div id="auth-view-signup" style="display: none;">
+        <p style="font-size: 13px; color: #64748b; margin-bottom: 16px; line-height: 1.4;">
+          Create a shopper profile to unlock self-checkout, receipts, and order tracking.
+        </p>
+        <form id="customer-signup-form" style="display: flex; flex-direction: column; gap: 14px;">
+          <div>
+            <label style="font-size: 12px; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Your Full Name</label>
+            <input type="text" id="register-name-input" placeholder="e.g. Mohammed Shabeeb" required 
                    style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 14px; font-weight: 600;" />
           </div>
           <div>
@@ -852,43 +890,32 @@
               <div style="background: #f1f5f9; padding: 12px 14px; border-radius: 10px; font-weight: 700; font-size: 14px; border: 1px solid #e2e8f0; color: #0f172a;">
                 +91
               </div>
-              <input type="tel" id="auth-phone-input" placeholder="98765 43210" maxlength="10" required 
+              <input type="tel" id="register-phone-input" placeholder="98765 43210" maxlength="10" required 
                      style="flex: 1; padding: 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 16px; font-weight: 700; letter-spacing: 1px;" />
             </div>
           </div>
-          <button type="submit" class="btn-adjust-stock" id="btn-send-otp" style="background:#000; color:#fff; border:none; margin: 4px 0 0; padding: 14px; border-radius: 20px;">
-            Continue to Verification Code →
+          <div>
+            <label style="font-size: 12px; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Choose 4-Digit PIN or Password</label>
+            <input type="password" id="register-password-input" placeholder="Create 4-digit PIN / password" minlength="4" required 
+                   style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 16px; font-weight: 600; letter-spacing: 2px;" />
+          </div>
+          <div id="register-error-msg" style="color: #ef4444; font-size: 12px; font-weight: 700; display: none;"></div>
+          <button type="submit" class="btn-adjust-stock" id="btn-register-submit" style="background:#000; color:#fff; border:none; margin: 4px 0 0; padding: 14px; border-radius: 20px; font-weight: 700; cursor: pointer;">
+            Create Account & Enter →
           </button>
         </form>
-        <div style="text-align: center; margin-top: 12px; font-size: 11px; color: #94a3b8; display: flex; align-items: center; justify-content: center; gap: 4px;">
+
+        <div style="text-align: center; margin-top: 16px; font-size: 13px;">
+          <span style="color: #64748b;">Already have an account?</span> 
+          <a href="#" onclick="window.authManager.switchView('signin'); return false;" style="color: #0f172a; font-weight: 800; text-decoration: underline; margin-left: 4px;">Sign In</a>
+        </div>
+
+        <div style="text-align: center; margin-top: 14px; font-size: 11px; color: #94a3b8; display: flex; align-items: center; justify-content: center; gap: 4px;">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-          Session remains permanently authenticated on this device.
+          Quick PIN login on future visits.
         </div>
       </div>
 
-      <!-- Step 2: OTP Input -->
-      <div id="auth-step-otp" style="display: none;">
-        <p style="font-size: 13px; color: #64748b; margin-bottom: 12px;">
-          Enter the 6-digit code sent to <strong id="otp-sent-phone-display">+91 9876543210</strong>
-        </p>
-        <form id="verify-otp-form" style="display: flex; flex-direction: column; gap: 14px;">
-          <input type="text" id="auth-otp-input" placeholder="••••••" maxlength="6" required 
-                 style="width: 100%; text-align: center; font-size: 24px; font-weight: 800; letter-spacing: 8px; padding: 12px; border: 1.5px solid #000; border-radius: 12px;" />
-          
-          <button type="submit" class="btn-adjust-stock" id="btn-verify-otp" style="background:#000; color:#fff; border:none; padding: 14px; border-radius: 20px;">
-            Verify & Continue →
-          </button>
-        </form>
-
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px;">
-          <button type="button" id="btn-autofill-otp" style="background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; padding: 6px 12px; border-radius: 12px; font-size: 11px; font-weight: 700; cursor: pointer;">
-            Use Demo Code (123456)
-          </button>
-          <button type="button" onclick="document.getElementById('auth-step-otp').style.display='none'; document.getElementById('auth-step-phone').style.display='block';" style="background: none; border: none; color: #64748b; font-size: 12px; cursor: pointer; text-decoration: underline;">
-            Change Number
-          </button>
-        </div>
-      </div>
 
       <!-- Step 3: Logged-in Profile View -->
       <div id="auth-step-profile" style="display: none; text-align: center;">
@@ -987,14 +1014,14 @@
   </div>
 
   <!-- Application Scripts with Cache-Busting Versioning -->
-  <script src="js/config.js?v=5.0"></script>
-  <script src="js/store-db.js?v=5.0"></script>
-  <script src="js/auth.js?v=5.0"></script>
-  <script src="js/cashfree-client.js?v=5.0"></script>
-  <script src="js/supabase-client.js?v=5.0"></script>
-  <script src="js/customer-app.js?v=5.0"></script>
-  <script src="js/admin-app.js?v=5.0"></script>
-  <script src="js/app.js?v=5.0"></script>
+  <script src="js/config.js?v=6.0"></script>
+  <script src="js/store-db.js?v=6.0"></script>
+  <script src="js/auth.js?v=6.0"></script>
+  <script src="js/cashfree-client.js?v=6.0"></script>
+  <script src="js/supabase-client.js?v=6.0"></script>
+  <script src="js/customer-app.js?v=6.0"></script>
+  <script src="js/admin-app.js?v=6.0"></script>
+  <script src="js/app.js?v=6.0"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

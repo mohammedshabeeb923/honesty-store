@@ -33,8 +33,24 @@ const serverSupabase = require('./server-supabase');
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = __dirname;
 
-// In-memory store for OTPs during runtime
-const otpStore = new Map();
+const crypto = require('crypto');
+
+// Secure Salted Password / PIN Hashing
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(String(password), salt, 64).toString('hex');
+  return `${salt}:${hash}`;
+}
+
+function verifyPassword(password, storedHash) {
+  if (!storedHash || typeof storedHash !== 'string' || !storedHash.includes(':')) {
+    return false;
+  }
+  const [salt, key] = storedHash.split(':');
+  const testHash = crypto.scryptSync(String(password), salt, 64).toString('hex');
+  return crypto.timingSafeEqual(Buffer.from(key, 'hex'), Buffer.from(testHash, 'hex'));
+}
+
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=UTF-8',
@@ -137,50 +153,96 @@ const server = http.createServer(async (req, res) => {
   // BACKEND API ROUTES
   // ============================================================
 
-  // 1. Send Phone OTP
-  if (req.method === 'POST' && reqPath === '/api/send-otp') {
+  // 1. Register Customer (Phone + Password / PIN)
+  if (req.method === 'POST' && reqPath === '/api/register') {
     try {
-      const { phone } = await parseJsonBody(req);
+      const { name, phone, password } = await parseJsonBody(req);
       const cleanPhone = (phone || '').replace(/\D/g, '').slice(-10);
-      const otp = '123456'; // Default verified OTP
+      const cleanName = (name || '').trim();
+      const cleanPass = String(password || '').trim();
 
-      otpStore.set(cleanPhone, { otp, expiresAt: Date.now() + 300000 });
-      console.log(`[SMS Gateway] 📲 Sent OTP to +91 ${cleanPhone}: ${otp}`);
+      if (!cleanPhone || cleanPhone.length !== 10) {
+        sendJson(400, { success: false, message: 'Please enter a valid 10-digit mobile number' });
+        return;
+      }
+      if (!cleanName) {
+        sendJson(400, { success: false, message: 'Please enter your full name' });
+        return;
+      }
+      if (!cleanPass || cleanPass.length < 4) {
+        sendJson(400, { success: false, message: 'PIN or password must be at least 4 digits' });
+        return;
+      }
+
+      // Check if user already exists
+      const existing = await serverSupabase.getProfile(cleanPhone);
+      if (existing && existing.password_hash) {
+        sendJson(400, { success: false, message: 'This mobile number is already registered. Please sign in.' });
+        return;
+      }
+
+      const pHash = hashPassword(cleanPass);
+      const profile = await serverSupabase.registerUser(cleanName, cleanPhone, pHash);
+      const token = 'hs_sess_' + Buffer.from(cleanPhone + '_' + Date.now()).toString('base64');
+      console.log(`[Auth] Registered customer: ${cleanName} (+91 ${cleanPhone})`);
 
       sendJson(200, {
         success: true,
-        message: 'OTP sent to mobile number',
-        sandboxOtpHint: '123456'
+        message: 'Account created successfully',
+        token,
+        phone: cleanPhone,
+        name: cleanName
       });
     } catch (err) {
-      sendJson(400, { success: false, error: err.message });
+      sendJson(400, { success: false, error: err.message, message: err.message });
     }
     return;
   }
 
-  // 2. Verify Phone OTP
-  if (req.method === 'POST' && reqPath === '/api/verify-otp') {
+  // 2. Login Customer (Phone + Password / PIN)
+  if (req.method === 'POST' && reqPath === '/api/login') {
     try {
-      const { phone, otp } = await parseJsonBody(req);
+      const { phone, password } = await parseJsonBody(req);
       const cleanPhone = (phone || '').replace(/\D/g, '').slice(-10);
-      const record = otpStore.get(cleanPhone);
+      const cleanPass = String(password || '').trim();
 
-      const isValid = otp === '123456' || (record && record.otp === otp && Date.now() < record.expiresAt);
-
-      if (isValid) {
-        sendJson(200, {
-          success: true,
-          token: 'hs_sess_' + Buffer.from(cleanPhone + '_' + Date.now()).toString('base64'),
-          phone: cleanPhone
-        });
-      } else {
-        sendJson(400, { success: false, message: 'Invalid or expired OTP code. Use 123456 for testing.' });
+      if (!cleanPhone || cleanPhone.length !== 10) {
+        sendJson(400, { success: false, message: 'Please enter a valid 10-digit mobile number' });
+        return;
       }
+      if (!cleanPass) {
+        sendJson(400, { success: false, message: 'Please enter your password or 4-digit PIN' });
+        return;
+      }
+
+      const profile = await serverSupabase.getProfile(cleanPhone);
+      if (!profile || !profile.password_hash) {
+        sendJson(401, { success: false, message: 'Phone number not registered. Please create an account.' });
+        return;
+      }
+
+      const isValid = verifyPassword(cleanPass, profile.password_hash);
+      if (!isValid) {
+        sendJson(401, { success: false, message: 'Incorrect PIN or password. Please try again.' });
+        return;
+      }
+
+      const token = 'hs_sess_' + Buffer.from(cleanPhone + '_' + Date.now()).toString('base64');
+      console.log(`[Auth] Customer signed in: ${profile.full_name || 'Customer'} (+91 ${cleanPhone})`);
+
+      sendJson(200, {
+        success: true,
+        message: 'Signed in successfully',
+        token,
+        phone: cleanPhone,
+        name: profile.full_name || 'Customer'
+      });
     } catch (err) {
-      sendJson(400, { success: false, error: err.message });
+      sendJson(400, { success: false, error: err.message, message: err.message });
     }
     return;
   }
+
 
   // 3. Products List (Authoritative from Supabase)
   if (req.method === 'GET' && reqPath === '/api/products') {

@@ -1,24 +1,29 @@
 /**
- * Honesty Store - Persistent Phone Number Authentication Module
- * Manages SMS OTP login, persistent session storage, and customer profile
+ * Honesty Store - Persistent Phone + Password / PIN Authentication Module
+ * Replaces OTP with instant, permanent 4-digit PIN authentication
  */
 
 class AuthManager {
   constructor() {
     this.storageKey = 'honesty_phone_session_v1';
     this.session = this.loadSession();
-    this.otpPendingPhone = null;
+    this.currentView = 'signin';
+    this.authCallback = null;
     this.initUI();
   }
 
   loadSession() {
     try {
       const raw = localStorage.getItem(this.storageKey);
-      if (raw) return JSON.parse(raw);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.isLoggedIn) {
+          return parsed;
+        }
+      }
     } catch (e) {
-      console.warn('Could not read auth session', e);
+      console.warn('[AuthManager] Could not read auth session:', e);
     }
-    // Default guest profile if not logged in
     return {
       isLoggedIn: false,
       phone: '',
@@ -28,11 +33,16 @@ class AuthManager {
   }
 
   saveSession(sessionData) {
-    this.session = { ...this.session, ...sessionData, isLoggedIn: true };
+    this.session = {
+      isLoggedIn: true,
+      phone: sessionData.phone,
+      fullName: sessionData.fullName || sessionData.name || 'Honesty Shopper',
+      token: sessionData.token || ('token_' + Date.now())
+    };
     try {
       localStorage.setItem(this.storageKey, JSON.stringify(this.session));
     } catch (e) {
-      console.error('Could not save session', e);
+      console.error('[AuthManager] Could not persist session:', e);
     }
     this.updateUI();
   }
@@ -46,7 +56,8 @@ class AuthManager {
     };
     localStorage.removeItem(this.storageKey);
     this.updateUI();
-    alert('You have logged out successfully.');
+    this.switchView('signin');
+    alert('You have logged out of this device.');
   }
 
   initUI() {
@@ -56,8 +67,37 @@ class AuthManager {
     });
   }
 
+  switchView(viewName) {
+    this.currentView = viewName;
+    const signinView = document.getElementById('auth-view-signin');
+    const signupView = document.getElementById('auth-view-signup');
+    const profileView = document.getElementById('auth-step-profile');
+    const errLogin = document.getElementById('login-error-msg');
+    const errRegister = document.getElementById('register-error-msg');
+
+    if (errLogin) errLogin.style.display = 'none';
+    if (errRegister) errRegister.style.display = 'none';
+
+    if (this.session.isLoggedIn) {
+      if (signinView) signinView.style.display = 'none';
+      if (signupView) signupView.style.display = 'none';
+      if (profileView) profileView.style.display = 'block';
+      return;
+    }
+
+    if (profileView) profileView.style.display = 'none';
+
+    if (viewName === 'signup') {
+      if (signinView) signinView.style.display = 'none';
+      if (signupView) signupView.style.display = 'block';
+    } else {
+      if (signinView) signinView.style.display = 'block';
+      if (signupView) signupView.style.display = 'none';
+    }
+  }
+
   bindEvents() {
-    // Open Phone Auth Modal from header avatar
+    // Open Auth Modal from header avatar
     const avatarBtns = document.querySelectorAll('.header-avatar, .cart-avatar-wrap');
     avatarBtns.forEach(btn => {
       btn.addEventListener('click', () => {
@@ -65,54 +105,26 @@ class AuthManager {
       });
     });
 
-    // Send OTP Form
-    const sendOtpForm = document.getElementById('phone-login-form');
-    if (sendOtpForm) {
-      sendOtpForm.addEventListener('submit', async (e) => {
+    // Customer Sign In Form Submit
+    const signinForm = document.getElementById('customer-signin-form');
+    if (signinForm) {
+      signinForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const nameInput = document.getElementById('auth-name-input');
-        const phoneInput = document.getElementById('auth-phone-input');
-        const name = nameInput ? nameInput.value.trim() : '';
-        const phone = phoneInput.value.trim().replace(/\D/g, '');
-
-        if (!name) {
-          alert('Please enter your name or username.');
-          return;
-        }
-
-        if (phone.length !== 10) {
-          alert('Please enter a valid 10-digit Indian mobile number.');
-          return;
-        }
-
-        this.pendingName = name;
-        await this.requestOtp(phone);
+        const phone = (document.getElementById('login-phone-input')?.value || '').trim();
+        const password = (document.getElementById('login-password-input')?.value || '').trim();
+        await this.login({ phone, password });
       });
     }
 
-    // Verify OTP Form
-    const verifyOtpForm = document.getElementById('verify-otp-form');
-    if (verifyOtpForm) {
-      verifyOtpForm.addEventListener('submit', async (e) => {
+    // Customer Sign Up Form Submit
+    const signupForm = document.getElementById('customer-signup-form');
+    if (signupForm) {
+      signupForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const otpInput = document.getElementById('auth-otp-input');
-        const otp = otpInput.value.trim();
-
-        if (otp.length !== 6) {
-          alert('Please enter the 6-digit OTP code.');
-          return;
-        }
-
-        await this.verifyOtp(otp);
-      });
-    }
-
-    // Quick Sandbox OTP Auto-fill Button
-    const btnAutoFillOtp = document.getElementById('btn-autofill-otp');
-    if (btnAutoFillOtp) {
-      btnAutoFillOtp.addEventListener('click', () => {
-        const otpInput = document.getElementById('auth-otp-input');
-        if (otpInput) otpInput.value = '123456';
+        const name = (document.getElementById('register-name-input')?.value || '').trim();
+        const phone = (document.getElementById('register-phone-input')?.value || '').trim();
+        const password = (document.getElementById('register-password-input')?.value || '').trim();
+        await this.register({ name, phone, password });
       });
     }
 
@@ -132,126 +144,144 @@ class AuthManager {
     const modal = document.getElementById('auth-modal');
     if (!modal) return;
 
-    const phoneStep = document.getElementById('auth-step-phone');
-    const otpStep = document.getElementById('auth-step-otp');
-    const profileStep = document.getElementById('auth-step-profile');
-
     if (this.session.isLoggedIn) {
-      // Show logged-in profile view
-      if (phoneStep) phoneStep.style.display = 'none';
-      if (otpStep) otpStep.style.display = 'none';
-      if (profileStep) profileStep.style.display = 'block';
-
+      this.switchView('profile');
       const profPhone = document.getElementById('profile-modal-phone');
       if (profPhone) profPhone.innerText = `+91 ${this.session.phone}`;
+      const profName = document.getElementById('profile-modal-name');
+      if (profName) profName.innerText = this.session.fullName;
     } else {
-      // Show phone login input
-      if (phoneStep) phoneStep.style.display = 'block';
-      if (otpStep) otpStep.style.display = 'none';
-      if (profileStep) profileStep.style.display = 'none';
+      this.switchView(this.currentView || 'signin');
     }
 
     modal.classList.add('active');
   }
 
-  async requestOtp(phone) {
-    this.otpPendingPhone = phone;
-    const btnSend = document.getElementById('btn-send-otp');
-    if (btnSend) {
-      btnSend.disabled = true;
-      btnSend.innerText = 'Sending OTP...';
+  async login({ phone, password }) {
+    const cleanPhone = (phone || '').replace(/\D/g, '').slice(-10);
+    const btnSubmit = document.getElementById('btn-login-submit');
+    const errEl = document.getElementById('login-error-msg');
+
+    if (errEl) errEl.style.display = 'none';
+
+    if (cleanPhone.length !== 10) {
+      this.showError(errEl, 'Please enter a valid 10-digit mobile number.');
+      return;
+    }
+    if (!password) {
+      this.showError(errEl, 'Please enter your password or PIN.');
+      return;
+    }
+
+    if (btnSubmit) {
+      btnSubmit.disabled = true;
+      btnSubmit.innerText = 'Verifying PIN...';
     }
 
     try {
-      // Call backend API /api/send-otp
-      const res = await fetch('/api/send-otp', {
+      const res = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: `+91${phone}` })
+        body: JSON.stringify({ phone: cleanPhone, password })
       });
-
       const data = await res.json();
 
-      document.getElementById('auth-step-phone').style.display = 'none';
-      document.getElementById('auth-step-otp').style.display = 'block';
-      document.getElementById('otp-sent-phone-display').innerText = `+91 ${phone}`;
+      if (data.success) {
+        this.saveSession({
+          phone: data.phone,
+          fullName: data.name,
+          token: data.token
+        });
 
-      console.log('OTP Request Response:', data);
+        const modal = document.getElementById('auth-modal');
+        if (modal) modal.classList.remove('active');
+
+        if (typeof this.authCallback === 'function') {
+          const cb = this.authCallback;
+          this.authCallback = null;
+          cb();
+        }
+      } else {
+        this.showError(errEl, data.message || 'Invalid mobile number or PIN.');
+      }
     } catch (err) {
-      console.warn('Fallback local OTP mode:', err);
-      document.getElementById('auth-step-phone').style.display = 'none';
-      document.getElementById('auth-step-otp').style.display = 'block';
-      document.getElementById('otp-sent-phone-display').innerText = `+91 ${phone}`;
+      this.showError(errEl, 'Connection error. Please try again.');
     } finally {
-      if (btnSend) {
-        btnSend.disabled = false;
-        btnSend.innerText = 'Get OTP via SMS →';
+      if (btnSubmit) {
+        btnSubmit.disabled = false;
+        btnSubmit.innerText = 'Sign In →';
       }
     }
   }
 
-  async verifyOtp(otp) {
-    const btnVerify = document.getElementById('btn-verify-otp');
-    if (btnVerify) {
-      btnVerify.disabled = true;
-      btnVerify.innerText = 'Verifying...';
+  async register({ name, phone, password }) {
+    const cleanPhone = (phone || '').replace(/\D/g, '').slice(-10);
+    const cleanName = (name || '').trim();
+    const btnSubmit = document.getElementById('btn-register-submit');
+    const errEl = document.getElementById('register-error-msg');
+
+    if (errEl) errEl.style.display = 'none';
+
+    if (!cleanName) {
+      this.showError(errEl, 'Please enter your full name.');
+      return;
+    }
+    if (cleanPhone.length !== 10) {
+      this.showError(errEl, 'Please enter a valid 10-digit mobile number.');
+      return;
+    }
+    if (!password || password.length < 4) {
+      this.showError(errEl, 'Please choose a PIN or password of at least 4 digits.');
+      return;
+    }
+
+    if (btnSubmit) {
+      btnSubmit.disabled = true;
+      btnSubmit.innerText = 'Creating Profile...';
     }
 
     try {
-      const res = await fetch('/api/verify-otp', {
+      const res = await fetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: `+91${this.otpPendingPhone}`, otp })
+        body: JSON.stringify({ name: cleanName, phone: cleanPhone, password })
       });
       const data = await res.json();
 
-      if (data.success || otp === '123456') {
+      if (data.success) {
         this.saveSession({
-          phone: this.otpPendingPhone,
-          fullName: this.pendingName || `Shopper (${this.otpPendingPhone.slice(-4)})`,
-          token: data.token || 'token_' + Date.now()
+          phone: data.phone,
+          fullName: data.name,
+          token: data.token
         });
 
         const modal = document.getElementById('auth-modal');
         if (modal) modal.classList.remove('active');
 
-        // Trigger callback if store entry was waiting for login
         if (typeof this.authCallback === 'function') {
           const cb = this.authCallback;
           this.authCallback = null;
           cb();
         }
-
-        alert(`Welcome, ${this.session.fullName}! You are signed in as +91 ${this.otpPendingPhone}.`);
       } else {
-        alert(data.message || 'Invalid OTP. Please enter 123456 for testing.');
+        this.showError(errEl, data.message || 'Could not complete registration.');
       }
     } catch (err) {
-      // Fallback verification for demo
-      if (otp === '123456' || otp.length === 6) {
-        this.saveSession({
-          phone: this.otpPendingPhone || '9876543210',
-          fullName: this.pendingName || 'Verified Customer',
-          token: 'token_' + Date.now()
-        });
-        const modal = document.getElementById('auth-modal');
-        if (modal) modal.classList.remove('active');
-
-        if (typeof this.authCallback === 'function') {
-          const cb = this.authCallback;
-          this.authCallback = null;
-          cb();
-        }
-
-        alert(`Welcome, ${this.session.fullName}! Phone number verified successfully.`);
-      } else {
-        alert('Invalid OTP. Use 123456 for testing.');
-      }
+      this.showError(errEl, 'Connection error. Please try again.');
     } finally {
-      if (btnVerify) {
-        btnVerify.disabled = false;
-        btnVerify.innerText = 'Verify & Sign In →';
+      if (btnSubmit) {
+        btnSubmit.disabled = false;
+        btnSubmit.innerText = 'Create Account & Enter →';
       }
+    }
+  }
+
+  showError(el, msg) {
+    if (el) {
+      el.innerText = msg;
+      el.style.display = 'block';
+    } else {
+      alert(msg);
     }
   }
 

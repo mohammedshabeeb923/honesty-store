@@ -327,6 +327,61 @@ class ServerSupabase {
     }
   }
 
+  // 7b. GET CUSTOMER PROFILE BY PHONE
+  async getProfile(phone) {
+    const cleanPhone = (phone || '').replace(/\D/g, '').slice(-10);
+    try {
+      const res = await this.fetchApi('profiles', {
+        query: `?phone=eq.${cleanPhone}&select=*`
+      });
+      if (res && res.length > 0) return res[0];
+    } catch (err) {
+      // Fallback
+    }
+    return (this.fallbackData.profiles || []).find(p => p.phone === cleanPhone);
+  }
+
+  // 7c. REGISTER USER PROFILE (PHONE + PASSWORD HASH)
+  async registerUser(name, phone, passwordHash) {
+    const cleanPhone = (phone || '').replace(/\D/g, '').slice(-10);
+    const crypto = require('crypto');
+    const profileRecord = {
+      id: crypto.randomUUID(),
+      phone: cleanPhone,
+      full_name: name,
+      password_hash: passwordHash,
+      trust_score: 100.0,
+      total_orders: 0,
+      total_spent: 0.0,
+      pledge_signed: false,
+      created_at: new Date().toISOString()
+    };
+
+    if (!this.fallbackData.profiles) this.fallbackData.profiles = [];
+    const existingIdx = this.fallbackData.profiles.findIndex(p => p.phone === cleanPhone);
+    if (existingIdx >= 0) {
+      this.fallbackData.profiles[existingIdx] = { ...this.fallbackData.profiles[existingIdx], ...profileRecord };
+    } else {
+      this.fallbackData.profiles.push(profileRecord);
+    }
+    this.saveFallback();
+
+    // Persist to Supabase
+    try {
+      await this.fetchApi('profiles', {
+        method: 'POST',
+        headers: { 'Prefer': 'resolution=merge-duplicates' },
+        body: profileRecord
+      });
+      console.log(`[ServerSupabase] Profile for +91 ${cleanPhone} saved to Supabase.`);
+    } catch (err) {
+      console.warn(`[ServerSupabase] registerUser(${cleanPhone}) remote warning:`, err.message);
+    }
+
+    return profileRecord;
+  }
+
+
   // 8. GET ORDERS FOR CUSTOMER OR ADMIN
   async getOrders(phoneFilter = null) {
     let cleanPhone = phoneFilter ? phoneFilter.replace(/\D/g, '').slice(-10) : null;

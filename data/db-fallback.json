@@ -72,14 +72,7 @@
     }
   ],
   "orders": [],
-  "profiles": [
-    {
-      "phone": "9999999999",
-      "total_orders": 1,
-      "total_spent": 20,
-      "last_visit": "2026-09-25T16:05:05.672Z"
-    }
-  ],
+  "profiles": [],
   "stock_audits": [],
   "community_metrics": {
     "sales_today": 20,
