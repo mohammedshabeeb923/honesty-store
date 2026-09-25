@@ -83,24 +83,31 @@ class CashfreeClient {
 
       // If Cashfree SDK is ready, launch standard Cashfree Checkout Modal
       if (session.paymentSessionId) {
-        if (!this.cashfree && window.Cashfree) {
-          this.initCashfree();
+        // Guarantee Cashfree SDK mode matches backend session environment exactly (prevents 'session invalid' error)
+        const targetMode = (session.environment || 'PRODUCTION').toLowerCase() === 'production' ? 'production' : 'sandbox';
+        if (typeof window.Cashfree === 'function') {
+          this.cashfree = window.Cashfree({ mode: targetMode });
+          this.sdkLoaded = true;
+          console.log(`[Cashfree Client] Re-initialized SDK in ${targetMode} mode for session`);
         }
 
         if (this.cashfree) {
+          const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
           const checkoutOptions = {
             paymentSessionId: session.paymentSessionId,
-            redirectTarget: '_modal'
+            redirectTarget: isMobile ? '_self' : '_modal'
           };
 
           this.cashfree.checkout(checkoutOptions).then(async (result) => {
-            if (result.error) {
+            if (result && result.error) {
               alert('Payment cancelled or could not be completed: ' + (result.error.message || ''));
               return;
             }
 
             // Verify payment server-side via GET /pg/orders/{order_id}
             await this.verifyAndCompletePayment(orderId, session.orderAmount || total, cart);
+          }).catch(cErr => {
+            console.warn('[Cashfree Checkout Catch]:', cErr);
           });
         } else {
           // If Cashfree JS SDK is blocked by browser, redirect to Cashfree checkout directly

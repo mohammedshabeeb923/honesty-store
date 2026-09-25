@@ -127,7 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
       body: JSON.stringify({ orderId: returnOrderId })
     }).then(r => r.json()).then(data => {
       if (data.isPaid && window.cashfreeClient) {
-        window.cashfreeClient.handlePaymentSuccess(returnOrderId, data.orderAmount || 50, 'Cashfree Web Checkout');
+        window.cashfreeClient.handlePaymentSuccess(data.order || { id: returnOrderId, amount: data.orderAmount || 1, items: [] });
       }
     }).catch(e => console.warn('Return URL check warning:', e));
   }
