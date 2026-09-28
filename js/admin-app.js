@@ -625,10 +625,10 @@ class AdminApp {
         <tr style="${isArchived ? 'opacity: 0.65; background: #fafafa;' : ''}">
           <td style="vertical-align: middle;">
             <div style="width: 44px; height: 44px; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; background: #fff; display: flex; align-items: center; justify-content: center;">
-              <img src="${prod.image || 'assets/lays.png'}" 
+              <img src="${window.resolveProductImage ? window.resolveProductImage(prod.image, prod.id) : (prod.image || 'assets/lays.jpg')}" 
                    alt="${prod.name}" 
                    style="width: 100%; height: 100%; object-fit: contain;" 
-                   onerror="this.onerror=null;this.src='assets/lays.png';" />
+                   onerror="this.onerror=null;this.src='assets/lays.jpg';" />
             </div>
           </td>
           <td>

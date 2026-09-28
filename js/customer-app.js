@@ -248,10 +248,10 @@ class CustomerApp {
         <div class="product-card ${!canPurchase ? 'out-of-stock' : ''}" data-id="${prod.id}">
           <div class="card-img-wrap">
             ${isUnavailable ? '<span class="badge-low-stock" style="background:#ef4444; color:#fff;">UNAVAILABLE</span>' : (isLowStock ? '<span class="badge-low-stock">LOW STOCK</span>' : '')}
-            <img src="${prod.image || 'assets/lays.png'}" 
+            <img src="${window.resolveProductImage ? window.resolveProductImage(prod.image, prod.id) : (prod.image || 'assets/lays.jpg')}" 
                  alt="${prod.name}" 
                  loading="lazy" 
-                 onerror="this.onerror=null;this.src='assets/lays.png';" />
+                 onerror="this.onerror=null;this.src='assets/lays.jpg';" />
           </div>
           <div class="product-name" title="${prod.name}">${prod.name}</div>
           <div class="product-variant-line">${prod.variant || '&nbsp;'}</div>
@@ -361,10 +361,12 @@ class CustomerApp {
           </div>
         `;
       } else {
-        this.cartItemsList.innerHTML = cart.map(item => `
+        this.cartItemsList.innerHTML = cart.map(item => {
+          const itemImg = window.resolveProductImage ? window.resolveProductImage(item.image, item.id) : (item.image || 'assets/lays.jpg');
+          return `
           <div class="cart-row-item">
             <div class="cart-item-info">
-              <img src="${item.image}" class="cart-item-img" alt="${item.name}" />
+              <img src="${itemImg}" class="cart-item-img" alt="${item.name}" onerror="this.onerror=null;this.src='assets/lays.jpg';" />
               <div class="cart-item-text">
                 <h4>${item.name}</h4>
                 <p>₹${item.price} each</p>
@@ -377,7 +379,8 @@ class CustomerApp {
               <div style="font-weight: 800; font-size: 14px; margin-left: 8px;">₹${item.price * item.qty}</div>
             </div>
           </div>
-        `).join('');
+        `;
+        }).join('');
       }
     }
   }
@@ -500,11 +503,13 @@ class CustomerApp {
     if (this.cartFullSubtotal) this.cartFullSubtotal.innerText = `₹${total}`;
     if (this.cartFullTotal) this.cartFullTotal.innerText = `₹${total}`;
 
-    this.cartFullItemsList.innerHTML = cart.map(item => `
+    this.cartFullItemsList.innerHTML = cart.map(item => {
+      const itemImg = window.resolveProductImage ? window.resolveProductImage(item.image, item.id) : (item.image || 'assets/lays.jpg');
+      return `
       <div class="cart-item-card">
         <div class="cart-item-card-left">
           <div class="cart-item-card-thumb">
-            <img src="${item.image}" alt="${item.name}" />
+            <img src="${itemImg}" alt="${item.name}" onerror="this.onerror=null;this.src='assets/lays.jpg';" />
           </div>
           <div class="cart-item-card-meta">
             <h4>${item.name}</h4>
@@ -527,7 +532,8 @@ class CustomerApp {
           <div class="cart-item-card-price" style="min-width: 50px; text-align: right;">₹${item.price * item.qty}</div>
         </div>
       </div>
-    `).join('');
+    `;
+    }).join('');
   }
 
   confirmPayment(method = 'UPI') {

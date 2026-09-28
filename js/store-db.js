@@ -4,7 +4,30 @@
  * STRICT ISOLATION: User orders are private to each authenticated user (auth.uid()).
  */
 
-const UI_STORAGE_KEY = 'honesty_store_client_state_v2';
+const UI_STORAGE_KEY = 'honesty_store_client_state_v4';
+
+function resolveProductImage(img, id = '') {
+  const s = String(img || '').toLowerCase();
+  const idStr = String(id || '').toLowerCase();
+
+  // If already an absolute URL (e.g. Supabase Storage), return as-is
+  if (s.startsWith('http://') || s.startsWith('https://') || s.startsWith('data:')) {
+    return img;
+  }
+
+  if (s.includes('bournvita') || idStr.includes('bournvita')) return 'assets/bournvita.jpg';
+  if (s.includes('chocos') || idStr.includes('chocos')) return 'assets/chocos.jpg';
+  if (s.includes('dailee') || idStr.includes('dailee')) return 'assets/dailee_mango.jpg';
+  if (s.includes('munch') || idStr.includes('munch')) return 'assets/munch.jpg';
+  if (s.includes('snickers') || idStr.includes('snickers')) return 'assets/snickers.jpg';
+  if (s.includes('oreo') || idStr.includes('oreo')) return 'assets/oreo.jpg';
+  if (s.includes('lays') || s.includes('lay') || idStr.includes('lays')) return 'assets/lays.jpg';
+  if (s.includes('dairymilk') || idStr.includes('dairymilk')) return 'assets/dairymilk.png';
+  if (s.includes('parleg') || idStr.includes('parleg')) return 'assets/parleg.png';
+
+  return img || 'assets/lays.jpg';
+}
+window.resolveProductImage = resolveProductImage;
 
 const DEFAULT_PRODUCTS = [
   {
