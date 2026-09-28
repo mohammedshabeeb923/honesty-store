@@ -470,7 +470,7 @@ const server = http.createServer(async (req, res) => {
 
   // 6. Admin Dashboard Aggregated Telemetry
   if (req.method === 'GET' && reqPath === '/api/admin/dashboard') {
-    if (!isAuthorizedAdmin(req)) {
+    if (!await isAuthorizedAdmin(req)) {
       sendJson(401, { success: false, message: 'Admin authorization required' });
       return;
     }
@@ -485,7 +485,7 @@ const server = http.createServer(async (req, res) => {
 
   // 7. Admin Users Telemetry (Sanitized - no password hashes exposed)
   if (req.method === 'GET' && reqPath === '/api/admin/users') {
-    if (!isAuthorizedAdmin(req)) {
+    if (!await isAuthorizedAdmin(req)) {
       sendJson(401, { success: false, message: 'Admin authorization required' });
       return;
     }
@@ -505,7 +505,7 @@ const server = http.createServer(async (req, res) => {
 
   // 8. Admin Adjust Stock
   if (req.method === 'POST' && reqPath === '/api/admin/adjust-stock') {
-    if (!isAuthorizedAdmin(req)) {
+    if (!await isAuthorizedAdmin(req)) {
       sendJson(401, { success: false, message: 'Admin authorization required' });
       return;
     }
@@ -522,20 +522,156 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // 8b. Admin Get All Products (including archived)
+  if (req.method === 'GET' && reqPath === '/api/admin/products') {
+    if (!await isAuthorizedAdmin(req)) {
+      sendJson(401, { success: false, message: 'Admin authorization required' });
+      return;
+    }
+    try {
+      const products = await serverSupabase.getProducts(true);
+      sendJson(200, { success: true, products });
+    } catch (err) {
+      sendJson(500, { success: false, error: err.message });
+    }
+    return;
+  }
+
   // 9. Admin Add Product
   if (req.method === 'POST' && reqPath === '/api/admin/add-product') {
-    if (!isAuthorizedAdmin(req)) {
+    if (!await isAuthorizedAdmin(req)) {
       sendJson(401, { success: false, message: 'Admin authorization required' });
       return;
     }
     try {
       const productData = await parseJsonBody(req);
-      if (!productData.name || !productData.price) {
+      if (!productData.name || productData.price === undefined) {
         throw new Error('Product name and price are required');
       }
       const created = await serverSupabase.addProduct(productData);
       sendJson(200, { success: true, product: created });
     } catch (err) {
+      sendJson(400, { success: false, error: err.message });
+    }
+    return;
+  }
+
+  // 9b. Admin Update Product
+  if (req.method === 'POST' && reqPath === '/api/admin/update-product') {
+    if (!await isAuthorizedAdmin(req)) {
+      sendJson(401, { success: false, message: 'Admin authorization required' });
+      return;
+    }
+    try {
+      const body = await parseJsonBody(req);
+      const targetId = body.id || body.productId;
+      if (!targetId) {
+        throw new Error('Product ID is required');
+      }
+      const updated = await serverSupabase.updateProduct(targetId, body);
+      sendJson(200, { success: true, product: updated });
+    } catch (err) {
+      sendJson(400, { success: false, error: err.message });
+    }
+    return;
+  }
+
+  // 9c. Admin Archive / Restore Product
+  if (req.method === 'POST' && reqPath === '/api/admin/archive-product') {
+    if (!await isAuthorizedAdmin(req)) {
+      sendJson(401, { success: false, message: 'Admin authorization required' });
+      return;
+    }
+    try {
+      const body = await parseJsonBody(req);
+      const targetId = body.id || body.productId;
+      if (!targetId) {
+        throw new Error('Product ID is required');
+      }
+      const isActive = body.isActive !== undefined ? body.isActive : (body.is_active !== undefined ? body.is_active : false);
+      const updated = await serverSupabase.archiveProduct(targetId, isActive);
+      sendJson(200, { success: true, product: updated });
+    } catch (err) {
+      sendJson(400, { success: false, error: err.message });
+    }
+    return;
+  }
+
+  // 9d. Admin Check Can Delete Product
+  if (req.method === 'POST' && reqPath === '/api/admin/can-delete-product') {
+    if (!await isAuthorizedAdmin(req)) {
+      sendJson(401, { success: false, message: 'Admin authorization required' });
+      return;
+    }
+    try {
+      const body = await parseJsonBody(req);
+      const targetId = body.id || body.productId;
+      if (!targetId) {
+        throw new Error('Product ID is required');
+      }
+      const canDelete = await serverSupabase.canDeleteProduct(targetId);
+      sendJson(200, { success: true, canDelete });
+    } catch (err) {
+      sendJson(400, { success: false, error: err.message });
+    }
+    return;
+  }
+
+  // 9e. Admin Delete Product (Permanent, with past order protection)
+  if (req.method === 'POST' && reqPath === '/api/admin/delete-product') {
+    if (!await isAuthorizedAdmin(req)) {
+      sendJson(401, { success: false, message: 'Admin authorization required' });
+      return;
+    }
+    try {
+      const body = await parseJsonBody(req);
+      const targetId = body.id || body.productId;
+      if (!targetId) {
+        throw new Error('Product ID is required');
+      }
+      const result = await serverSupabase.deleteProduct(targetId);
+      sendJson(200, { success: true, ...result });
+    } catch (err) {
+      sendJson(400, { success: false, error: err.message });
+    }
+    return;
+  }
+
+  // 9f. Admin Upload Product Image (Storage Bucket: product-images)
+  if (req.method === 'POST' && reqPath === '/api/admin/upload-product-image') {
+    if (!await isAuthorizedAdmin(req)) {
+      sendJson(401, { success: false, message: 'Admin authorization required' });
+      return;
+    }
+    try {
+      const { fileName, contentType, base64Data, productId } = await parseJsonBody(req);
+      if (!base64Data) {
+        throw new Error('Image data (base64) is required');
+      }
+
+      const mime = contentType || 'image/jpeg';
+      let ext = 'jpg';
+      if (mime.includes('png')) ext = 'png';
+      else if (mime.includes('webp')) ext = 'webp';
+
+      const cleanPrefix = (productId || 'prod_' + Date.now()).replace(/[^a-zA-Z0-9_-]/g, '_');
+      const uniqueFileName = `${cleanPrefix}_${Date.now()}.${ext}`;
+
+      const rawBase64 = base64Data.replace(/^data:image\/[a-z]+;base64,/, '');
+      const buffer = Buffer.from(rawBase64, 'base64');
+
+      if (buffer.length > 5 * 1024 * 1024) {
+        throw new Error('Optimized image exceeds 5MB limit');
+      }
+
+      const uploaded = await serverSupabase.uploadStorageImage(buffer, uniqueFileName, mime);
+      sendJson(200, {
+        success: true,
+        imageUrl: uploaded.publicUrl,
+        storagePath: uploaded.storagePath
+      });
+    } catch (err) {
+      console.error('[Admin Upload Image Error]:', err.message);
       sendJson(400, { success: false, error: err.message });
     }
     return;
@@ -581,7 +717,7 @@ const server = http.createServer(async (req, res) => {
 
   // 12. Admin Gateway Config Save Route
   if (req.method === 'POST' && reqPath === '/api/admin/save-gateway-config') {
-    if (!isAuthorizedAdmin(req)) {
+    if (!await isAuthorizedAdmin(req)) {
       sendJson(401, { success: false, message: 'Admin authorization required' });
       return;
     }

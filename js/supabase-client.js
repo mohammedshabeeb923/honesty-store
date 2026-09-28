@@ -363,56 +363,288 @@ class SupabaseClient {
   }
 
   /**
+   * Optimize product photo client-side before upload
+   * Resizes image to maxDimension (default 1024px) keeping aspect ratio,
+   * compresses to JPEG quality ~0.82 to keep file size under 150KB.
+   */
+  async optimizeImage(file, maxDimension = 1024, quality = 0.82) {
+    return new Promise((resolve, reject) => {
+      if (!file || !file.type.startsWith('image/')) {
+        return reject(new Error('Please select a valid image file (JPG, PNG, or WebP)'));
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+              height = Math.round((height * maxDimension) / width);
+              width = maxDimension;
+            } else {
+              width = Math.round((width * maxDimension) / height);
+              height = maxDimension;
+            }
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          const outputType = 'image/jpeg';
+          canvas.toBlob((blob) => {
+            if (!blob) {
+              return reject(new Error('Canvas compression failed'));
+            }
+            const dataUrl = canvas.toDataURL(outputType, quality);
+            resolve({
+              blob,
+              dataUrl,
+              base64: dataUrl,
+              width,
+              height,
+              size: blob.size,
+              type: outputType
+            });
+          }, outputType, quality);
+        };
+        img.onerror = () => reject(new Error('Failed to load image for processing'));
+        img.src = e.target.result;
+      };
+      reader.onerror = () => reject(new Error('Failed to read file from device'));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  /**
+   * Upload product image to Supabase Storage bucket 'product-images'
+   * Tries direct Supabase Storage SDK upload first, falls back to server proxy.
+   */
+  async uploadProductImage(file, productId = '') {
+    const optimized = await this.optimizeImage(file);
+    const cleanId = (productId || 'prod_' + Date.now()).replace(/[^a-zA-Z0-9_-]/g, '_');
+    const fileName = `${cleanId}_${Date.now()}.jpg`;
+
+    // 1. Try Direct Supabase Storage Upload if user is authenticated with Supabase
+    if (this.client && this.client.storage) {
+      try {
+        const { data, error } = await this.client.storage
+          .from('product-images')
+          .upload(fileName, optimized.blob, {
+            contentType: 'image/jpeg',
+            upsert: true
+          });
+
+        if (!error && data) {
+          const { data: urlData } = this.client.storage
+            .from('product-images')
+            .getPublicUrl(fileName);
+          return {
+            publicUrl: urlData.publicUrl,
+            storagePath: fileName,
+            optimized
+          };
+        }
+      } catch (err) {
+        console.warn('[SupabaseClient] Direct storage upload failed, using server proxy:', err.message);
+      }
+    }
+
+    // 2. Reliable Server Proxy Upload
+    const adminToken = localStorage.getItem('honesty_admin_token') || '';
+    const res = await fetch('/api/admin/upload-product-image', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {})
+      },
+      body: JSON.stringify({
+        fileName,
+        contentType: 'image/jpeg',
+        base64Data: optimized.base64,
+        productId: cleanId
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Upload failed' }));
+      throw new Error(err.error || 'Could not upload image to server');
+    }
+
+    const data = await res.json();
+    return {
+      publicUrl: data.imageUrl,
+      storagePath: data.storagePath,
+      optimized
+    };
+  }
+
+  /**
+   * Delete product image from Supabase Storage
+   */
+  async deleteProductImage(storagePath) {
+    if (!storagePath) return;
+    if (this.client && this.client.storage) {
+      try {
+        await this.client.storage.from('product-images').remove([storagePath]);
+      } catch (e) {}
+    }
+  }
+
+  /**
    * Admin: Add new product to Supabase
    */
   async addProduct(product) {
-    if (!this.client) return null;
-    try {
-      const { data, error } = await this.client
-        .from('products')
-        .insert([{
-          id: product.id,
-          name: product.name,
-          variant: product.variant || '',
-          category: product.category || 'Chips',
-          price: Number(product.price) || 0,
-          stock: Number(product.stock) || 0,
-          expected_stock: Number(product.stock) || 0,
-          physical_stock: Number(product.stock) || 0,
-          image_url: product.image || product.image_url || 'assets/lays.png',
-          low_stock_threshold: product.lowStockThreshold || 5,
-          is_active: true
-        }])
-        .select()
-        .single();
+    const payload = {
+      id: product.id || ('prod_' + Date.now()),
+      name: product.name,
+      description: product.description || '',
+      variant: product.variant || '',
+      category: product.category || 'Chips',
+      price: Number(product.price) || 0,
+      selling_price: product.selling_price !== undefined ? Number(product.selling_price) : (product.sellingPrice !== undefined ? Number(product.sellingPrice) : Number(product.price) || 0),
+      stock: Number(product.stock) || 0,
+      expected_stock: Number(product.stock) || 0,
+      physical_stock: Number(product.stock) || 0,
+      image_url: product.image_url || product.imageUrl || product.image || 'assets/lays.png',
+      storage_path: product.storage_path || product.storagePath || null,
+      low_stock_threshold: product.low_stock_threshold || product.lowStockThreshold || 5,
+      is_active: product.is_active !== undefined ? Boolean(product.is_active) : (product.isActive !== undefined ? Boolean(product.isActive) : true)
+    };
 
-      if (error) throw error;
-      return data;
-    } catch (e) {
-      console.error('[SupabaseClient] addProduct error:', e);
-      throw e;
+    if (this.client) {
+      try {
+        const { data, error } = await this.client
+          .from('products')
+          .insert([payload])
+          .select()
+          .single();
+
+        if (!error && data) return data;
+      } catch (e) {
+        console.warn('[SupabaseClient] Direct addProduct warning, falling back to server API:', e);
+      }
     }
+
+    // Fallback to server endpoint
+    const adminToken = localStorage.getItem('honesty_admin_token') || '';
+    const res = await fetch('/api/admin/add-product', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {})
+      },
+      body: JSON.stringify(payload)
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Failed to add product');
+    return result.product;
   }
 
   /**
    * Admin: Update product details / stock in Supabase
    */
   async updateProduct(id, updates) {
-    if (!this.client) return null;
-    try {
-      const { data, error } = await this.client
-        .from('products')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    } catch (e) {
-      console.error('[SupabaseClient] updateProduct error:', e);
-      throw e;
+    const patchPayload = { ...updates };
+    if (patchPayload.sellingPrice !== undefined && patchPayload.selling_price === undefined) {
+      patchPayload.selling_price = patchPayload.sellingPrice;
     }
+    if (patchPayload.imageUrl !== undefined && patchPayload.image_url === undefined) {
+      patchPayload.image_url = patchPayload.imageUrl;
+    }
+    if (patchPayload.storagePath !== undefined && patchPayload.storage_path === undefined) {
+      patchPayload.storage_path = patchPayload.storagePath;
+    }
+    if (patchPayload.isActive !== undefined && patchPayload.is_active === undefined) {
+      patchPayload.is_active = patchPayload.isActive;
+    }
+    if (patchPayload.lowStockThreshold !== undefined && patchPayload.low_stock_threshold === undefined) {
+      patchPayload.low_stock_threshold = patchPayload.lowStockThreshold;
+    }
+
+    if (this.client) {
+      try {
+        const { data, error } = await this.client
+          .from('products')
+          .update(patchPayload)
+          .eq('id', id)
+          .select()
+          .single();
+
+        if (!error && data) return data;
+      } catch (e) {
+        console.warn('[SupabaseClient] Direct updateProduct warning, falling back to server API:', e);
+      }
+    }
+
+    const adminToken = localStorage.getItem('honesty_admin_token') || '';
+    const res = await fetch('/api/admin/update-product', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {})
+      },
+      body: JSON.stringify({ id, ...patchPayload })
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Failed to update product');
+    return result.product;
+  }
+
+  /**
+   * Admin: Archive / restore product
+   */
+  async archiveProduct(id, isActive = false) {
+    const adminToken = localStorage.getItem('honesty_admin_token') || '';
+    const res = await fetch('/api/admin/archive-product', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {})
+      },
+      body: JSON.stringify({ id, isActive })
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Failed to update product status');
+    return result.product;
+  }
+
+  /**
+   * Admin: Check if product can be safely deleted (not referenced in orders)
+   */
+  async canDeleteProduct(id) {
+    const adminToken = localStorage.getItem('honesty_admin_token') || '';
+    const res = await fetch('/api/admin/can-delete-product', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {})
+      },
+      body: JSON.stringify({ id })
+    });
+    const result = await res.json();
+    return result.canDelete !== false;
+  }
+
+  /**
+   * Admin: Permanently delete product
+   */
+  async deleteProduct(id) {
+    const adminToken = localStorage.getItem('honesty_admin_token') || '';
+    const res = await fetch('/api/admin/delete-product', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {})
+      },
+      body: JSON.stringify({ id })
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Failed to delete product');
+    return result;
   }
 
   /**

@@ -229,19 +229,28 @@ class CustomerApp {
       const isLowStock = prod.stock > 0 && prod.stock <= (prod.lowStockThreshold || 5);
       const cartItem = cart.find(i => i.id === prod.id);
       const cartQty = cartItem ? cartItem.qty : 0;
+      const hasDiscount = prod.sellingPrice !== null && prod.sellingPrice !== undefined && Number(prod.sellingPrice) < Number(prod.price);
+      const displayPrice = hasDiscount ? prod.sellingPrice : prod.price;
 
       return `
         <div class="product-card ${isOutOfStock ? 'out-of-stock' : ''}" data-id="${prod.id}">
           <div class="card-img-wrap">
             ${isLowStock ? '<span class="badge-low-stock">LOW STOCK</span>' : ''}
-            <img src="${prod.image}" alt="${prod.name}" />
+            <img src="${prod.image || 'assets/lays.png'}" 
+                 alt="${prod.name}" 
+                 loading="lazy" 
+                 onerror="this.onerror=null;this.src='assets/lays.png';" />
           </div>
           <div class="product-name">${prod.name}</div>
+          ${prod.variant ? `<div style="font-size:11px; color:#64748b; margin-top:-3px; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${prod.variant}</div>` : ''}
           <div class="product-stock-line ${isLowStock ? 'warning' : ''}">
             ${isLowStock ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:-1px; margin-right:3px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' : ''}${prod.stock} IN STOCK
           </div>
           <div class="product-bottom-row">
-            <div class="product-price">₹${prod.price}</div>
+            <div class="product-price">
+              ₹${displayPrice}
+              ${hasDiscount ? `<span style="font-size:11px; text-decoration:line-through; color:#94a3b8; margin-left:4px; font-weight:400;">₹${prod.price}</span>` : ''}
+            </div>
             ${cartQty > 0 ? `
               <div class="product-stepper">
                 <button class="stepper-btn minus" onclick="window.customerApp.reduceCartItem('${prod.id}')" title="Reduce quantity">

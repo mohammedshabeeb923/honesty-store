@@ -19,6 +19,7 @@ class AdminApp {
     this.sidebarItems = document.querySelectorAll('.sidebar-nav-item');
     this.tabViews = {
       inventory: document.getElementById('admin-tab-inventory'),
+      products: document.getElementById('admin-tab-products'),
       dashboard: document.getElementById('admin-tab-dashboard'),
       sales: document.getElementById('admin-tab-sales'),
       users: document.getElementById('admin-tab-users'),
@@ -56,7 +57,8 @@ class AdminApp {
     if (this.searchInput) {
       this.searchInput.addEventListener('input', (e) => {
         this.searchQuery = e.target.value.toLowerCase();
-        this.renderStockList();
+        if (this.activeTab === 'inventory') this.renderStockList();
+        else if (this.activeTab === 'products') this.renderProductsTab();
       });
     }
 
@@ -72,8 +74,89 @@ class AdminApp {
     const btnAddProduct = document.getElementById('btn-open-add-product');
     if (btnAddProduct) {
       btnAddProduct.addEventListener('click', () => {
-        const modal = document.getElementById('add-product-modal');
-        if (modal) modal.classList.add('active');
+        this.openProductModal();
+      });
+    }
+
+    // Product Editor Modal Close Buttons
+    const btnCloseProdModal = document.getElementById('btn-close-prod-modal');
+    if (btnCloseProdModal) {
+      btnCloseProdModal.addEventListener('click', () => {
+        const modal = document.getElementById('product-editor-modal');
+        if (modal) modal.classList.remove('active');
+      });
+    }
+
+    const btnCancelProdModal = document.getElementById('btn-cancel-prod-modal');
+    if (btnCancelProdModal) {
+      btnCancelProdModal.addEventListener('click', () => {
+        const modal = document.getElementById('product-editor-modal');
+        if (modal) modal.classList.remove('active');
+      });
+    }
+
+    // Product Photo File Input Handler
+    const prodFileInput = document.getElementById('prod-file-input');
+    if (prodFileInput) {
+      prodFileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+          this.handlePhotoSelected(e.target.files[0]);
+        }
+      });
+    }
+
+    // Drag and Drop on Photo Dropzone
+    const dropzone = document.getElementById('photo-dropzone');
+    if (dropzone) {
+      ['dragenter', 'dragover'].forEach(name => {
+        dropzone.addEventListener(name, (e) => {
+          e.preventDefault();
+          dropzone.style.background = '#e0f2fe';
+          dropzone.style.borderColor = '#0284c7';
+        });
+      });
+      ['dragleave', 'drop'].forEach(name => {
+        dropzone.addEventListener(name, (e) => {
+          e.preventDefault();
+          dropzone.style.background = '#ffffff';
+          dropzone.style.borderColor = '#94a3b8';
+        });
+      });
+      dropzone.addEventListener('drop', (e) => {
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+          this.handlePhotoSelected(e.dataTransfer.files[0]);
+        }
+      });
+    }
+
+    // Remove Photo Button
+    const btnRemovePhoto = document.getElementById('btn-remove-photo');
+    if (btnRemovePhoto) {
+      btnRemovePhoto.addEventListener('click', () => {
+        this.removePhoto();
+      });
+    }
+
+    // Product Filters (Category & Status)
+    const catFilter = document.getElementById('prod-filter-category');
+    if (catFilter) {
+      catFilter.addEventListener('change', () => {
+        this.renderProductsTab();
+      });
+    }
+
+    const statusFilter = document.getElementById('prod-filter-status');
+    if (statusFilter) {
+      statusFilter.addEventListener('change', () => {
+        this.renderProductsTab();
+      });
+    }
+
+    // Save Product Form (Handles both Add and Edit)
+    const productEditorForm = document.getElementById('product-editor-form');
+    if (productEditorForm) {
+      productEditorForm.addEventListener('submit', async (e) => {
+        await this.saveProduct(e);
       });
     }
 
@@ -86,32 +169,6 @@ class AdminApp {
         const note = document.getElementById('adjust-stock-note').value;
         await window.storeDB.adjustStock(this.selectedProductId, newStock, note);
         document.getElementById('adjust-stock-modal').classList.remove('active');
-        this.render();
-      });
-    }
-
-    // Save Add Product Form
-    const addProductForm = document.getElementById('add-product-form');
-    if (addProductForm) {
-      addProductForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const name = document.getElementById('new-prod-name').value;
-        const variant = document.getElementById('new-prod-variant').value;
-        const category = document.getElementById('new-prod-category').value;
-        const price = document.getElementById('new-prod-price').value;
-        const stock = document.getElementById('new-prod-stock').value;
-
-        await window.storeDB.addProduct({
-          name,
-          variant,
-          category,
-          price,
-          stock,
-          image: 'assets/lays.png'
-        });
-
-        document.getElementById('add-product-modal').classList.remove('active');
-        addProductForm.reset();
         this.render();
       });
     }
@@ -186,12 +243,392 @@ class AdminApp {
     if (this.activeTab === 'inventory') {
       this.renderStockList();
       this.renderDetailPanel();
+    } else if (this.activeTab === 'products') {
+      this.renderProductsTab();
     } else if (this.activeTab === 'dashboard') {
       this.renderDashboard();
     } else if (this.activeTab === 'sales') {
       this.renderSales();
     } else if (this.activeTab === 'users') {
       this.renderUsers();
+    }
+  }
+
+  // Open Product Modal (Add or Edit)
+  openProductModal(productId = null) {
+    const modal = document.getElementById('product-editor-modal');
+    if (!modal) return;
+
+    const titleEl = document.getElementById('prod-modal-title');
+    const form = document.getElementById('product-editor-form');
+    const idInput = document.getElementById('editor-prod-id');
+    const nameInput = document.getElementById('editor-prod-name');
+    const variantInput = document.getElementById('editor-prod-variant');
+    const catInput = document.getElementById('editor-prod-category');
+    const descInput = document.getElementById('editor-prod-description');
+    const priceInput = document.getElementById('editor-prod-price');
+    const sellPriceInput = document.getElementById('editor-prod-selling-price');
+    const stockInput = document.getElementById('editor-prod-stock');
+    const threshInput = document.getElementById('editor-prod-threshold');
+    const activeInput = document.getElementById('editor-prod-active');
+    const imgUrlInput = document.getElementById('editor-image-url');
+    const storagePathInput = document.getElementById('editor-storage-path');
+    const dropzone = document.getElementById('photo-dropzone');
+    const previewCard = document.getElementById('photo-preview-card');
+    const previewImg = document.getElementById('photo-preview-img');
+    const statusBadge = document.getElementById('photo-status-badge');
+    const sizeBadge = document.getElementById('photo-size-badge');
+    const submitText = document.getElementById('btn-save-prod-text');
+
+    form.reset();
+
+    if (productId) {
+      const prod = window.storeDB.getProduct(productId);
+      if (!prod) return;
+
+      if (titleEl) titleEl.innerText = `Edit Product: ${prod.name}`;
+      if (submitText) submitText.innerText = 'Update Product';
+      if (idInput) idInput.value = prod.id;
+      if (nameInput) nameInput.value = prod.name || '';
+      if (variantInput) variantInput.value = prod.variant || '';
+      if (catInput) catInput.value = prod.category || 'Chips';
+      if (descInput) descInput.value = prod.description || '';
+      if (priceInput) priceInput.value = prod.price || 20;
+      if (sellPriceInput) sellPriceInput.value = (prod.sellingPrice !== null && prod.sellingPrice !== undefined) ? prod.sellingPrice : '';
+      if (stockInput) stockInput.value = prod.stock !== undefined ? prod.stock : 0;
+      if (threshInput) threshInput.value = prod.lowStockThreshold || 5;
+      if (activeInput) activeInput.checked = prod.isActive !== false;
+      if (imgUrlInput) imgUrlInput.value = prod.image || 'assets/lays.png';
+      if (storagePathInput) storagePathInput.value = prod.storagePath || '';
+
+      if (prod.image && prod.image !== 'assets/lays.png') {
+        dropzone.style.display = 'none';
+        previewCard.style.display = 'flex';
+        previewImg.src = prod.image;
+        if (statusBadge) {
+          statusBadge.innerText = 'Current Image';
+          statusBadge.className = 'badge-tag success';
+        }
+        if (sizeBadge) sizeBadge.innerText = 'Supabase Storage';
+      } else {
+        dropzone.style.display = 'block';
+        previewCard.style.display = 'none';
+      }
+    } else {
+      if (titleEl) titleEl.innerText = 'Add Shelf Product';
+      if (submitText) submitText.innerText = 'Add to Shelf';
+      if (idInput) idInput.value = '';
+      if (imgUrlInput) imgUrlInput.value = 'assets/lays.png';
+      if (storagePathInput) storagePathInput.value = '';
+      if (priceInput) priceInput.value = '20';
+      if (stockInput) stockInput.value = '15';
+      if (threshInput) threshInput.value = '5';
+      if (activeInput) activeInput.checked = true;
+      dropzone.style.display = 'block';
+      previewCard.style.display = 'none';
+    }
+
+    modal.classList.add('active');
+  }
+
+  // Handle Photo Selection & Canvas Optimization
+  async handlePhotoSelected(file) {
+    if (!file) return;
+
+    const dropzone = document.getElementById('photo-dropzone');
+    const previewCard = document.getElementById('photo-preview-card');
+    const previewImg = document.getElementById('photo-preview-img');
+    const spinner = document.getElementById('photo-upload-spinner');
+    const statusBadge = document.getElementById('photo-status-badge');
+    const sizeBadge = document.getElementById('photo-size-badge');
+    const imgUrlInput = document.getElementById('editor-image-url');
+    const storagePathInput = document.getElementById('editor-storage-path');
+    const prodId = document.getElementById('editor-prod-id').value;
+
+    dropzone.style.display = 'none';
+    previewCard.style.display = 'flex';
+    spinner.style.display = 'flex';
+    if (statusBadge) {
+      statusBadge.innerText = 'Processing...';
+      statusBadge.className = 'badge-tag warning';
+    }
+
+    try {
+      // 1. Optimize on client canvas
+      const optimized = await window.supabaseClient.optimizeImage(file);
+      previewImg.src = optimized.dataUrl;
+
+      const kb = Math.round(optimized.size / 1024);
+      if (sizeBadge) sizeBadge.innerText = `${kb} KB (${optimized.width}x${optimized.height})`;
+
+      // 2. Upload to Supabase Storage
+      const uploadResult = await window.supabaseClient.uploadProductImage(file, prodId);
+      imgUrlInput.value = uploadResult.publicUrl;
+      storagePathInput.value = uploadResult.storagePath;
+
+      if (statusBadge) {
+        statusBadge.innerText = 'Uploaded';
+        statusBadge.className = 'badge-tag success';
+      }
+      if (window.showToast) window.showToast('Product photo uploaded & optimized successfully!', 'success');
+    } catch (err) {
+      console.error('[Photo Upload Error]:', err);
+      if (statusBadge) {
+        statusBadge.innerText = 'Upload Error';
+        statusBadge.className = 'badge-tag danger';
+      }
+      alert('Photo upload failed: ' + err.message);
+    } finally {
+      spinner.style.display = 'none';
+    }
+  }
+
+  removePhoto() {
+    const dropzone = document.getElementById('photo-dropzone');
+    const previewCard = document.getElementById('photo-preview-card');
+    const imgUrlInput = document.getElementById('editor-image-url');
+    const storagePathInput = document.getElementById('editor-storage-path');
+    const fileInput = document.getElementById('prod-file-input');
+
+    if (fileInput) fileInput.value = '';
+    imgUrlInput.value = 'assets/lays.png';
+    storagePathInput.value = '';
+    previewCard.style.display = 'none';
+    dropzone.style.display = 'block';
+  }
+
+  // Save Product (Create or Update)
+  async saveProduct(e) {
+    e.preventDefault();
+    const id = document.getElementById('editor-prod-id').value;
+    const name = document.getElementById('editor-prod-name').value.trim();
+    const variant = document.getElementById('editor-prod-variant').value.trim();
+    const category = document.getElementById('editor-prod-category').value;
+    const description = document.getElementById('editor-prod-description').value.trim();
+    const price = parseFloat(document.getElementById('editor-prod-price').value);
+    const sellPriceRaw = document.getElementById('editor-prod-selling-price').value;
+    const sellingPrice = sellPriceRaw ? parseFloat(sellPriceRaw) : price;
+    const stock = parseInt(document.getElementById('editor-prod-stock').value, 10);
+    const threshold = parseInt(document.getElementById('editor-prod-threshold').value, 10) || 5;
+    const isActive = document.getElementById('editor-prod-active').checked;
+    const imageUrl = document.getElementById('editor-image-url').value || 'assets/lays.png';
+    const storagePath = document.getElementById('editor-storage-path').value || null;
+
+    if (!name) {
+      alert('Please enter a product name');
+      return;
+    }
+    if (isNaN(price) || price < 0.5) {
+      alert('Please enter a valid MRP price (min ₹0.5)');
+      return;
+    }
+    if (isNaN(stock) || stock < 0) {
+      alert('Stock quantity cannot be negative');
+      return;
+    }
+
+    const payload = {
+      name,
+      variant,
+      category,
+      description,
+      price,
+      sellingPrice,
+      selling_price: sellingPrice,
+      stock,
+      lowStockThreshold: threshold,
+      low_stock_threshold: threshold,
+      isActive,
+      is_active: isActive,
+      image: imageUrl,
+      imageUrl,
+      image_url: imageUrl,
+      storagePath,
+      storage_path: storagePath
+    };
+
+    const submitBtn = document.getElementById('btn-save-prod-modal');
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.style.opacity = '0.6';
+    }
+
+    try {
+      if (id) {
+        await window.storeDB.updateProduct(id, payload);
+        if (window.showToast) window.showToast(`Updated product "${name}"`, 'success');
+      } else {
+        await window.storeDB.addProduct(payload);
+        if (window.showToast) window.showToast(`Added new shelf product "${name}"`, 'success');
+      }
+
+      document.getElementById('product-editor-modal').classList.remove('active');
+      this.render();
+    } catch (err) {
+      alert('Could not save product: ' + err.message);
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = '1';
+      }
+    }
+  }
+
+  // Render Products Tab (List Table, Filters, Badges)
+  renderProductsTab() {
+    const tbody = document.getElementById('admin-products-tbody');
+    if (!tbody) return;
+
+    const allProducts = window.storeDB.data.products || [];
+    const catFilter = document.getElementById('prod-filter-category')?.value || 'All';
+    const statusFilter = document.getElementById('prod-filter-status')?.value || 'all';
+
+    // Update stats pills
+    const totalCount = allProducts.length;
+    const activeCount = allProducts.filter(p => p.isActive !== false).length;
+    const lowCount = allProducts.filter(p => p.isActive !== false && p.stock > 0 && p.stock <= (p.lowStockThreshold || 5)).length;
+    const archivedCount = allProducts.filter(p => p.isActive === false).length;
+
+    const elTotal = document.getElementById('stat-prod-total');
+    const elActive = document.getElementById('stat-prod-active');
+    const elLow = document.getElementById('stat-prod-low');
+    const elArchived = document.getElementById('stat-prod-archived');
+    if (elTotal) elTotal.innerText = totalCount;
+    if (elActive) elActive.innerText = activeCount;
+    if (elLow) elLow.innerText = lowCount;
+    if (elArchived) elArchived.innerText = archivedCount;
+
+    // Filter products
+    let filtered = allProducts;
+    if (catFilter !== 'All') {
+      filtered = filtered.filter(p => (p.category || '').toLowerCase() === catFilter.toLowerCase());
+    }
+    if (statusFilter === 'active') {
+      filtered = filtered.filter(p => p.isActive !== false);
+    } else if (statusFilter === 'archived') {
+      filtered = filtered.filter(p => p.isActive === false);
+    }
+    if (this.searchQuery) {
+      filtered = filtered.filter(p =>
+        (p.name || '').toLowerCase().includes(this.searchQuery) ||
+        (p.variant || '').toLowerCase().includes(this.searchQuery) ||
+        (p.category || '').toLowerCase().includes(this.searchQuery)
+      );
+    }
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" style="text-align: center; padding: 36px 14px; color: #64748b;">
+            No products match the selected criteria.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = filtered.map(prod => {
+      const isArchived = prod.isActive === false;
+      const isOutOfStock = Number(prod.stock) <= 0;
+      const isLowStock = !isOutOfStock && Number(prod.stock) <= (prod.lowStockThreshold || 5);
+
+      let stockBadge = '<span class="badge-tag success">In Stock</span>';
+      if (isOutOfStock) {
+        stockBadge = '<span class="badge-tag danger">Out of Stock</span>';
+      } else if (isLowStock) {
+        stockBadge = '<span class="badge-tag warning">Low Stock</span>';
+      }
+
+      const hasDiscount = prod.sellingPrice !== null && prod.sellingPrice !== undefined && Number(prod.sellingPrice) < Number(prod.price);
+      const priceDisplay = hasDiscount 
+        ? `<div style="font-weight: 700; color: #0f172a;">₹${prod.sellingPrice} <span style="font-size: 11px; text-decoration: line-through; color: #94a3b8; font-weight: 400;">₹${prod.price}</span></div>`
+        : `<div style="font-weight: 700; color: #0f172a;">₹${prod.price}</div>`;
+
+      return `
+        <tr style="${isArchived ? 'opacity: 0.65; background: #fafafa;' : ''}">
+          <td style="vertical-align: middle;">
+            <div style="width: 44px; height: 44px; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; background: #fff; display: flex; align-items: center; justify-content: center;">
+              <img src="${prod.image || 'assets/lays.png'}" 
+                   alt="${prod.name}" 
+                   style="width: 100%; height: 100%; object-fit: contain;" 
+                   onerror="this.onerror=null;this.src='assets/lays.png';" />
+            </div>
+          </td>
+          <td>
+            <div style="font-weight: 700; color: #0f172a; font-size: 14px;">${prod.name}</div>
+            ${prod.variant ? `<div style="font-size: 12px; color: #64748b; margin-top: 1px;">${prod.variant}</div>` : ''}
+            ${prod.description ? `<div style="font-size: 11px; color: #94a3b8; margin-top: 2px; max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${prod.description}</div>` : ''}
+          </td>
+          <td>
+            <span class="badge-tag muted">${prod.category || 'Chips'}</span>
+          </td>
+          <td>
+            ${priceDisplay}
+          </td>
+          <td>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-weight: 700; font-size: 13px;">${prod.stock} units</span>
+              ${stockBadge}
+            </div>
+          </td>
+          <td>
+            <span class="badge-tag ${isArchived ? 'muted' : 'success'}">
+              ${isArchived ? 'Archived' : 'Active'}
+            </span>
+          </td>
+          <td style="text-align: right;">
+            <div style="display: inline-flex; gap: 6px;">
+              <button class="btn-table-action edit" onclick="window.adminApp.openProductModal('${prod.id}')" title="Edit Product">
+                Edit
+              </button>
+              <button class="btn-table-action ${isArchived ? 'restore' : 'archive'}" 
+                      onclick="window.adminApp.toggleProductArchive('${prod.id}', ${!isArchived})" 
+                      title="${isArchived ? 'Restore to Shelf' : 'Archive (Hide from Shelf)'}">
+                ${isArchived ? 'Restore' : 'Archive'}
+              </button>
+              <button class="btn-table-action delete" onclick="window.adminApp.deleteProduct('${prod.id}')" title="Delete Product">
+                Delete
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  async toggleProductArchive(productId, makeArchived) {
+    const prod = window.storeDB.getProduct(productId);
+    const actionLabel = makeArchived ? 'Archive' : 'Restore';
+    if (!confirm(`Are you sure you want to ${actionLabel.toLowerCase()} "${prod ? prod.name : productId}"?`)) return;
+
+    try {
+      await window.storeDB.archiveProduct(productId, !makeArchived);
+      if (window.showToast) window.showToast(`Product ${makeArchived ? 'archived' : 'restored'} successfully`, 'success');
+      this.render();
+    } catch (err) {
+      alert('Could not update product status: ' + err.message);
+    }
+  }
+
+  async deleteProduct(productId) {
+    const prod = window.storeDB.getProduct(productId);
+    const prodName = prod ? prod.name : productId;
+
+    // Check if referenced in historical orders
+    const canDelete = await window.storeDB.canDeleteProduct(productId);
+    if (!canDelete) {
+      alert(`Cannot permanently delete "${prodName}" because it is part of past order receipts.\n\nPlease click "Archive" instead. Archiving will hide the product from the customer app while keeping order receipts and financial records intact.`);
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to PERMANENTLY delete "${prodName}"?\nThis cannot be undone.`)) return;
+
+    try {
+      await window.storeDB.deleteProduct(productId);
+      if (window.showToast) window.showToast(`Deleted product "${prodName}"`, 'success');
+      this.render();
+    } catch (err) {
+      alert('Could not delete product: ' + err.message);
     }
   }
 

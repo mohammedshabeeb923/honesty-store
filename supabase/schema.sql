@@ -89,17 +89,26 @@ CREATE TRIGGER on_auth_user_created
 CREATE TABLE IF NOT EXISTS public.products (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
+    description TEXT,
     variant TEXT,
-    category TEXT NOT NULL,
+    category TEXT NOT NULL DEFAULT 'Chips',
     price NUMERIC(10, 2) NOT NULL,
+    selling_price NUMERIC(10, 2),
     stock INTEGER DEFAULT 0,
     expected_stock INTEGER DEFAULT 0,
     physical_stock INTEGER DEFAULT 0,
-    image_url TEXT,
     low_stock_threshold INTEGER DEFAULT 5,
+    image_url TEXT,
+    storage_path TEXT,
     is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS selling_price NUMERIC(10, 2);
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS storage_path TEXT;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
 
 -- 4. ORDERS TABLE (Strictly linked to auth.users.id)
 CREATE TABLE IF NOT EXISTS public.orders (
@@ -400,3 +409,58 @@ ON CONFLICT (id) DO UPDATE SET
     price = EXCLUDED.price,
     image_url = EXCLUDED.image_url,
     is_active = true;
+
+-- 11. SUPABASE STORAGE BUCKET: product-images
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'product-images',
+  'product-images',
+  true,
+  5242880, -- 5 MB limit
+  ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/jpg']
+)
+ON CONFLICT (id) DO UPDATE SET
+  public = true,
+  file_size_limit = 5242880,
+  allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
+
+-- 12. STORAGE ROW LEVEL SECURITY (RLS) POLICIES
+ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public can view product images" ON storage.objects;
+CREATE POLICY "Public can view product images"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'product-images');
+
+DROP POLICY IF EXISTS "Admins can upload product images" ON storage.objects;
+CREATE POLICY "Admins can upload product images"
+ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (bucket_id = 'product-images' AND public.is_admin());
+
+DROP POLICY IF EXISTS "Admins can update product images" ON storage.objects;
+CREATE POLICY "Admins can update product images"
+ON storage.objects FOR UPDATE TO authenticated
+USING (bucket_id = 'product-images' AND public.is_admin())
+WITH CHECK (bucket_id = 'product-images' AND public.is_admin());
+
+DROP POLICY IF EXISTS "Admins can delete product images" ON storage.objects;
+CREATE POLICY "Admins can delete product images"
+ON storage.objects FOR DELETE TO authenticated
+USING (bucket_id = 'product-images' AND public.is_admin());
+
+-- 13. SAFE PRODUCT DELETION HELPER
+CREATE OR REPLACE FUNCTION public.can_delete_product(p_product_id TEXT)
+RETURNS BOOLEAN AS $$
+DECLARE
+  v_has_orders BOOLEAN;
+BEGIN
+  SELECT EXISTS (
+    SELECT 1 FROM public.orders,
+    jsonb_array_elements(items) AS item
+    WHERE item->>'id' = p_product_id
+  ) INTO v_has_orders;
+
+  RETURN NOT v_has_orders;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+

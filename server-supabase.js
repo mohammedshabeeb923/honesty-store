@@ -120,22 +120,25 @@ class ServerSupabase {
     }
   }
 
-  // 1. GET ALL ACTIVE PRODUCTS
-  async getProducts() {
+  // 1. GET ALL PRODUCTS (OPTIONAL ARCHIVED INCLUSION)
+  async getProducts(includeArchived = false) {
     try {
-      const products = await this.fetchApi('products', {
-        query: '?select=*&is_active=eq.true&order=name.asc'
-      });
-      if (products && products.length > 0) {
-        // Cache in fallback
-        this.fallbackData.products = products;
+      const query = includeArchived 
+        ? '?select=*&order=name.asc' 
+        : '?select=*&is_active=eq.true&order=name.asc';
+      const products = await this.fetchApi('products', { query });
+      if (products && Array.isArray(products) && products.length > 0) {
+        const remoteIds = new Set(products.map(p => p.id));
+        const localOnly = (this.fallbackData.products || []).filter(p => !remoteIds.has(p.id));
+        this.fallbackData.products = [...products, ...localOnly];
         this.saveFallback();
-        return products;
+        return includeArchived ? this.fallbackData.products : this.fallbackData.products.filter(p => p.is_active !== false);
       }
     } catch (err) {
       console.warn('[ServerSupabase] getProducts fallback:', err.message);
     }
-    return this.fallbackData.products || DEFAULT_PRODUCTS;
+    const fallbackList = this.fallbackData.products || DEFAULT_PRODUCTS;
+    return includeArchived ? fallbackList : fallbackList.filter(p => p.is_active !== false);
   }
 
   // 2. GET SINGLE PRODUCT
@@ -149,6 +152,264 @@ class ServerSupabase {
       console.warn(`[ServerSupabase] getProduct(${productId}) fallback:`, err.message);
     }
     return (this.fallbackData.products || []).find(p => p.id === productId);
+  }
+
+  // 2b. ADD NEW PRODUCT (ADMIN)
+  async addProduct(productData) {
+    const id = productData.id || ('prod_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6));
+    const price = Math.max(0.5, Number(productData.price) || 10);
+    const sellingPrice = Math.max(0.5, Number(productData.selling_price || productData.sellingPrice || price));
+    const stock = Math.max(0, parseInt(productData.stock, 10) || 0);
+
+    const record = {
+      id,
+      name: (productData.name || 'Snack Item').trim(),
+      description: (productData.description || '').trim(),
+      variant: (productData.variant || '').trim(),
+      category: productData.category || 'Chips',
+      price: price,
+      selling_price: sellingPrice,
+      stock: stock,
+      expected_stock: stock,
+      physical_stock: stock,
+      low_stock_threshold: Math.max(1, parseInt(productData.low_stock_threshold || productData.lowStockThreshold, 10) || 5),
+      image_url: productData.image_url || productData.imageUrl || productData.image || 'assets/lays.png',
+      storage_path: productData.storage_path || productData.storagePath || null,
+      is_active: productData.is_active !== undefined ? Boolean(productData.is_active) : true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    // Update local fallback
+    if (!this.fallbackData.products) this.fallbackData.products = [];
+    const idx = this.fallbackData.products.findIndex(p => p.id === id);
+    if (idx >= 0) this.fallbackData.products[idx] = record;
+    else this.fallbackData.products.push(record);
+    this.saveFallback();
+
+    // Persist to Supabase
+    try {
+      const res = await this.fetchApi('products', {
+        method: 'POST',
+        headers: { 'Prefer': 'return=representation' },
+        body: record
+      });
+      console.log(`[ServerSupabase] Product added: ${record.name} (${record.id})`);
+      return (Array.isArray(res) && res.length > 0) ? res[0] : (res && !Array.isArray(res) ? res : record);
+    } catch (err) {
+      console.warn(`[ServerSupabase] addProduct remote error:`, err.message);
+      // Fallback: If migration has not yet run in Supabase SQL editor, retry with base schema columns
+      if (err.message && err.message.includes('Could not find the') && err.message.includes('column')) {
+        try {
+          const baseRecord = {
+            id: record.id,
+            name: record.name,
+            variant: record.variant,
+            category: record.category,
+            price: record.price,
+            stock: record.stock,
+            expected_stock: record.expected_stock,
+            physical_stock: record.physical_stock,
+            low_stock_threshold: record.low_stock_threshold,
+            image_url: record.image_url,
+            is_active: record.is_active,
+            updated_at: record.updated_at
+          };
+          const retryRes = await this.fetchApi('products', {
+            method: 'POST',
+            headers: { 'Prefer': 'return=representation' },
+            body: baseRecord
+          });
+          console.log(`[ServerSupabase] Product added with base schema: ${record.name}`);
+          return { ...record, ...(Array.isArray(retryRes) && retryRes.length > 0 ? retryRes[0] : {}) };
+        } catch (e2) {
+          console.warn(`[ServerSupabase] addProduct base schema retry warning:`, e2.message);
+        }
+      }
+      return record;
+    }
+  }
+
+  // 2c. UPDATE PRODUCT (ADMIN)
+  async updateProduct(productId, updates) {
+    const existing = await this.getProduct(productId);
+    if (!existing) throw new Error(`Product ${productId} not found`);
+
+    const patchPayload = {
+      updated_at: new Date().toISOString()
+    };
+
+    if (updates.name !== undefined) patchPayload.name = updates.name.trim();
+    if (updates.description !== undefined) patchPayload.description = updates.description.trim();
+    if (updates.variant !== undefined) patchPayload.variant = updates.variant.trim();
+    if (updates.category !== undefined) patchPayload.category = updates.category;
+    if (updates.price !== undefined) patchPayload.price = Math.max(0.5, Number(updates.price));
+    if (updates.selling_price !== undefined) patchPayload.selling_price = Math.max(0.5, Number(updates.selling_price));
+    if (updates.sellingPrice !== undefined) patchPayload.selling_price = Math.max(0.5, Number(updates.sellingPrice));
+    if (updates.stock !== undefined) {
+      const st = Math.max(0, parseInt(updates.stock, 10));
+      patchPayload.stock = st;
+      patchPayload.expected_stock = st;
+      patchPayload.physical_stock = st;
+    }
+    if (updates.low_stock_threshold !== undefined) patchPayload.low_stock_threshold = Number(updates.low_stock_threshold);
+    if (updates.lowStockThreshold !== undefined) patchPayload.low_stock_threshold = Number(updates.lowStockThreshold);
+    if (updates.image_url !== undefined) patchPayload.image_url = updates.image_url;
+    if (updates.imageUrl !== undefined) patchPayload.image_url = updates.imageUrl;
+    if (updates.storage_path !== undefined) patchPayload.storage_path = updates.storage_path;
+    if (updates.storagePath !== undefined) patchPayload.storage_path = updates.storagePath;
+    if (updates.is_active !== undefined) patchPayload.is_active = Boolean(updates.is_active);
+    if (updates.isActive !== undefined) patchPayload.is_active = Boolean(updates.isActive);
+
+    // Update in fallback
+    const idx = (this.fallbackData.products || []).findIndex(p => p.id === productId);
+    if (idx >= 0) {
+      this.fallbackData.products[idx] = { ...this.fallbackData.products[idx], ...patchPayload };
+      this.saveFallback();
+    }
+
+    // Persist to Supabase
+    try {
+      const res = await this.fetchApi('products', {
+        method: 'PATCH',
+        query: `?id=eq.${productId}`,
+        headers: { 'Prefer': 'return=representation' },
+        body: patchPayload
+      });
+      console.log(`[ServerSupabase] Product updated: ${productId}`);
+      return (Array.isArray(res) && res.length > 0) ? res[0] : { ...existing, ...patchPayload };
+    } catch (err) {
+      console.warn(`[ServerSupabase] updateProduct remote warning:`, err.message);
+      if (err.message && err.message.includes('Could not find the') && err.message.includes('column')) {
+        try {
+          const safePayload = { ...patchPayload };
+          delete safePayload.selling_price;
+          delete safePayload.description;
+          delete safePayload.storage_path;
+          delete safePayload.created_at;
+          const retryRes = await this.fetchApi('products', {
+            method: 'PATCH',
+            query: `?id=eq.${productId}`,
+            headers: { 'Prefer': 'return=representation' },
+            body: safePayload
+          });
+          console.log(`[ServerSupabase] Product updated with base columns: ${productId}`);
+          return { ...existing, ...patchPayload, ...(Array.isArray(retryRes) && retryRes.length > 0 ? retryRes[0] : {}) };
+        } catch (e2) {}
+      }
+      return { ...existing, ...patchPayload };
+    }
+  }
+
+  // 2d. ARCHIVE / TOGGLE AVAILABILITY (ADMIN)
+  async archiveProduct(productId, isActive = false) {
+    return await this.updateProduct(productId, { is_active: Boolean(isActive) });
+  }
+
+  // 2e. CHECK IF PRODUCT CAN BE SAFELY DELETED
+  async canDeleteProduct(productId) {
+    try {
+      // Check RPC function
+      const canDel = await this.callRpc('can_delete_product', { p_product_id: productId });
+      if (typeof canDel === 'boolean') return canDel;
+    } catch (e) {}
+
+    // Fallback: check orders table
+    try {
+      const orders = await this.fetchApi('orders', { query: `?select=items` });
+      if (Array.isArray(orders)) {
+        for (const o of orders) {
+          const items = Array.isArray(o.items) ? o.items : [];
+          if (items.some(i => i.id === productId)) return false;
+        }
+      }
+    } catch (e) {}
+
+    return true;
+  }
+
+  // 2f. PERMANENTLY DELETE PRODUCT (ADMIN)
+  async deleteProduct(productId) {
+    const existing = await this.getProduct(productId);
+    if (!existing) throw new Error(`Product ${productId} not found`);
+
+    const isSafe = await this.canDeleteProduct(productId);
+    if (!isSafe) {
+      throw new Error(`Cannot permanently delete "${existing.name}" because it is referenced in past orders. Please Archive this product instead to safely hide it from the catalog.`);
+    }
+
+    // Safely remove storage image if exists
+    if (existing.storage_path) {
+      await this.deleteStorageImage(existing.storage_path);
+    }
+
+    // Remove from local fallback
+    this.fallbackData.products = (this.fallbackData.products || []).filter(p => p.id !== productId);
+    this.saveFallback();
+
+    // Delete in Supabase
+    try {
+      await this.fetchApi('products', {
+        method: 'DELETE',
+        query: `?id=eq.${productId}`
+      });
+      console.log(`[ServerSupabase] Product deleted permanently: ${productId}`);
+    } catch (err) {
+      console.warn(`[ServerSupabase] deleteProduct remote error:`, err.message);
+    }
+
+    return { success: true, id: productId };
+  }
+
+  // 2g. SUPABASE STORAGE: UPLOAD PRODUCT IMAGE
+  async uploadStorageImage(buffer, fileName, contentType = 'image/jpeg') {
+    const { url, key } = this.getEnv();
+    const endpoint = `${url}/storage/v1/object/product-images/${fileName}`;
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'apikey': key,
+        'Authorization': `Bearer ${key}`,
+        'Content-Type': contentType,
+        'x-upsert': 'true'
+      },
+      body: buffer
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Supabase Storage upload HTTP ${res.status}: ${errText}`);
+    }
+
+    const publicUrl = `${url}/storage/v1/object/public/product-images/${fileName}`;
+    return {
+      publicUrl,
+      storagePath: fileName
+    };
+  }
+
+  // 2h. SUPABASE STORAGE: DELETE PRODUCT IMAGE
+  async deleteStorageImage(storagePath) {
+    if (!storagePath) return;
+    const { url, key } = this.getEnv();
+    const cleanPath = storagePath.replace(/^product-images\//, '');
+    const endpoint = `${url}/storage/v1/object/product-images`;
+
+    try {
+      await fetch(endpoint, {
+        method: 'DELETE',
+        headers: {
+          'apikey': key,
+          'Authorization': `Bearer ${key}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ prefixes: [cleanPath] })
+      });
+      console.log(`[ServerSupabase] Deleted storage object: ${cleanPath}`);
+    } catch (e) {
+      console.warn(`[ServerSupabase] Could not delete storage image:`, e.message);
+    }
   }
 
   // 3. CREATE ORDER (PENDING)
@@ -560,42 +821,6 @@ class ServerSupabase {
     return { product: localProd || prod, audit: auditRecord };
   }
 
-  // 10. ADD PRODUCT (ADMIN)
-  async addProduct(newProduct) {
-    const id = newProduct.id || ('prod_' + Date.now());
-    const productRecord = {
-      id,
-      name: newProduct.name,
-      variant: newProduct.variant || '',
-      category: newProduct.category || 'Chips',
-      price: Number(newProduct.price) || 10,
-      stock: Number(newProduct.stock) || 0,
-      expected_stock: Number(newProduct.stock) || 0,
-      physical_stock: Number(newProduct.stock) || 0,
-      image_url: newProduct.image_url || newProduct.image || 'assets/lays.png',
-      low_stock_threshold: 5,
-      is_active: true,
-      updated_at: new Date().toISOString()
-    };
-
-    // Save in fallback
-    if (!this.fallbackData.products) this.fallbackData.products = [];
-    this.fallbackData.products.push(productRecord);
-    this.saveFallback();
-
-    try {
-      await this.fetchApi('products', {
-        method: 'POST',
-        headers: { 'Prefer': 'resolution=merge-duplicates' },
-        body: productRecord
-      });
-      console.log(`[ServerSupabase] New product added to Supabase: ${productRecord.name}`);
-    } catch (e) {
-      console.warn(`[ServerSupabase] addProduct(${id}) remote warning:`, e.message);
-    }
-
-    return productRecord;
-  }
 
   // 11. REAL DASHBOARD METRICS AGGREGATION
   async getDashboardMetrics() {

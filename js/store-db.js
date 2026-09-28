@@ -196,15 +196,22 @@ class StoreDB {
         this.data.products = products.map(p => ({
           id: p.id,
           name: p.name,
+          description: p.description || '',
           variant: p.variant || '',
           category: p.category || 'Chips',
           price: Number(p.price) || 0,
+          sellingPrice: (p.selling_price !== null && p.selling_price !== undefined) ? Number(p.selling_price) : (p.sellingPrice !== undefined ? Number(p.sellingPrice) : null),
           stock: Number(p.stock) || 0,
           expectedStock: Number(p.expected_stock !== undefined ? p.expected_stock : p.stock) || 0,
           physicalStock: Number(p.physical_stock !== undefined ? p.physical_stock : p.stock) || 0,
-          image: p.image_url || p.image || 'assets/lays.png',
+          image: p.image_url || p.imageUrl || p.image || 'assets/lays.png',
+          imageUrl: p.image_url || p.imageUrl || p.image || 'assets/lays.png',
+          storagePath: p.storage_path || p.storagePath || null,
+          isActive: p.is_active !== undefined ? Boolean(p.is_active) : (p.isActive !== undefined ? Boolean(p.isActive) : true),
           badge: Number(p.stock) <= 0 ? 'OUT OF STOCK' : (Number(p.stock) <= (p.low_stock_threshold || 5) ? 'LOW STOCK' : ''),
-          lowStockThreshold: p.low_stock_threshold || 5
+          lowStockThreshold: p.low_stock_threshold || p.lowStockThreshold || 5,
+          createdAt: p.created_at || null,
+          updatedAt: p.updated_at || null
         }));
       }
     } catch (e) {
@@ -399,9 +406,13 @@ class StoreDB {
   // CATALOG & CART METHODS
   // ============================================================
 
-  getProducts(category = 'All') {
-    if (!category || category === 'All') return this.data.products;
-    return this.data.products.filter(p => p.category.toLowerCase() === category.toLowerCase());
+  getProducts(category = 'All', includeArchived = false) {
+    let list = this.data.products || [];
+    if (!includeArchived) {
+      list = list.filter(p => p.isActive !== false);
+    }
+    if (!category || category === 'All') return list;
+    return list.filter(p => (p.category || '').toLowerCase() === category.toLowerCase());
   }
 
   getProduct(id) {
@@ -413,28 +424,23 @@ class StoreDB {
     const product = {
       id,
       name: newProduct.name,
+      description: newProduct.description || '',
       variant: newProduct.variant || '',
       category: newProduct.category || 'Chips',
       price: Number(newProduct.price) || 10,
-      stock: Number(newProduct.stock) || 0,
-      expectedStock: Number(newProduct.stock) || 0,
-      physicalStock: Number(newProduct.stock) || 0,
-      image: newProduct.image || 'assets/lays.png',
-      badge: Number(newProduct.stock) <= 3 ? (Number(newProduct.stock) === 0 ? 'OUT OF STOCK' : 'LOW STOCK') : '',
-      lowStockThreshold: 5
+      selling_price: newProduct.sellingPrice !== undefined ? Number(newProduct.sellingPrice) : (newProduct.selling_price !== undefined ? Number(newProduct.selling_price) : Number(newProduct.price)),
+      stock: Math.max(0, parseInt(newProduct.stock, 10) || 0),
+      expected_stock: Math.max(0, parseInt(newProduct.stock, 10) || 0),
+      physical_stock: Math.max(0, parseInt(newProduct.stock, 10) || 0),
+      image_url: newProduct.image || newProduct.imageUrl || newProduct.image_url || 'assets/lays.png',
+      storage_path: newProduct.storagePath || newProduct.storage_path || null,
+      low_stock_threshold: parseInt(newProduct.lowStockThreshold || newProduct.low_stock_threshold, 10) || 5,
+      is_active: newProduct.isActive !== undefined ? Boolean(newProduct.isActive) : true
     };
 
-    // Persist to Supabase directly if client available
-    if (window.supabaseClient && window.supabaseClient.isConnected) {
-      try {
-        await window.supabaseClient.addProduct(product);
-      } catch (e) {
-        console.warn('[StoreDB] Could not insert product via Supabase SDK, trying server API:', e);
-      }
-    }
-
-    // Persist to backend server
-    try {
+    if (window.supabaseClient) {
+      await window.supabaseClient.addProduct(product);
+    } else {
       const adminToken = localStorage.getItem('honesty_admin_token') || '';
       await fetch('/api/admin/add-product', {
         method: 'POST',
@@ -444,13 +450,90 @@ class StoreDB {
         },
         body: JSON.stringify(product)
       });
-    } catch (e) {
-      console.warn('[StoreDB] Could not persist product to backend:', e);
     }
 
     await this.fetchProductsFromSupabase();
     this.notify();
-    return product;
+    return this.getProduct(id) || product;
+  }
+
+  async updateProduct(id, updates) {
+    if (window.supabaseClient) {
+      await window.supabaseClient.updateProduct(id, updates);
+    } else {
+      const adminToken = localStorage.getItem('honesty_admin_token') || '';
+      await fetch('/api/admin/update-product', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {})
+        },
+        body: JSON.stringify({ id, ...updates })
+      });
+    }
+
+    await this.fetchProductsFromSupabase();
+    this.notify();
+    return this.getProduct(id);
+  }
+
+  async archiveProduct(id, isActive = false) {
+    if (window.supabaseClient) {
+      await window.supabaseClient.archiveProduct(id, isActive);
+    } else {
+      const adminToken = localStorage.getItem('honesty_admin_token') || '';
+      await fetch('/api/admin/archive-product', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {})
+        },
+        body: JSON.stringify({ id, isActive })
+      });
+    }
+
+    await this.fetchProductsFromSupabase();
+    this.notify();
+    return this.getProduct(id);
+  }
+
+  async canDeleteProduct(id) {
+    if (window.supabaseClient) {
+      return await window.supabaseClient.canDeleteProduct(id);
+    }
+    const adminToken = localStorage.getItem('honesty_admin_token') || '';
+    const res = await fetch('/api/admin/can-delete-product', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {})
+      },
+      body: JSON.stringify({ id })
+    });
+    const result = await res.json();
+    return result.canDelete !== false;
+  }
+
+  async deleteProduct(id) {
+    if (window.supabaseClient) {
+      await window.supabaseClient.deleteProduct(id);
+    } else {
+      const adminToken = localStorage.getItem('honesty_admin_token') || '';
+      const res = await fetch('/api/admin/delete-product', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {})
+        },
+        body: JSON.stringify({ id })
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Failed to delete product');
+    }
+
+    await this.fetchProductsFromSupabase();
+    this.notify();
+    return { success: true, id };
   }
 
   getCart() {
@@ -459,7 +542,9 @@ class StoreDB {
 
   addToCart(productId) {
     const product = this.getProduct(productId);
-    if (!product || product.stock <= 0) return false;
+    if (!product || product.stock <= 0 || product.isActive === false) return false;
+
+    const unitPrice = (product.sellingPrice !== null && product.sellingPrice !== undefined) ? product.sellingPrice : product.price;
 
     let cartItem = this.data.cart.find(item => item.id === productId);
     if (cartItem) {
@@ -473,7 +558,8 @@ class StoreDB {
         id: product.id,
         name: product.name,
         variant: product.variant,
-        price: product.price,
+        price: unitPrice,
+        originalPrice: product.price,
         image: product.image,
         qty: 1
       });
