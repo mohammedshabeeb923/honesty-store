@@ -118,12 +118,55 @@ function verifyAdminToken(token) {
   }
 }
 
-function isAuthorizedAdmin(req) {
+async function getSupabaseUserFromToken(token) {
+  if (!token) return null;
+  const { url, key } = serverSupabase.getEnv();
+  try {
+    const res = await fetch(`${url}/auth/v1/user`, {
+      headers: {
+        'apikey': key,
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.id) {
+        return {
+          id: data.id,
+          email: (data.email || '').toLowerCase().trim(),
+          fullName: data.user_metadata?.full_name || data.user_metadata?.name || data.email,
+          role: data.role
+        };
+      }
+    }
+  } catch (e) {
+    // network or token parsing error
+  }
+  return null;
+}
+
+async function isAuthorizedAdmin(req) {
   const authHeader = req.headers['authorization'] || '';
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
   if (token && verifyAdminToken(token)) return true;
   const customHeader = req.headers['x-admin-token'];
   if (customHeader && verifyAdminToken(customHeader)) return true;
+
+  // Supabase Google OAuth verification
+  if (token) {
+    const user = await getSupabaseUserFromToken(token);
+    if (user) {
+      // Primary owner admin
+      if (user.email === 'mohammedshabeeb923@gmail.com') return true;
+      try {
+        const admins = await serverSupabase.fetchApi('admin_users', {
+          query: `?or=(user_id.eq.${user.id},email.eq.${user.email})&select=id`
+        });
+        if (admins && admins.length > 0) return true;
+      } catch (e) {}
+    }
+  }
+
   return false;
 }
 
@@ -365,11 +408,48 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 4. Orders List (Authoritative from Supabase)
+  // 4. Orders List (Authoritative from Supabase with Strict User Isolation)
   if (req.method === 'GET' && reqPath === '/api/orders') {
     try {
-      const phoneFilter = queryParams.get('phone');
-      const orders = await serverSupabase.getOrders(phoneFilter);
+      const authHeader = req.headers['authorization'] || '';
+      const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+      const supabaseUser = await getSupabaseUserFromToken(token);
+      const isAdmin = await isAuthorizedAdmin(req);
+      const queryUserId = queryParams.get('userId');
+      const queryPhone = queryParams.get('phone');
+
+      let orders = [];
+      if (isAdmin) {
+        orders = await serverSupabase.getOrders({ isAdmin: true });
+      } else if (supabaseUser) {
+        orders = await serverSupabase.getOrders({ userId: supabaseUser.id });
+      } else if (queryUserId) {
+        // Only return if matching current verified user, or empty
+        orders = (supabaseUser && supabaseUser.id === queryUserId) 
+          ? await serverSupabase.getOrders({ userId: queryUserId }) 
+          : [];
+      } else if (queryPhone) {
+        orders = await serverSupabase.getOrders({ phone: queryPhone });
+      } else {
+        orders = [];
+      }
+
+      sendJson(200, { success: true, orders });
+    } catch (err) {
+      sendJson(500, { success: false, error: err.message });
+    }
+    return;
+  }
+
+  // 4b. Admin Orders List (Full Store Order History - Admin Only)
+  if (req.method === 'GET' && reqPath === '/api/admin/orders') {
+    const isAdmin = await isAuthorizedAdmin(req);
+    if (!isAdmin) {
+      sendJson(401, { success: false, message: 'Admin authorization required' });
+      return;
+    }
+    try {
+      const orders = await serverSupabase.getOrders({ isAdmin: true });
       sendJson(200, { success: true, orders });
     } catch (err) {
       sendJson(500, { success: false, error: err.message });
@@ -534,8 +614,17 @@ const server = http.createServer(async (req, res) => {
   // 13. Create Cashfree PG Order (Authoritative Server Validation & Stock Check)
   if (req.method === 'POST' && reqPath === '/api/create-cashfree-order') {
     try {
-      const { orderId: requestedOrderId, items, orderAmount, customerPhone, customerName } = await parseJsonBody(req);
+      const body = await parseJsonBody(req);
+      const { orderId: requestedOrderId, items, orderAmount, customerPhone, customerName, customerEmail, userId: bodyUserId } = body;
       const cleanPhone = (customerPhone || '9999999999').replace(/\D/g, '').slice(-10);
+
+      // Verify Supabase Auth Token
+      const authHeader = req.headers['authorization'] || '';
+      const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+      const supabaseUser = await getSupabaseUserFromToken(token);
+      const userId = (supabaseUser && supabaseUser.id) || bodyUserId || null;
+      const userEmail = (supabaseUser && supabaseUser.email) || customerEmail || null;
+      const userName = (supabaseUser && supabaseUser.fullName) || customerName || 'Honesty Customer';
       
       // Collision-proof order ID (Cashfree compliant: alphanumeric, hyphen, underscore only)
       const safeRandom = crypto.randomBytes(3).toString('hex').toUpperCase();
@@ -585,11 +674,14 @@ const server = http.createServer(async (req, res) => {
         });
       }
 
-      console.log(`[Cashfree PG] Verified order ${orderId} for ₹${computedTotal} (${computedItems.length} items) [Customer: ${cleanPhone}]`);
+      console.log(`[Cashfree PG] Verified order ${orderId} for ₹${computedTotal} (${computedItems.length} items) [Customer: ${cleanPhone}, User: ${userId || 'guest'}]`);
 
       // Persist PENDING order authoritatively in Supabase & local data layer
       await serverSupabase.createOrder({
         id: orderId,
+        userId: userId,
+        customerEmail: userEmail,
+        customerName: userName,
         customerPhone: cleanPhone,
         amount: computedTotal,
         itemCount: computedItems.reduce((acc, i) => acc + i.qty, 0),
@@ -617,9 +709,10 @@ const server = http.createServer(async (req, res) => {
             order_amount: computedTotal,
             order_currency: 'INR',
             customer_details: {
-              customer_id: 'cust_' + cleanPhone,
+              customer_id: 'cust_' + (userId ? userId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 15) : cleanPhone),
               customer_phone: cleanPhone,
-              customer_name: customerName || 'Honesty Customer'
+              customer_name: userName,
+              customer_email: userEmail || undefined
             },
             order_meta: {
               return_url: (function() {

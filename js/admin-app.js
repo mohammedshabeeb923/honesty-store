@@ -334,14 +334,15 @@ class AdminApp {
     const container = document.getElementById('dashboard-dynamic-content');
     if (!container) return;
 
-    // Fetch live metrics from backend
+    // Fetch live metrics from storeDB & backend
+    const adminOrders = window.storeDB.getAdminOrders ? window.storeDB.getAdminOrders() : [];
     let metrics = {
       salesToday: window.storeDB.data.community.salesToday || 0,
-      todayOrdersCount: (window.storeDB.data.orders || []).filter(o => o.timeLabel.includes('TODAY')).length,
-      totalRevenue: (window.storeDB.data.orders || []).reduce((s, o) => s + (Number(o.amount) || 0), 0),
-      totalOrdersCount: (window.storeDB.data.orders || []).length,
-      totalItemsSold: 0,
-      completedPayments: (window.storeDB.data.orders || []).length,
+      todayOrdersCount: adminOrders.filter(o => (o.timeLabel || '').includes('TODAY') || new Date(o.createdAt).toDateString() === new Date().toDateString()).length,
+      totalRevenue: adminOrders.reduce((s, o) => s + (Number(o.amount) || 0), 0),
+      totalOrdersCount: adminOrders.length,
+      totalItemsSold: adminOrders.reduce((s, o) => s + (Number(o.itemCount) || 1), 0),
+      completedPayments: adminOrders.length,
       topProducts: []
     };
 
@@ -572,7 +573,10 @@ class AdminApp {
     const salesTableBody = document.getElementById('sales-table-body');
     if (!salesTableBody) return;
 
-    const orders = window.storeDB.data.orders || [];
+    const orders = (window.storeDB.getAdminOrders && window.storeDB.getAdminOrders().length > 0) 
+      ? window.storeDB.getAdminOrders() 
+      : (window.storeDB.getUserOrders ? window.storeDB.getUserOrders() : []);
+
     if (orders.length === 0) {
       salesTableBody.innerHTML = `
         <tr>
@@ -588,7 +592,10 @@ class AdminApp {
       <tr>
         <td><strong>${order.id}</strong></td>
         <td>${order.timeLabel || order.createdAt}</td>
-        <td>${(order.items || []).map(i => `${i.qty}x ${i.name}`).join(', ') || 'Item'}</td>
+        <td>
+          <div style="font-weight:600;">${(order.items || []).map(i => `${i.qty}x ${i.name}`).join(', ') || 'Snack'}</div>
+          ${order.customerEmail ? `<div style="font-size:11px; color:#64748b;">${order.customerEmail}</div>` : ''}
+        </td>
         <td><strong>₹${order.amount}</strong></td>
         <td><span class="badge-paid">✓ ${order.status}</span></td>
         <td>${order.paymentMethod || 'Cashfree UPI'}</td>
@@ -601,7 +608,7 @@ class AdminApp {
     if (!usersBody) return;
 
     try {
-      const adminToken = localStorage.getItem('honesty_admin_token') || '';
+      const adminToken = localStorage.getItem('honesty_admin_token') || (window.authManager ? window.authManager.getAccessToken() : '');
       const headers = adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {};
       const res = await fetch('/api/admin/users', { headers });
       if (res.ok) {
@@ -610,8 +617,8 @@ class AdminApp {
         if (profiles.length > 0) {
           usersBody.innerHTML = profiles.map(p => `
             <tr>
-              <td><strong>+91 ${p.phone}</strong></td>
-              <td>${p.last_visit ? new Date(p.last_visit).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent'}</td>
+              <td><strong>${p.full_name || p.email || ('+91 ' + p.phone)}</strong></td>
+              <td>${p.created_at ? new Date(p.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent'}</td>
               <td>${p.total_orders || 1} Purchase(s)</td>
               <td><span class="badge-paid">Verified</span></td>
               <td><strong>₹${p.total_spent || 0}</strong></td>
@@ -622,12 +629,15 @@ class AdminApp {
       }
     } catch (e) {}
 
-    // Fallback: If no profiles, show orders by customer phone
-    const orders = window.storeDB.data.orders || [];
+    // Fallback: If no profiles, show orders by customer
+    const orders = (window.storeDB.getAdminOrders && window.storeDB.getAdminOrders().length > 0) 
+      ? window.storeDB.getAdminOrders() 
+      : (window.storeDB.getUserOrders ? window.storeDB.getUserOrders() : []);
+
     if (orders.length > 0) {
       usersBody.innerHTML = orders.map(o => `
         <tr>
-          <td><strong>Customer (${o.id})</strong></td>
+          <td><strong>${o.customerEmail || o.customerName || `Customer (${o.id})`}</strong></td>
           <td>${o.timeLabel}</td>
           <td>Purchase (${o.itemCount} items)</td>
           <td><span class="badge-paid">Verified</span></td>

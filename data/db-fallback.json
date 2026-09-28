@@ -6,13 +6,13 @@
       "variant": null,
       "category": "Chips",
       "price": 1,
-      "stock": 99,
-      "expected_stock": 99,
-      "physical_stock": 99,
+      "stock": 98,
+      "expected_stock": 98,
+      "physical_stock": 98,
       "image_url": "assets/lays.png",
       "low_stock_threshold": 5,
       "is_active": true,
-      "updated_at": "2026-09-24T20:48:53.526267+00:00"
+      "updated_at": "2026-09-28T07:22:52.168+00:00"
     },
     {
       "id": "dairymilk",
@@ -20,13 +20,13 @@
       "variant": "Milk Chocolate Bar",
       "category": "Chocolates",
       "price": 20,
-      "stock": 0,
-      "expected_stock": 0,
-      "physical_stock": 0,
+      "stock": 20,
+      "expected_stock": 20,
+      "physical_stock": 20,
       "image_url": "assets/dairymilk.png",
       "low_stock_threshold": 3,
       "is_active": true,
-      "updated_at": "2026-09-24T18:50:13.068469+00:00"
+      "updated_at": "2026-09-25T17:33:43.03+00:00"
     },
     {
       "id": "lays",
@@ -40,7 +40,7 @@
       "image_url": "assets/lays.png",
       "low_stock_threshold": 5,
       "is_active": true,
-      "updated_at": "2026-09-24T18:50:13.068469+00:00"
+      "updated_at": "2026-09-25T16:05:05.08+00:00"
     },
     {
       "id": "oreo",

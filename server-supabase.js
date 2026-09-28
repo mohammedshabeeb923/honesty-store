@@ -88,6 +88,38 @@ class ServerSupabase {
     }
   }
 
+  async callRpc(functionName, params = {}) {
+    const { url, key } = this.getEnv();
+    const endpoint = `${url}/rest/v1/rpc/${functionName}`;
+    const headers = {
+      'apikey': key,
+      'Authorization': `Bearer ${key}`,
+      'Content-Type': 'application/json'
+    };
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(params)
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      const err = new Error(`Supabase RPC [${functionName}] HTTP ${res.status}: ${errText}`);
+      err.status = res.status;
+      err.body = errText;
+      throw err;
+    }
+
+    const text = await res.text();
+    if (!text || text.trim() === '') return true;
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      return true;
+    }
+  }
+
   // 1. GET ALL ACTIVE PRODUCTS
   async getProducts() {
     try {
@@ -123,10 +155,13 @@ class ServerSupabase {
   async createOrder(orderData) {
     const record = {
       id: orderData.id,
-      customer_phone: orderData.customerPhone,
+      user_id: orderData.userId || null,
+      customer_email: orderData.customerEmail || null,
+      customer_name: orderData.customerName || null,
+      customer_phone: orderData.customerPhone || null,
       amount: Number(orderData.amount),
-      item_count: Number(orderData.itemCount),
-      items: orderData.items,
+      item_count: Number(orderData.itemCount || (Array.isArray(orderData.items) ? orderData.items.length : 1)),
+      items: orderData.items || [],
       status: orderData.status || 'PENDING',
       payment_method: orderData.paymentMethod || 'UPI',
       payment_gateway: 'Cashfree',
@@ -150,7 +185,7 @@ class ServerSupabase {
         headers: { 'Prefer': 'resolution=merge-duplicates' },
         body: record
       });
-      console.log(`[ServerSupabase] Order ${record.id} created in Supabase (Status: ${record.status})`);
+      console.log(`[ServerSupabase] Order ${record.id} created in Supabase (Status: ${record.status}, User: ${record.user_id || 'guest'})`);
     } catch (err) {
       console.warn(`[ServerSupabase] createOrder(${record.id}) remote warning:`, err.message);
     }
@@ -207,10 +242,23 @@ class ServerSupabase {
       console.warn(`[ServerSupabase] Could not update order ${orderId} in Supabase:`, e.message);
     }
 
-    // 2. Atomically Deduct Inventory in Supabase & Fallback
+    // 2. Atomically Deduct Inventory in Supabase using PostgreSQL RPC (Row-locked)
     const items = Array.isArray(order.items) ? order.items : [];
-    for (const item of items) {
-      await this.deductProductStock(item.id, Number(item.qty) || 1);
+    let rpcDeducted = false;
+    try {
+      await this.callRpc('deduct_inventory', {
+        p_items: items.map(i => ({ id: i.id, qty: Number(i.qty) || 1 }))
+      });
+      rpcDeducted = true;
+      console.log(`[ServerSupabase] Inventory atomically deducted via deduct_inventory RPC for order ${orderId}`);
+    } catch (rpcErr) {
+      console.warn('[ServerSupabase] deduct_inventory RPC warning, falling back to direct deduction:', rpcErr.message);
+    }
+
+    if (!rpcDeducted) {
+      for (const item of items) {
+        await this.deductProductStock(item.id, Number(item.qty) || 1);
+      }
     }
 
     // 3. Update Community Metrics in Supabase & Fallback
@@ -405,13 +453,35 @@ class ServerSupabase {
   }
 
 
-  // 8. GET ORDERS FOR CUSTOMER OR ADMIN
-  async getOrders(phoneFilter = null) {
-    let cleanPhone = phoneFilter ? phoneFilter.replace(/\D/g, '').slice(-10) : null;
+  // 8. GET ORDERS FOR CUSTOMER OR ADMIN (STRICT ISOLATION)
+  async getOrders(filter = {}) {
+    // Backwards compatibility if passed as a single string (phone or userId)
+    let userId = typeof filter === 'object' && filter !== null ? filter.userId : null;
+    let phone = typeof filter === 'object' && filter !== null ? filter.phone : null;
+    let isAdmin = typeof filter === 'object' && filter !== null ? Boolean(filter.isAdmin) : false;
+
+    if (typeof filter === 'string') {
+      if (filter.length > 20 || filter.includes('-')) {
+        userId = filter;
+      } else {
+        phone = filter;
+      }
+    }
+
+    let cleanPhone = phone ? phone.replace(/\D/g, '').slice(-10) : null;
     try {
-      const query = cleanPhone 
-        ? `?select=*&customer_phone=like.*${cleanPhone}&order=created_at.desc` 
-        : '?select=*&order=created_at.desc&limit=100';
+      let query;
+      if (isAdmin) {
+        query = '?select=*&order=created_at.desc&limit=100';
+      } else if (userId) {
+        query = `?select=*&user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc`;
+      } else if (cleanPhone) {
+        query = `?select=*&customer_phone=like.*${cleanPhone}&order=created_at.desc`;
+      } else {
+        // STRICT SECURITY: Do NOT return all orders to unauthenticated caller!
+        return [];
+      }
+
       const remote = await this.fetchApi('orders', { query });
       if (remote && Array.isArray(remote)) {
         return remote;
@@ -421,10 +491,10 @@ class ServerSupabase {
     }
 
     let orders = this.fallbackData.orders || [];
-    if (cleanPhone) {
-      orders = orders.filter(o => (o.customer_phone || '').includes(cleanPhone));
-    }
-    return orders;
+    if (isAdmin) return orders;
+    if (userId) return orders.filter(o => o.user_id === userId);
+    if (cleanPhone) return orders.filter(o => (o.customer_phone || '').includes(cleanPhone));
+    return [];
   }
 
   // 9. ADJUST STOCK & RECORD AUDIT LOG (ADMIN)

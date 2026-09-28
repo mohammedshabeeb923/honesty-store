@@ -63,15 +63,23 @@ class CashfreeClient {
 
     try {
       // 1. Authoritative order initiation on backend with item validation & stock check
+      const authToken = window.authManager ? window.authManager.getAccessToken() : '';
+      const reqHeaders = { 'Content-Type': 'application/json' };
+      if (authToken) {
+        reqHeaders['Authorization'] = `Bearer ${authToken}`;
+      }
+
       const response = await fetch('/api/create-cashfree-order', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: reqHeaders,
         body: JSON.stringify({
           orderId,
           items: cart.map(i => ({ id: i.id, qty: i.qty })),
           orderAmount: total,
           customerPhone: phone,
-          customerName: window.authManager.session.fullName || 'Honesty Customer'
+          customerEmail: window.authManager ? window.authManager.getUserEmail() : '',
+          customerName: window.authManager ? window.authManager.getUserName() : 'Honesty Customer',
+          userId: window.authManager ? window.authManager.getUserId() : null
         })
       });
 
@@ -127,9 +135,15 @@ class CashfreeClient {
 
   async verifyAndCompletePayment(orderId, expectedAmount, fallbackItems) {
     try {
+      const authToken = window.authManager ? window.authManager.getAccessToken() : '';
+      const reqHeaders = { 'Content-Type': 'application/json' };
+      if (authToken) {
+        reqHeaders['Authorization'] = `Bearer ${authToken}`;
+      }
+
       const verifyRes = await fetch('/api/verify-cashfree-order', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: reqHeaders,
         body: JSON.stringify({ orderId })
       });
       const verifyData = await verifyRes.json();

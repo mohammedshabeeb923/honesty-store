@@ -14,13 +14,24 @@ document.addEventListener('DOMContentLoaded', () => {
   let pendingAdminMode = null;
 
   function isAdminLoggedIn() {
-    return localStorage.getItem('honesty_admin_auth') === 'true';
+    return Boolean(window.authManager && window.authManager.isAdmin());
   }
 
   // Switch View Mode (Customer / Admin / Dual)
   function setViewMode(mode) {
     if ((mode === 'admin' || mode === 'dual') && !isAdminLoggedIn()) {
       pendingAdminMode = mode;
+      const errEl = document.getElementById('admin-login-error');
+      if (errEl) errEl.style.display = 'none';
+
+      // If user is already logged in with Google, but not registered as admin:
+      if (window.authManager && window.authManager.isLoggedIn && !window.authManager.isAdmin()) {
+        if (errEl) {
+          errEl.innerHTML = `<strong>Admin Authorization Required:</strong> Signed in as <code>${window.authManager.getUserEmail()}</code>, but this account is not registered in the <code>admin_users</code> table.`;
+          errEl.style.display = 'block';
+        }
+      }
+
       if (adminAuthModal) adminAuthModal.classList.add('active');
       return;
     }
@@ -34,6 +45,15 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
     localStorage.setItem('honesty_store_view_mode', mode);
+
+    if (mode === 'admin' || mode === 'dual') {
+      if (window.storeDB && typeof window.storeDB.loadAdminOrders === 'function') {
+        window.storeDB.loadAdminOrders();
+      }
+      if (window.adminApp && typeof window.adminApp.render === 'function') {
+        window.adminApp.render();
+      }
+    }
   }
 
   viewBtns.forEach(btn => {
@@ -99,6 +119,9 @@ document.addEventListener('DOMContentLoaded', () => {
     btnAdminLogout.addEventListener('click', () => {
       localStorage.removeItem('honesty_admin_auth');
       localStorage.removeItem('honesty_admin_token');
+      if (window.authManager) {
+        window.authManager.isAdminUser = false;
+      }
       if (window.showToast) window.showToast('Admin Console has been locked.', 'info');
       setViewMode('customer');
     });
