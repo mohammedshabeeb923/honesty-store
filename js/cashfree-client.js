@@ -42,7 +42,6 @@ class CashfreeClient {
   }
 
   async initiatePayment(orderData = {}) {
-    const phone = window.authManager.getUserPhone();
     const cart = window.storeDB.getCart();
 
     if (!cart || cart.length === 0) {
@@ -51,6 +50,16 @@ class CashfreeClient {
     }
 
     const { total } = window.storeDB.getCartTotal();
+
+    // Verify valid 10-digit Indian mobile number required by Cashfree PG & UPI
+    const phone = window.authManager ? window.authManager.getUserPhone() : (localStorage.getItem('honesty_customer_phone') || '');
+    const isValidPhone = Boolean(phone && /^[6-9]\d{9}$/.test(phone));
+
+    if (!isValidPhone) {
+      this.promptForPhone(orderData, total);
+      return;
+    }
+
     const orderId = orderData.id || `HS${Date.now().toString().slice(-6)}`;
 
     // Show loading indicator on Pay button
@@ -176,6 +185,73 @@ class CashfreeClient {
     if (window.customerApp) {
       window.customerApp.showVerifiedScreen(confirmed);
     }
+  }
+
+  promptForPhone(orderData, total) {
+    const modal = document.getElementById('phone-collection-modal');
+    const form = document.getElementById('phone-collection-form');
+    const input = document.getElementById('checkout-phone-input');
+    const errEl = document.getElementById('phone-collection-error');
+    const submitText = document.getElementById('phone-modal-submit-text');
+    const btnCancel = document.getElementById('btn-cancel-phone-modal');
+
+    if (!modal) {
+      const prompted = window.prompt('Please enter your 10-digit Indian mobile number for Cashfree & UPI:');
+      if (prompted && /^[6-9]\d{9}$/.test(prompted.replace(/\D/g, '').slice(-10))) {
+        const clean = prompted.replace(/\D/g, '').slice(-10);
+        if (window.authManager) window.authManager.setUserPhone(clean);
+        else localStorage.setItem('honesty_customer_phone', clean);
+        this.initiatePayment(orderData);
+      }
+      return;
+    }
+
+    if (input) {
+      const existing = window.authManager ? window.authManager.getUserPhone() : (localStorage.getItem('honesty_customer_phone') || '');
+      input.value = existing || '';
+      setTimeout(() => input.focus(), 150);
+    }
+    if (errEl) errEl.style.display = 'none';
+    if (submitText) submitText.innerText = `Confirm & Pay ₹${total} →`;
+
+    if (btnCancel) {
+      btnCancel.onclick = () => modal.classList.remove('active');
+    }
+
+    if (form) {
+      form.onsubmit = (e) => {
+        e.preventDefault();
+        const raw = input ? input.value.trim() : '';
+        const clean = raw.replace(/\D/g, '').slice(-10);
+
+        if (!clean || !/^[6-9]\d{9}$/.test(clean)) {
+          if (errEl) {
+            errEl.innerText = 'Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.';
+            errEl.style.display = 'block';
+          }
+          return;
+        }
+
+        try {
+          if (window.authManager) {
+            window.authManager.setUserPhone(clean);
+          } else {
+            localStorage.setItem('honesty_customer_phone', clean);
+          }
+          modal.classList.remove('active');
+          if (window.showToast) window.showToast(`Mobile number +91 ${clean} saved.`, 'success');
+          // Resume payment seamlessly
+          this.initiatePayment(orderData);
+        } catch (err) {
+          if (errEl) {
+            errEl.innerText = err.message;
+            errEl.style.display = 'block';
+          }
+        }
+      };
+    }
+
+    modal.classList.add('active');
   }
 }
 

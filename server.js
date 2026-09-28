@@ -752,7 +752,15 @@ const server = http.createServer(async (req, res) => {
     try {
       const body = await parseJsonBody(req);
       const { orderId: requestedOrderId, items, orderAmount, customerPhone, customerName, customerEmail, userId: bodyUserId } = body;
-      const cleanPhone = (customerPhone || '9999999999').replace(/\D/g, '').slice(-10);
+      const cleanPhone = String(customerPhone || '').replace(/\D/g, '').slice(-10);
+
+      if (!cleanPhone || !/^[6-9]\d{9}$/.test(cleanPhone)) {
+        sendJson(400, {
+          success: false,
+          error: 'A valid 10-digit Indian mobile number (starting with 6, 7, 8, or 9) is required for Cashfree payment.'
+        });
+        return;
+      }
 
       // Verify Supabase Auth Token
       const authHeader = req.headers['authorization'] || '';
