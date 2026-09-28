@@ -15,34 +15,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function isAdminLoggedIn() {
     return Boolean(
-      window.authManager && 
-      window.authManager.isAdmin() && 
-      localStorage.getItem('honesty_admin_token')
+      (window.authManager && window.authManager.isAdmin()) || 
+      (localStorage.getItem('honesty_admin_token') && localStorage.getItem('honesty_admin_auth') === 'true')
     );
   }
 
   async function ensureAdminSession() {
-    if (window.authManager && window.authManager.isLoggedIn) {
-      const token = window.authManager.getAccessToken() || localStorage.getItem('honesty_admin_token');
-      if (token) {
-        try {
-          const res = await fetch('/api/check-admin', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token })
-          });
-          const data = await res.json();
-          if (data && data.isAdmin && data.adminToken) {
-            localStorage.setItem('honesty_admin_token', data.adminToken);
-            localStorage.setItem('honesty_admin_auth', 'true');
-            window.authManager.isAdminUser = true;
-          } else {
-            localStorage.removeItem('honesty_admin_token');
-            localStorage.removeItem('honesty_admin_auth');
-            window.authManager.isAdminUser = false;
-          }
-        } catch (e) {}
-      }
+    const token = localStorage.getItem('honesty_admin_token') || (window.authManager && window.authManager.getAccessToken());
+    if (token) {
+      try {
+        const res = await fetch('/api/check-admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token })
+        });
+        const data = await res.json();
+        if (data && data.isAdmin && data.adminToken) {
+          localStorage.setItem('honesty_admin_token', data.adminToken);
+          localStorage.setItem('honesty_admin_auth', 'true');
+          if (window.authManager) window.authManager.isAdminUser = true;
+        } else {
+          localStorage.removeItem('honesty_admin_token');
+          localStorage.removeItem('honesty_admin_auth');
+          if (window.authManager) window.authManager.isAdminUser = false;
+        }
+      } catch (e) {}
     }
   }
 
@@ -85,6 +82,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   }
+
+  window.setViewMode = setViewMode;
 
   viewBtns.forEach(btn => {
     btn.addEventListener('click', () => {

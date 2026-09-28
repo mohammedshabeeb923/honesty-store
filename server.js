@@ -772,13 +772,40 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 10. Admin Login (Disabled: Access strictly restricted to authorized Google accounts)
-  if (req.method === 'POST' && reqPath === '/api/admin/login') {
-    sendJson(403, {
-      success: false,
-      message: 'Password login is disabled. Admin access is strictly restricted to authorized Google accounts.'
-    });
-    return;
+  // 10. Admin Direct Email Verification / Login
+  // Authoritative check: strictly verifies against ALLOWED_ADMIN_EMAILS without exposing emails to clients
+  if (req.method === 'POST' && (reqPath === '/api/admin/login' || reqPath === '/api/admin/verify-admin-email')) {
+    try {
+      const body = await parseJsonBody(req);
+      const email = (body.email || body.username || '').toLowerCase().trim();
+
+      if (!email) {
+        sendJson(400, { success: false, message: 'Admin email is required.' });
+        return;
+      }
+
+      if (!ALLOWED_ADMIN_EMAILS.includes(email)) {
+        sendJson(403, {
+          success: false,
+          isAdmin: false,
+          message: 'Access Denied: This account is not authorized for administrator access.'
+        });
+        return;
+      }
+
+      const adminToken = signAdminToken(email);
+      sendJson(200, {
+        success: true,
+        isAdmin: true,
+        adminToken,
+        email,
+        message: 'Admin authorization granted.'
+      });
+      return;
+    } catch (err) {
+      sendJson(500, { success: false, message: 'Internal server error during admin verification.' });
+      return;
+    }
   }
 
   // 11. Gateway Diagnostic Route

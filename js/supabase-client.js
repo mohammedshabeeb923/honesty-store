@@ -68,8 +68,8 @@ class SupabaseClient {
       throw new Error('Supabase client is not initialized. Check internet connection and configuration.');
     }
     const currentOrigin = window.location.origin;
-    const currentPath = window.location.pathname.replace(/\/+$/, '') || '';
-    const redirectTo = options.redirectTo || `${currentOrigin}${currentPath}/`;
+    const cleanPath = window.location.pathname.replace(/\/index\.html$/i, '').replace(/\/+$/, '');
+    const redirectTo = options.redirectTo || `${currentOrigin}${cleanPath}/`;
 
     console.log('[SupabaseClient] Initiating Google OAuth with redirect to:', redirectTo);
     const { data, error } = await this.client.auth.signInWithOAuth({
@@ -138,7 +138,9 @@ class SupabaseClient {
     }
 
     try {
-      const token = (window.authManager && typeof window.authManager.getAccessToken === 'function' ? window.authManager.getAccessToken() : null)
+      const liveSession = await this.getSession();
+      const token = (liveSession && liveSession.access_token)
+        || (window.authManager && typeof window.authManager.getAccessToken === 'function' ? window.authManager.getAccessToken() : null)
         || user.token
         || user.access_token
         || localStorage.getItem('honesty_admin_token')

@@ -47,23 +47,12 @@ class CustomerApp {
   }
 
   bindEvents() {
-    // Enter Store from splash - Checks Google Authentication
+    // Enter Store from splash - Frictionless access to catalog
     const btnEnter = document.getElementById('btn-enter-store');
     if (btnEnter) {
       btnEnter.addEventListener('click', () => {
         window.storeDB.logVisit();
-
-        // Check if persistent Google login exists
-        if (window.authManager && window.authManager.isAuthenticated()) {
-          this.switchScreen('screen-catalog');
-        } else {
-          // Open Google Auth modal to enter store
-          window.authManager.openAuthModal({
-            onSuccess: () => {
-              this.switchScreen('screen-catalog');
-            }
-          });
-        }
+        this.switchScreen('screen-catalog');
       });
     }
 
@@ -121,15 +110,9 @@ class CustomerApp {
         const { total } = window.storeDB.getCartTotal();
         if (total <= 0) return;
 
-        // If not logged in, prompt Google Auth first for persistent receipt tracking
-        if (!window.authManager || !window.authManager.isAuthenticated()) {
-          window.authManager.openAuthModal({
-            onSuccess: () => {
-              window.cashfreeClient.initiatePayment({ amount: total });
-            }
-          });
-        } else {
-          // Launch Cashfree Payment Gateway
+        // Launch Cashfree Payment Gateway
+        // (Cashfree client automatically prompts for 10-digit mobile number if not yet saved)
+        if (window.cashfreeClient) {
           window.cashfreeClient.initiatePayment({ amount: total });
         }
       });

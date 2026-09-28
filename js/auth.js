@@ -22,16 +22,19 @@ class AuthManager {
     try {
       const cached = JSON.parse(localStorage.getItem('honesty_customer_user') || 'null');
       const savedPhone = localStorage.getItem('honesty_customer_phone') || '';
+      const hasAdminAuth = localStorage.getItem('honesty_admin_auth') === 'true' && Boolean(localStorage.getItem('honesty_admin_token'));
+      this.isAdminUser = hasAdminAuth;
+
       if (cached && (cached.id || cached.email)) {
         this.user = cached;
         if (savedPhone && !this.user.phone) {
           this.user.phone = savedPhone;
         }
         this.isLoggedIn = true;
-        this.isAdminUser = localStorage.getItem('honesty_admin_auth') === 'true';
         console.log('[AuthManager] Restored persistent session for:', this.user.fullName || this.user.email);
       } else if (savedPhone) {
-        this.user = { id: null, email: '', fullName: 'Honesty Customer', phone: savedPhone };
+        this.user = { id: 'guest_' + savedPhone, email: '', fullName: 'Honesty Customer', phone: savedPhone };
+        this.isLoggedIn = true;
       }
     } catch (e) {
       console.warn('[AuthManager] Session restore warning:', e);
@@ -64,7 +67,7 @@ class AuthManager {
       this.session = session;
       if (session && session.user) {
         await this.handleUserSignedIn(session.user);
-      } else {
+      } else if (event === 'SIGNED_OUT') {
         this.handleUserSignedOut();
       }
     });
@@ -77,11 +80,6 @@ class AuthManager {
       if (session && session.user) {
         this.session = session;
         await this.handleUserSignedIn(session.user);
-      } else {
-        // If Supabase confirms no active server session, clear persistent storage
-        if (this.isLoggedIn && !this.session) {
-          this.handleUserSignedOut();
-        }
       }
     } catch (e) {
       console.warn('[AuthManager] Error checking current session:', e);
@@ -251,6 +249,108 @@ class AuthManager {
     }
   }
 
+  async verifyAdminEmail(email) {
+    const errEl = document.getElementById('admin-login-error');
+    const btnSubmit = document.getElementById('btn-verify-admin-email');
+
+    if (errEl) errEl.style.display = 'none';
+    const cleanEmail = String(email || '').trim().toLowerCase();
+
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      if (errEl) {
+        errEl.innerText = 'Please enter a valid Gmail address.';
+        errEl.style.display = 'block';
+      }
+      return;
+    }
+
+    if (btnSubmit) {
+      btnSubmit.disabled = true;
+      btnSubmit.innerText = 'Verifying authorization...';
+      btnSubmit.style.opacity = '0.7';
+    }
+
+    try {
+      const res = await fetch('/api/admin/verify-admin-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail })
+      });
+      const data = await res.json();
+      if (res.ok && data.success && data.adminToken) {
+        localStorage.setItem('honesty_admin_token', data.adminToken);
+        localStorage.setItem('honesty_admin_auth', 'true');
+        this.isAdminUser = true;
+
+        const modal = document.getElementById('admin-auth-modal');
+        if (modal) modal.classList.remove('active');
+
+        if (window.setViewMode) {
+          window.setViewMode('admin');
+        } else {
+          const stage = document.getElementById('master-stage');
+          if (stage) stage.className = 'master-stage mode-admin';
+          document.querySelectorAll('.view-btn').forEach(btn => {
+            if (btn.dataset.mode === 'admin') btn.classList.add('active');
+            else btn.classList.remove('active');
+          });
+          localStorage.setItem('honesty_store_view_mode', 'admin');
+        }
+
+        if (window.storeDB && typeof window.storeDB.loadAdminOrders === 'function') {
+          window.storeDB.loadAdminOrders();
+        }
+        if (window.adminApp && typeof window.adminApp.render === 'function') {
+          window.adminApp.render();
+        }
+        if (window.showToast) {
+          window.showToast('Administrator access verified.', 'success');
+        }
+      } else {
+        throw new Error(data.message || 'Access Denied: This account is not authorized for administrator access.');
+      }
+    } catch (err) {
+      if (errEl) {
+        errEl.innerHTML = `<strong>Access Denied:</strong> ${err.message}`;
+        errEl.style.display = 'block';
+      }
+    } finally {
+      if (btnSubmit) {
+        btnSubmit.disabled = false;
+        btnSubmit.innerText = 'Verify & Access Admin Console';
+        btnSubmit.style.opacity = '1';
+      }
+    }
+  }
+
+  loginAsGuest() {
+    if (!this.user) {
+      const savedPhone = localStorage.getItem('honesty_customer_phone') || '';
+      this.user = {
+        id: 'guest_' + Math.random().toString(36).slice(2, 10),
+        email: '',
+        fullName: 'Honesty Shopper',
+        avatarUrl: 'assets/avatar.png',
+        phone: savedPhone
+      };
+      this.isLoggedIn = true;
+      try {
+        localStorage.setItem('honesty_customer_user', JSON.stringify(this.user));
+      } catch (e) {}
+    }
+    this.updateUI();
+    this.closeAuthModal();
+
+    if (typeof this.authCallback === 'function') {
+      const cb = this.authCallback;
+      this.authCallback = null;
+      cb(this.user);
+    }
+    if (window.customerApp && typeof window.customerApp.switchScreen === 'function') {
+      window.customerApp.switchScreen('screen-catalog');
+    }
+  }
+
   async logout() {
     try {
       if (window.supabaseClient) {
@@ -368,6 +468,11 @@ class AuthManager {
   }
 
   bindDOM() {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => this.bindDOM());
+      return;
+    }
+
     // Header avatar clicks
     const avatarBtns = document.querySelectorAll('.header-avatar, .cart-avatar-wrap');
     avatarBtns.forEach(btn => {
@@ -384,11 +489,30 @@ class AuthManager {
       });
     }
 
+    // Guest sign-in button
+    const btnGuest = document.getElementById('btn-guest-signin');
+    if (btnGuest) {
+      btnGuest.addEventListener('click', () => {
+        this.loginAsGuest();
+      });
+    }
+
     // Admin Google Sign-In button
     const btnAdminGoogle = document.getElementById('btn-admin-google-signin');
     if (btnAdminGoogle) {
       btnAdminGoogle.addEventListener('click', () => {
         this.adminLoginWithGoogle();
+      });
+    }
+
+    // Admin email verify form
+    const adminEmailForm = document.getElementById('admin-email-verify-form');
+    const adminEmailInput = document.getElementById('admin-verify-email-input');
+    if (adminEmailForm && adminEmailInput) {
+      adminEmailForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = adminEmailInput.value.trim();
+        await this.verifyAdminEmail(email);
       });
     }
 
@@ -424,8 +548,6 @@ class AuthManager {
       btnLogout.addEventListener('click', () => {
         this.logout();
       });
-    }
-
     }
   }
 
@@ -485,11 +607,13 @@ class AuthManager {
   }
 
   isAuthenticated() {
-    return Boolean(this.isLoggedIn && this.user?.id);
+    return Boolean(this.isLoggedIn && (this.user?.id || this.user?.email || this.user?.phone));
   }
 
   isAdmin() {
-    return Boolean(this.isAdminUser && localStorage.getItem('honesty_admin_token'));
+    const hasToken = Boolean(localStorage.getItem('honesty_admin_token'));
+    const isAuth = localStorage.getItem('honesty_admin_auth') === 'true';
+    return Boolean((this.isAdminUser || isAuth) && hasToken);
   }
 }
 
