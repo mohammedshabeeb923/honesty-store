@@ -347,6 +347,37 @@ class SupabaseClient {
   }
 
   /**
+   * Admin: Update order status in Supabase
+   */
+  async updateOrderStatus(orderId, status) {
+    const statusUpper = String(status || '').toUpperCase().trim();
+    if (this.client) {
+      try {
+        const { data, error } = await this.client
+          .from('orders')
+          .update({ status: statusUpper, updated_at: new Date().toISOString() })
+          .eq('id', orderId)
+          .select()
+          .single();
+
+        if (!error && data) return data;
+      } catch (e) {
+        console.warn('[SupabaseClient] Direct updateOrderStatus warning, falling back to server API:', e);
+      }
+    }
+
+    const headers = window.getAdminHeaders ? window.getAdminHeaders() : { 'Content-Type': 'application/json' };
+    const res = await fetch('/api/admin/update-order-status', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ orderId, status: statusUpper })
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Failed to update order status');
+    return result.order;
+  }
+
+  /**
    * Deduct inventory atomically using PostgreSQL RPC with row locks
    */
   async deductInventoryRPC(items) {

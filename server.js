@@ -172,6 +172,15 @@ async function isAuthorizedAdmin(req) {
   return false;
 }
 
+function getCallerSupabaseToken(req) {
+  const sbToken = req.headers['x-supabase-token'];
+  if (sbToken && !sbToken.startsWith('admin_')) return sbToken;
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  if (token && !token.startsWith('admin_') && token.length > 20) return token;
+  return null;
+}
+
 // Secure Salted Password / PIN Hashing
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString('hex');
@@ -555,7 +564,8 @@ const server = http.createServer(async (req, res) => {
       if (!productId || newStockLevel === undefined) {
         throw new Error('productId and newStockLevel are required');
       }
-      const result = await serverSupabase.adjustStock(productId, Number(newStockLevel), auditNote, auditedBy);
+      const callerToken = getCallerSupabaseToken(req);
+      const result = await serverSupabase.adjustStock(productId, Number(newStockLevel), auditNote, auditedBy, callerToken);
       sendJson(200, { success: true, ...result });
     } catch (err) {
       sendJson(400, { success: false, error: err.message });
@@ -574,7 +584,8 @@ const server = http.createServer(async (req, res) => {
       if (!productId || physicalStock === undefined) {
         throw new Error('productId and physicalStock are required');
       }
-      const result = await serverSupabase.updatePhysicalStock(productId, physicalStock);
+      const callerToken = getCallerSupabaseToken(req);
+      const result = await serverSupabase.updatePhysicalStock(productId, physicalStock, callerToken);
       sendJson(200, { success: true, ...result });
     } catch (err) {
       sendJson(400, { success: false, error: err.message });
@@ -597,6 +608,26 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // 8d. Admin Update Order Status (Pending, Paid, Completed, Cancelled)
+  if (req.method === 'POST' && reqPath === '/api/admin/update-order-status') {
+    if (!await isAuthorizedAdmin(req)) {
+      sendJson(401, { success: false, message: 'Admin authorization required' });
+      return;
+    }
+    try {
+      const { orderId, status } = await parseJsonBody(req);
+      if (!orderId || !status) {
+        throw new Error('orderId and status are required');
+      }
+      const callerToken = getCallerSupabaseToken(req);
+      const updated = await serverSupabase.updateOrderStatus(orderId, status, callerToken);
+      sendJson(200, { success: true, order: updated });
+    } catch (err) {
+      sendJson(400, { success: false, error: err.message });
+    }
+    return;
+  }
+
   // 9. Admin Add Product
   if (req.method === 'POST' && reqPath === '/api/admin/add-product') {
     if (!await isAuthorizedAdmin(req)) {
@@ -608,7 +639,8 @@ const server = http.createServer(async (req, res) => {
       if (!productData.name || productData.price === undefined) {
         throw new Error('Product name and price are required');
       }
-      const created = await serverSupabase.addProduct(productData);
+      const callerToken = getCallerSupabaseToken(req);
+      const created = await serverSupabase.addProduct(productData, callerToken);
       sendJson(200, { success: true, product: created });
     } catch (err) {
       sendJson(400, { success: false, error: err.message });
@@ -628,7 +660,8 @@ const server = http.createServer(async (req, res) => {
       if (!targetId) {
         throw new Error('Product ID is required');
       }
-      const updated = await serverSupabase.updateProduct(targetId, body);
+      const callerToken = getCallerSupabaseToken(req);
+      const updated = await serverSupabase.updateProduct(targetId, body, callerToken);
       sendJson(200, { success: true, product: updated });
     } catch (err) {
       sendJson(400, { success: false, error: err.message });
@@ -649,7 +682,8 @@ const server = http.createServer(async (req, res) => {
         throw new Error('Product ID is required');
       }
       const isActive = body.isActive !== undefined ? body.isActive : (body.is_active !== undefined ? body.is_active : false);
-      const updated = await serverSupabase.archiveProduct(targetId, isActive);
+      const callerToken = getCallerSupabaseToken(req);
+      const updated = await serverSupabase.archiveProduct(targetId, isActive, callerToken);
       sendJson(200, { success: true, product: updated });
     } catch (err) {
       sendJson(400, { success: false, error: err.message });
@@ -689,7 +723,8 @@ const server = http.createServer(async (req, res) => {
       if (!targetId) {
         throw new Error('Product ID is required');
       }
-      const result = await serverSupabase.deleteProduct(targetId);
+      const callerToken = getCallerSupabaseToken(req);
+      const result = await serverSupabase.deleteProduct(targetId, callerToken);
       sendJson(200, { success: true, ...result });
     } catch (err) {
       sendJson(400, { success: false, error: err.message });

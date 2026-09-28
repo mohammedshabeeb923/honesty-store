@@ -1143,19 +1143,49 @@ class AdminApp {
       return;
     }
 
-    salesTableBody.innerHTML = orders.map(order => `
-      <tr>
-        <td><strong>${order.id}</strong></td>
-        <td>${order.timeLabel || order.createdAt}</td>
-        <td>
-          <div style="font-weight:600;">${(order.items || []).map(i => `${i.qty}x ${i.name}`).join(', ') || 'Snack'}</div>
-          ${order.customerEmail ? `<div style="font-size:11px; color:#64748b;">${order.customerEmail}</div>` : ''}
-        </td>
-        <td><strong>₹${order.amount}</strong></td>
-        <td><span class="badge-paid">✓ ${order.status}</span></td>
-        <td>${order.paymentMethod || 'Cashfree UPI'}</td>
-      </tr>
-    `).join('');
+    salesTableBody.innerHTML = orders.map(order => {
+      const isPaid = order.status === 'PAID';
+      const isCompleted = order.status === 'COMPLETED';
+      const isCancelled = order.status === 'CANCELLED';
+      const bg = isPaid ? '#ecfdf5' : (isCompleted ? '#eff6ff' : (isCancelled ? '#fef2f2' : '#fffbeb'));
+      const color = isPaid ? '#047857' : (isCompleted ? '#1d4ed8' : (isCancelled ? '#b91c1c' : '#b45309'));
+      const border = isPaid ? '#a7f3d0' : (isCompleted ? '#bfdbfe' : (isCancelled ? '#fecaca' : '#fde68a'));
+
+      return `
+        <tr>
+          <td><strong>${order.id}</strong></td>
+          <td>${order.timeLabel || order.createdAt}</td>
+          <td>
+            <div style="font-weight:600;">${(order.items || []).map(i => `${i.qty}x ${i.name}`).join(', ') || 'Snack'}</div>
+            ${order.customerEmail ? `<div style="font-size:11px; color:#64748b;">${order.customerEmail}</div>` : ''}
+          </td>
+          <td><strong>₹${order.amount}</strong></td>
+          <td>
+            <select class="admin-order-status-select" 
+                    style="font-size: 11px; font-weight: 700; padding: 5px 8px; border-radius: 6px; border: 1px solid ${border}; background: ${bg}; color: ${color}; cursor: pointer; outline: none;"
+                    onchange="window.adminApp.changeOrderStatus('${order.id}', this.value)">
+              <option value="PAID" ${isPaid ? 'selected' : ''}>✓ PAID</option>
+              <option value="COMPLETED" ${isCompleted ? 'selected' : ''}>★ COMPLETED</option>
+              <option value="PENDING" ${order.status === 'PENDING' ? 'selected' : ''}>⏳ PENDING</option>
+              <option value="CANCELLED" ${isCancelled ? 'selected' : ''}>✕ CANCELLED</option>
+            </select>
+          </td>
+          <td>${order.paymentMethod || 'Cashfree UPI'}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  async changeOrderStatus(orderId, newStatus) {
+    try {
+      await window.storeDB.updateOrderStatus(orderId, newStatus);
+      if (window.showToast) window.showToast(`Order ${orderId} marked as ${newStatus}`, 'success');
+      this.renderSales();
+    } catch (err) {
+      console.error('[AdminApp] changeOrderStatus error:', err);
+      alert(`Could not update order status: ${err.message}`);
+      this.renderSales();
+    }
   }
 
   async renderUsers() {

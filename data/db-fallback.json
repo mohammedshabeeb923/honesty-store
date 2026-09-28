@@ -9,9 +9,9 @@
       "price": 1,
       "purchase_price": 1,
       "selling_price": 1,
-      "stock": 99,
-      "expected_stock": 99,
-      "physical_stock": 99,
+      "stock": 0,
+      "expected_stock": 0,
+      "physical_stock": 0,
       "low_stock_threshold": 5,
       "image_url": "assets/lays.jpg",
       "is_active": true,
@@ -90,9 +90,9 @@
       "variant": "Milk Chocolate Bar",
       "category": "Chocolates",
       "price": 20,
-      "stock": 20,
-      "expected_stock": 20,
-      "physical_stock": 20,
+      "stock": 0,
+      "expected_stock": 0,
+      "physical_stock": 0,
       "image_url": "assets/dairymilk.png",
       "low_stock_threshold": 3,
       "is_active": true,
@@ -135,15 +135,15 @@
       "price": 5,
       "purchase_price": 4.38,
       "selling_price": 5,
-      "stock": 110,
-      "expected_stock": 110,
-      "physical_stock": 110,
+      "stock": 109,
+      "expected_stock": 109,
+      "physical_stock": 109,
       "low_stock_threshold": 10,
       "image_url": "assets/lays.jpg",
       "is_active": true,
       "is_available": true,
       "description": "Classic salted crispy potato chips. Reference packing slip: LAYS RS 5 @ ₹4.38",
-      "updated_at": "2026-09-28T12:56:27.139609+00:00",
+      "updated_at": "2026-09-28T17:21:09.666075+00:00",
       "storage_path": null,
       "created_at": "2026-09-28T12:41:38.919358+00:00"
     },
@@ -156,9 +156,9 @@
       "price": 209,
       "purchase_price": 209,
       "selling_price": null,
-      "stock": 1,
-      "expected_stock": 1,
-      "physical_stock": 1,
+      "stock": 32,
+      "expected_stock": 32,
+      "physical_stock": 32,
       "low_stock_threshold": 1,
       "image_url": "assets/munch.jpg",
       "is_active": true,
@@ -233,6 +233,48 @@
     }
   ],
   "orders": [
+    {
+      "id": "TEST_HTTP_1790616843767",
+      "user_id": null,
+      "customer_email": null,
+      "customer_name": null,
+      "customer_phone": null,
+      "amount": 25,
+      "item_count": 1,
+      "items": [
+        {
+          "id": "oreo",
+          "qty": 2
+        }
+      ],
+      "status": "PAID",
+      "payment_method": "UPI",
+      "payment_gateway": "Cashfree",
+      "time_label": "TODAY",
+      "created_at": "2026-09-28T17:34:03.767Z",
+      "updated_at": "2026-09-28T17:34:04.555Z"
+    },
+    {
+      "id": "TEST_ORD_1790616808788",
+      "user_id": null,
+      "customer_email": null,
+      "customer_name": null,
+      "customer_phone": null,
+      "amount": 10,
+      "item_count": 1,
+      "items": [
+        {
+          "id": "lays",
+          "qty": 2
+        }
+      ],
+      "status": "COMPLETED",
+      "payment_method": "UPI",
+      "payment_gateway": "Cashfree",
+      "time_label": "TODAY",
+      "created_at": "2026-09-28T17:33:28.788Z",
+      "updated_at": "2026-09-28T17:33:29.193Z"
+    },
     {
       "id": "HS_MUH9E6XP_5A74D8",
       "customer_phone": "9876543210",
@@ -322,7 +364,28 @@
       "password_hash": "d1d82e9683738e7ca22d5c5755935574:22fb443d3d0474cf719293eab93b33a76dc5630f24336b07d1ea3806d5007a80f712d216e7eff698ee2b1b122e39bcc4c24fd91f253606626903808e9a5ec101"
     }
   ],
-  "stock_audits": [],
+  "stock_audits": [
+    {
+      "product_id": "oreo",
+      "expected_units": 44,
+      "physical_units": 44,
+      "discrepancy": 0,
+      "shrinkage_value": 0,
+      "audit_note": "Test adjustment",
+      "audited_by": "godson107111@gmail.com",
+      "created_at": "2026-09-28T17:34:05.950Z"
+    },
+    {
+      "product_id": "lays",
+      "expected_units": 109,
+      "physical_units": 109,
+      "discrepancy": 0,
+      "shrinkage_value": 0,
+      "audit_note": "Audit test",
+      "audited_by": "TestRunner",
+      "created_at": "2026-09-28T17:33:30.179Z"
+    }
+  ],
   "community_metrics": {
     "sales_today": 20,
     "store_visits": 0,

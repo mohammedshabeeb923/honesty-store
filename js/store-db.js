@@ -39,6 +39,12 @@ function getAdminHeaders() {
     headers['Authorization'] = `Bearer ${token}`;
     headers['x-admin-token'] = token;
   }
+  if (window.authManager && typeof window.authManager.getAccessToken === 'function') {
+    const sbToken = window.authManager.getAccessToken();
+    if (sbToken && !sbToken.startsWith('admin_')) {
+      headers['x-supabase-token'] = sbToken;
+    }
+  }
   return headers;
 }
 window.getAdminHeaders = getAdminHeaders;
@@ -485,27 +491,64 @@ class StoreDB {
 
   handleRealtimeProductUpdate(payload) {
     if (!payload) return;
+
+    // Handle product deletion
+    if (payload.eventType === 'DELETE' && payload.old && payload.old.id) {
+      this.data.products = this.data.products.filter(p => p.id !== payload.old.id);
+      this.save();
+      this.notify();
+      return;
+    }
+
     const newProd = payload.new;
     if (!newProd) return;
 
     const existing = this.getProduct(newProd.id);
+    const resolvedImg = resolveProductImage(newProd.image_url || newProd.imageUrl || newProd.image, newProd.id);
+    const stockVal = Number(newProd.stock) || 0;
+    const priceVal = Number(newProd.price) || 0;
+    const sellingPriceVal = (newProd.selling_price !== undefined && newProd.selling_price !== null) ? Number(newProd.selling_price) : null;
+    const purchasePriceVal = (newProd.purchase_price !== undefined && newProd.purchase_price !== null) ? Number(newProd.purchase_price) : null;
+
     if (existing) {
-      existing.stock = Number(newProd.stock);
-      existing.expectedStock = Number(newProd.expected_stock !== undefined ? newProd.expected_stock : newProd.stock);
-      existing.physicalStock = Number(newProd.physical_stock !== undefined ? newProd.physical_stock : newProd.stock);
-      existing.badge = existing.stock <= 0 ? 'OUT OF STOCK' : (existing.stock <= (newProd.low_stock_threshold || 5) ? 'LOW STOCK' : '');
+      existing.name = newProd.name || existing.name;
+      existing.referenceName = newProd.reference_name || existing.referenceName || '';
+      existing.variant = newProd.variant !== undefined ? newProd.variant : existing.variant;
+      existing.category = newProd.category || existing.category;
+      existing.description = newProd.description !== undefined ? newProd.description : existing.description;
+      existing.price = priceVal;
+      if (sellingPriceVal !== null) existing.sellingPrice = sellingPriceVal;
+      if (purchasePriceVal !== null) existing.purchasePrice = purchasePriceVal;
+      existing.stock = stockVal;
+      existing.expectedStock = Number(newProd.expected_stock !== undefined ? newProd.expected_stock : stockVal);
+      existing.physicalStock = Number(newProd.physical_stock !== undefined ? newProd.physical_stock : stockVal);
+      existing.isActive = newProd.is_active !== undefined ? Boolean(newProd.is_active) : existing.isActive;
+      existing.isAvailable = newProd.is_available !== undefined ? Boolean(newProd.is_available) : existing.isAvailable;
+      existing.image = resolvedImg;
+      existing.imageUrl = resolvedImg;
+      existing.storagePath = newProd.storage_path || existing.storagePath;
+      existing.lowStockThreshold = newProd.low_stock_threshold || existing.lowStockThreshold || 5;
+      existing.badge = stockVal <= 0 ? 'OUT OF STOCK' : (stockVal <= existing.lowStockThreshold ? 'LOW STOCK' : '');
     } else {
       this.data.products.push({
         id: newProd.id,
         name: newProd.name,
+        referenceName: newProd.reference_name || '',
         variant: newProd.variant || '',
         category: newProd.category || 'Chips',
-        price: Number(newProd.price) || 0,
-        stock: Number(newProd.stock) || 0,
-        expectedStock: Number(newProd.stock) || 0,
-        physicalStock: Number(newProd.stock) || 0,
-        image: newProd.image_url || 'assets/lays.png',
-        badge: Number(newProd.stock) <= 0 ? 'OUT OF STOCK' : '',
+        description: newProd.description || '',
+        price: priceVal,
+        sellingPrice: sellingPriceVal,
+        purchasePrice: purchasePriceVal,
+        stock: stockVal,
+        expectedStock: Number(newProd.expected_stock !== undefined ? newProd.expected_stock : stockVal),
+        physicalStock: Number(newProd.physical_stock !== undefined ? newProd.physical_stock : stockVal),
+        image: resolvedImg,
+        imageUrl: resolvedImg,
+        storagePath: newProd.storage_path || null,
+        isActive: newProd.is_active !== undefined ? Boolean(newProd.is_active) : true,
+        isAvailable: newProd.is_available !== undefined ? Boolean(newProd.is_available) : true,
+        badge: stockVal <= 0 ? 'OUT OF STOCK' : (stockVal <= (newProd.low_stock_threshold || 5) ? 'LOW STOCK' : ''),
         lowStockThreshold: newProd.low_stock_threshold || 5
       });
     }
@@ -516,22 +559,30 @@ class StoreDB {
     if (!payload || !payload.new) return;
     const formatted = this.formatOrder(payload.new);
 
-    // 1. If order belongs to current user, prepend to customer order history
+    // 1. If order belongs to current user, update or prepend to customer order history
     const currentUserId = window.authManager ? window.authManager.getUserId() : null;
     if (currentUserId && formatted.userId === currentUserId) {
-      if (!this.userOrders.some(o => o.id === formatted.id)) {
+      const idx = this.userOrders.findIndex(o => o.id === formatted.id);
+      if (idx >= 0) {
+        this.userOrders[idx] = formatted;
+      } else {
         this.userOrders.unshift(formatted);
       }
     }
 
-    // 2. Prepend to admin orders list if active
-    if (!this.allAdminOrders.some(o => o.id === formatted.id)) {
+    // 2. Update or prepend to admin orders list
+    const adminIdx = this.allAdminOrders.findIndex(o => o.id === formatted.id);
+    if (adminIdx >= 0) {
+      this.allAdminOrders[adminIdx] = formatted;
+    } else {
       this.allAdminOrders.unshift(formatted);
     }
 
     // 3. Update Community Metrics in memory
-    this.data.community.salesToday += formatted.amount;
-    this.data.community.completedPayments += 1;
+    if (formatted.status === 'PAID' && payload.eventType === 'INSERT') {
+      this.data.community.salesToday += formatted.amount;
+      this.data.community.completedPayments += 1;
+    }
 
     this.notify();
   }
@@ -851,6 +902,43 @@ class StoreDB {
 
   getAdminOrders() {
     return this.allAdminOrders;
+  }
+
+  async updateOrderStatus(orderId, newStatus) {
+    const statusUpper = String(newStatus || '').toUpperCase().trim();
+
+    // Optimistic local update
+    const adminIdx = this.allAdminOrders.findIndex(o => o.id === orderId);
+    if (adminIdx >= 0) {
+      this.allAdminOrders[adminIdx].status = statusUpper;
+    }
+    const userIdx = this.userOrders.findIndex(o => o.id === orderId);
+    if (userIdx >= 0) {
+      this.userOrders[userIdx].status = statusUpper;
+    }
+    this.notify();
+
+    try {
+      const res = await fetch('/api/admin/update-order-status', {
+        method: 'POST',
+        headers: getAdminHeaders(),
+        body: JSON.stringify({ orderId, status: statusUpper })
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || errData.message || 'Failed to update order status');
+      }
+    } catch (e) {
+      console.warn('[StoreDB] updateOrderStatus network warning:', e.message);
+      if (window.supabaseClient && window.supabaseClient.isConnected) {
+        await window.supabaseClient.updateOrderStatus(orderId, statusUpper);
+      } else {
+        throw e;
+      }
+    }
+
+    await this.loadAdminOrders();
+    this.notify();
   }
 
   /**

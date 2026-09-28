@@ -200,9 +200,12 @@ class ServerSupabase {
   }
 
   getEnv() {
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const anonKey = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhpb2x6enZxY2dlcm5mZWJnZGJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyNzAwOTIsImV4cCI6MjEwNTg0NjA5Mn0.3q_2KhFenDVen1MuCZxXf87QpqA10GLWY0q4YFzLTUY';
     return {
       url: (process.env.SUPABASE_URL || 'https://hiolzzvqcgernfebgdbm.supabase.co').replace(/\/+$/, ''),
-      key: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhpb2x6enZxY2dlcm5mZWJnZGJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyNzAwOTIsImV4cCI6MjEwNTg0NjA5Mn0.3q_2KhFenDVen1MuCZxXf87QpqA10GLWY0q4YFzLTUY'
+      key: serviceRoleKey || anonKey,
+      isServiceRole: Boolean(serviceRoleKey && serviceRoleKey.length > 20)
     };
   }
 
@@ -270,9 +273,10 @@ class ServerSupabase {
   async fetchApi(table, options = {}) {
     const { url, key } = this.getEnv();
     const endpoint = `${url}/rest/v1/${table}${options.query || ''}`;
+    const authHeader = options.token ? `Bearer ${options.token}` : (options.headers?.Authorization || `Bearer ${key}`);
     const headers = {
       'apikey': key,
-      'Authorization': `Bearer ${key}`,
+      'Authorization': authHeader,
       'Content-Type': 'application/json',
       ...(options.headers || {})
     };
@@ -342,55 +346,37 @@ class ServerSupabase {
         : '?select=*&is_active=eq.true&order=name.asc';
       const products = await this.fetchApi('products', { query });
       if (products && Array.isArray(products) && products.length > 0) {
-        // Merge with master packing slip catalog definitions and local modifications
+        // Remote Supabase is strictly authoritative
         const merged = products
           .filter(remoteP => !deletedIds.has(remoteP.id))
           .map(remoteP => {
             const master = DEFAULT_PRODUCTS.find(d => d.id === remoteP.id);
-            const localMatch = (this.fallbackData.products || []).find(p => p.id === remoteP.id);
-            const resolvedImg = resolveProductImage(
-              (localMatch && localMatch.image_url) || remoteP.image_url || (master && master.image_url),
-              remoteP.id
-            );
+            const resolvedImg = resolveProductImage(remoteP.image_url || (master && master.image_url), remoteP.id);
 
-            // Authoritative stock: local/fallback state takes precedence if updated by admin
-            const stockVal = (localMatch && localMatch.stock !== undefined)
-              ? Number(localMatch.stock)
-              : (remoteP.stock !== undefined ? Number(remoteP.stock) : (master ? master.stock : 0));
-            const expectedStockVal = (localMatch && localMatch.expected_stock !== undefined)
-              ? Number(localMatch.expected_stock)
-              : (remoteP.expected_stock !== undefined ? Number(remoteP.expected_stock) : stockVal);
-            const physicalStockVal = (localMatch && localMatch.physical_stock !== undefined)
-              ? Number(localMatch.physical_stock)
-              : (remoteP.physical_stock !== undefined ? Number(remoteP.physical_stock) : stockVal);
-
-            const sellingPriceVal = (localMatch && localMatch.selling_price !== undefined)
-              ? localMatch.selling_price
-              : ((remoteP.selling_price !== undefined && remoteP.selling_price !== null) ? Number(remoteP.selling_price) : (master ? master.selling_price : null));
-            const purchasePriceVal = (localMatch && localMatch.purchase_price !== undefined)
-              ? localMatch.purchase_price
-              : ((remoteP.purchase_price !== undefined && remoteP.purchase_price !== null) ? Number(remoteP.purchase_price) : (master ? master.purchase_price : null));
-            const priceVal = (localMatch && localMatch.price !== undefined)
-              ? localMatch.price
-              : ((remoteP.price !== undefined && remoteP.price !== null) ? Number(remoteP.price) : (master ? master.price : 10));
-
-            const isActiveVal = (localMatch && localMatch.is_active !== undefined)
-              ? Boolean(localMatch.is_active)
-              : (remoteP.is_active !== undefined ? Boolean(remoteP.is_active) : (master ? master.is_active : true));
-            const isAvailableVal = (localMatch && localMatch.is_available !== undefined)
-              ? Boolean(localMatch.is_available)
-              : (remoteP.is_available !== undefined ? Boolean(remoteP.is_available) : (master ? master.is_available : true));
+            const stockVal = remoteP.stock !== undefined ? Number(remoteP.stock) : (master ? master.stock : 0);
+            const expectedStockVal = remoteP.expected_stock !== undefined ? Number(remoteP.expected_stock) : stockVal;
+            const physicalStockVal = remoteP.physical_stock !== undefined ? Number(remoteP.physical_stock) : stockVal;
+            const sellingPriceVal = (remoteP.selling_price !== undefined && remoteP.selling_price !== null) 
+              ? Number(remoteP.selling_price) 
+              : (master ? master.selling_price : null);
+            const purchasePriceVal = (remoteP.purchase_price !== undefined && remoteP.purchase_price !== null) 
+              ? Number(remoteP.purchase_price) 
+              : (master ? master.purchase_price : null);
+            const priceVal = (remoteP.price !== undefined && remoteP.price !== null) 
+              ? Number(remoteP.price) 
+              : (master ? master.price : 10);
+            const isActiveVal = remoteP.is_active !== undefined ? Boolean(remoteP.is_active) : (master ? master.is_active : true);
+            const isAvailableVal = remoteP.is_available !== undefined ? Boolean(remoteP.is_available) : (master ? master.is_available : true);
 
             return {
               ...(master || {}),
               ...remoteP,
-              ...(localMatch || {}),
               id: remoteP.id,
-              name: (localMatch && localMatch.name) || remoteP.name || (master ? master.name : ''),
-              reference_name: (localMatch && localMatch.reference_name) || remoteP.reference_name || (master ? master.reference_name : null),
-              variant: (localMatch && localMatch.variant) || remoteP.variant || (master ? master.variant : ''),
-              category: (localMatch && localMatch.category) || remoteP.category || (master ? master.category : 'Chips'),
-              description: (localMatch && localMatch.description) || remoteP.description || (master ? master.description : ''),
+              name: remoteP.name || (master ? master.name : ''),
+              reference_name: remoteP.reference_name || (master ? master.reference_name : null),
+              variant: remoteP.variant || (master ? master.variant : ''),
+              category: remoteP.category || (master ? master.category : 'Chips'),
+              description: remoteP.description || (master ? master.description : ''),
               price: priceVal,
               purchase_price: purchasePriceVal,
               selling_price: sellingPriceVal,
@@ -400,20 +386,17 @@ class ServerSupabase {
               is_active: isActiveVal,
               is_available: isAvailableVal,
               image_url: resolvedImg,
-              low_stock_threshold: (localMatch && localMatch.low_stock_threshold) || remoteP.low_stock_threshold || (master ? master.low_stock_threshold : 5)
+              low_stock_threshold: remoteP.low_stock_threshold || (master ? master.low_stock_threshold : 5)
             };
           });
 
-        const remoteIds = new Set(products.map(p => p.id));
-        const missingMasters = DEFAULT_PRODUCTS.filter(m => !remoteIds.has(m.id) && !deletedIds.has(m.id));
-        const localOnly = (this.fallbackData.products || []).filter(p => !remoteIds.has(p.id) && !DEFAULT_PRODUCTS.some(m => m.id === p.id) && !deletedIds.has(p.id));
-
-        this.fallbackData.products = [...merged, ...missingMasters, ...localOnly];
+        // Mirror authoritative Supabase data to local fallback cache
+        this.fallbackData.products = merged;
         this.saveFallback();
-        return includeArchived ? this.fallbackData.products : this.fallbackData.products.filter(p => p.is_active !== false);
+        return includeArchived ? merged : merged.filter(p => p.is_active !== false);
       }
     } catch (err) {
-      console.warn('[ServerSupabase] getProducts fallback:', err.message);
+      console.warn('[ServerSupabase] getProducts fallback to local cache:', err.message);
     }
     const fallbackList = (this.fallbackData.products || DEFAULT_PRODUCTS).filter(p => !deletedIds.has(p.id));
     return includeArchived ? fallbackList : fallbackList.filter(p => p.is_active !== false);
@@ -424,7 +407,6 @@ class ServerSupabase {
     if ((this.fallbackData.deleted_product_ids || []).includes(productId)) {
       return null;
     }
-    const localMatch = (this.fallbackData.products || []).find(p => p.id === productId);
     try {
       const res = await this.fetchApi('products', {
         query: `?id=eq.${productId}&select=*`
@@ -433,13 +415,12 @@ class ServerSupabase {
         const remoteP = res[0];
         const master = DEFAULT_PRODUCTS.find(d => d.id === remoteP.id);
         const resolvedImg = resolveProductImage(
-          (localMatch && localMatch.image_url) || remoteP.image_url || (master && master.image_url),
+          remoteP.image_url || (master && master.image_url),
           remoteP.id
         );
         return {
           ...(master || {}),
           ...remoteP,
-          ...(localMatch || {}),
           id: remoteP.id,
           image_url: resolvedImg
         };
@@ -447,11 +428,12 @@ class ServerSupabase {
     } catch (err) {
       console.warn(`[ServerSupabase] getProduct(${productId}) fallback:`, err.message);
     }
+    const localMatch = (this.fallbackData.products || []).find(p => p.id === productId);
     return localMatch || null;
   }
 
   // 2b. ADD NEW PRODUCT (ADMIN)
-  async addProduct(productData) {
+  async addProduct(productData, userToken = null) {
     const id = productData.id || ('prod_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6));
     const price = Math.max(0.5, Number(productData.price) || 10);
     const sellingPrice = (productData.selling_price !== undefined && productData.selling_price !== null && productData.selling_price !== '') 
@@ -496,9 +478,10 @@ class ServerSupabase {
       const res = await this.fetchApi('products', {
         method: 'POST',
         headers: { 'Prefer': 'return=representation' },
+        token: userToken,
         body: record
       });
-      console.log(`[ServerSupabase] Product added: ${record.name} (${record.id})`);
+      console.log(`[ServerSupabase] Product added in Supabase: ${record.name} (${record.id})`);
       return (Array.isArray(res) && res.length > 0) ? res[0] : (res && !Array.isArray(res) ? res : record);
     } catch (err) {
       console.warn(`[ServerSupabase] addProduct remote error:`, err.message);
@@ -522,6 +505,7 @@ class ServerSupabase {
           const retryRes = await this.fetchApi('products', {
             method: 'POST',
             headers: { 'Prefer': 'return=representation' },
+            token: userToken,
             body: baseRecord
           });
           console.log(`[ServerSupabase] Product added with base schema: ${record.name}`);
@@ -535,7 +519,7 @@ class ServerSupabase {
   }
 
   // 2c. UPDATE PRODUCT (ADMIN)
-  async updateProduct(productId, updates) {
+  async updateProduct(productId, updates, userToken = null) {
     const existing = await this.getProduct(productId);
     if (!existing) throw new Error(`Product ${productId} not found`);
 
@@ -584,9 +568,31 @@ class ServerSupabase {
         method: 'PATCH',
         query: `?id=eq.${productId}`,
         headers: { 'Prefer': 'return=representation' },
+        token: userToken,
         body: patchPayload
       });
-      console.log(`[ServerSupabase] Product updated: ${productId}`);
+
+      if (Array.isArray(res) && res.length === 0) {
+        // If 0 rows updated, verify if product exists in Supabase. If not, insert it (upsert)
+        console.warn(`[ServerSupabase] PATCH products?id=eq.${productId} returned 0 rows. Attempting upsert.`);
+        const upsertRecord = {
+          ...existing,
+          ...patchPayload,
+          id: productId
+        };
+        const upsertRes = await this.fetchApi('products', {
+          method: 'POST',
+          headers: { 'Prefer': 'resolution=merge-duplicates,return=representation' },
+          token: userToken,
+          body: upsertRecord
+        });
+        if (Array.isArray(upsertRes) && upsertRes.length > 0) {
+          console.log(`[ServerSupabase] Product upserted in Supabase: ${productId}`);
+          return upsertRes[0];
+        }
+      }
+
+      console.log(`[ServerSupabase] Product updated in Supabase: ${productId}`);
       return (Array.isArray(res) && res.length > 0) ? res[0] : { ...existing, ...patchPayload };
     } catch (err) {
       console.warn(`[ServerSupabase] updateProduct remote warning:`, err.message);
@@ -604,6 +610,7 @@ class ServerSupabase {
             method: 'PATCH',
             query: `?id=eq.${productId}`,
             headers: { 'Prefer': 'return=representation' },
+            token: userToken,
             body: safePayload
           });
           console.log(`[ServerSupabase] Product updated with base columns: ${productId}`);
@@ -615,8 +622,8 @@ class ServerSupabase {
   }
 
   // 2d. ARCHIVE / TOGGLE AVAILABILITY (ADMIN)
-  async archiveProduct(productId, isActive = false) {
-    return await this.updateProduct(productId, { is_active: Boolean(isActive) });
+  async archiveProduct(productId, isActive = false, userToken = null) {
+    return await this.updateProduct(productId, { is_active: Boolean(isActive) }, userToken);
   }
 
   // 2e. CHECK IF PRODUCT CAN BE SAFELY DELETED
@@ -642,7 +649,7 @@ class ServerSupabase {
   }
 
   // 2f. PERMANENTLY DELETE PRODUCT (ADMIN)
-  async deleteProduct(productId) {
+  async deleteProduct(productId, userToken = null) {
     const existing = await this.getProduct(productId);
     if (!existing) throw new Error(`Product ${productId} not found`);
 
@@ -672,7 +679,8 @@ class ServerSupabase {
     try {
       await this.fetchApi('products', {
         method: 'DELETE',
-        query: `?id=eq.${productId}`
+        query: `?id=eq.${productId}`,
+        token: userToken
       });
       console.log(`[ServerSupabase] Product deleted permanently: ${productId}`);
     } catch (err) {
@@ -1080,10 +1088,10 @@ class ServerSupabase {
   }
 
   // 9. ADJUST STOCK & RECORD AUDIT LOG (ADMIN)
-  async adjustStock(productId, newStockLevel, auditNote = '', auditedBy = 'Admin') {
+  async adjustStock(productId, newStockLevel, auditNote = '', auditedBy = 'Admin', userToken = null) {
     const prod = await this.getProduct(productId);
     const expected = prod ? (prod.expected_stock !== undefined ? prod.expected_stock : prod.stock) : 0;
-    const numStock = Number(newStockLevel) || 0;
+    const numStock = Math.max(0, Number(newStockLevel) || 0);
     const discrepancy = numStock - expected;
     const unitPrice = prod ? Number(prod.price) : 0;
     const shrinkageValue = Math.abs(discrepancy) * unitPrice;
@@ -1099,9 +1107,11 @@ class ServerSupabase {
 
     // 2. Update Product in Supabase
     try {
-      await this.fetchApi('products', {
+      const res = await this.fetchApi('products', {
         method: 'PATCH',
         query: `?id=eq.${productId}`,
+        headers: { 'Prefer': 'return=representation' },
+        token: userToken,
         body: {
           stock: numStock,
           expected_stock: numStock,
@@ -1109,6 +1119,23 @@ class ServerSupabase {
           updated_at: new Date().toISOString()
         }
       });
+      if (Array.isArray(res) && res.length === 0) {
+        console.warn(`[ServerSupabase] adjustStock(${productId}) returned 0 rows. Attempting upsert.`);
+        const upsertRecord = {
+          ...(prod || {}),
+          id: productId,
+          stock: numStock,
+          expected_stock: numStock,
+          physical_stock: numStock,
+          updated_at: new Date().toISOString()
+        };
+        await this.fetchApi('products', {
+          method: 'POST',
+          headers: { 'Prefer': 'resolution=merge-duplicates' },
+          token: userToken,
+          body: upsertRecord
+        });
+      }
       console.log(`[ServerSupabase] Stock adjusted for ${productId} to ${numStock}`);
     } catch (e) {
       console.warn(`[ServerSupabase] adjustStock(${productId}) product update warning:`, e.message);
@@ -1133,6 +1160,7 @@ class ServerSupabase {
     try {
       await this.fetchApi('stock_audits', {
         method: 'POST',
+        token: userToken,
         body: auditRecord
       });
     } catch (e) {
@@ -1143,7 +1171,7 @@ class ServerSupabase {
   }
 
   // 9b. UPDATE PHYSICAL SHELF STOCK (ADMIN)
-  async updatePhysicalStock(productId, physicalStock) {
+  async updatePhysicalStock(productId, physicalStock, userToken = null) {
     const numPhysical = Math.max(0, Number(physicalStock) || 0);
     const localProd = (this.fallbackData.products || []).find(p => p.id === productId);
     if (localProd) {
@@ -1155,10 +1183,53 @@ class ServerSupabase {
       await this.fetchApi('products', {
         method: 'PATCH',
         query: `?id=eq.${productId}`,
+        token: userToken,
         body: { physical_stock: numPhysical, updated_at: new Date().toISOString() }
       });
     } catch (e) {}
     return { success: true, productId, physicalStock: numPhysical };
+  }
+
+  // 10. UPDATE ORDER STATUS (ADMIN - CROSS-DEVICE REALTIME SYNC)
+  async updateOrderStatus(orderId, newStatus, userToken = null) {
+    const validStatuses = ['PENDING', 'PAID', 'COMPLETED', 'CANCELLED'];
+    const statusUpper = String(newStatus || '').toUpperCase().trim();
+    if (!validStatuses.includes(statusUpper)) {
+      throw new Error(`Invalid order status: "${newStatus}". Must be one of: ${validStatuses.join(', ')}`);
+    }
+
+    // Update in local fallback
+    const idx = (this.fallbackData.orders || []).findIndex(o => o.id === orderId);
+    let currentOrder = null;
+    if (idx >= 0) {
+      this.fallbackData.orders[idx].status = statusUpper;
+      this.fallbackData.orders[idx].updated_at = new Date().toISOString();
+      currentOrder = this.fallbackData.orders[idx];
+      this.saveFallback();
+    }
+
+    // Persist to Supabase
+    try {
+      const res = await this.fetchApi('orders', {
+        method: 'PATCH',
+        query: `?id=eq.${orderId}`,
+        headers: { 'Prefer': 'return=representation' },
+        token: userToken,
+        body: {
+          status: statusUpper,
+          updated_at: new Date().toISOString()
+        }
+      });
+      console.log(`[ServerSupabase] Order ${orderId} status updated to ${statusUpper} in Supabase.`);
+      if (Array.isArray(res) && res.length > 0) {
+        return res[0];
+      }
+    } catch (err) {
+      console.warn(`[ServerSupabase] updateOrderStatus(${orderId}) remote warning:`, err.message);
+      throw err;
+    }
+
+    return currentOrder || { id: orderId, status: statusUpper };
   }
 
 
