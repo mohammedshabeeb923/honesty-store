@@ -160,6 +160,24 @@ const DEFAULT_PRODUCTS = [
   }
 ];
 
+function resolveProductImage(img, id = '') {
+  const s = String(img || '').toLowerCase();
+  const idStr = String(id || '').toLowerCase();
+  if (s.startsWith('http://') || s.startsWith('https://') || s.startsWith('data:')) {
+    return img;
+  }
+  if (s.includes('bournvita') || idStr.includes('bournvita')) return 'assets/bournvita.jpg';
+  if (s.includes('chocos') || idStr.includes('chocos')) return 'assets/chocos.jpg';
+  if (s.includes('dailee') || idStr.includes('dailee')) return 'assets/dailee_mango.jpg';
+  if (s.includes('munch') || idStr.includes('munch')) return 'assets/munch.jpg';
+  if (s.includes('snickers') || idStr.includes('snickers')) return 'assets/snickers.jpg';
+  if (s.includes('oreo') || idStr.includes('oreo')) return 'assets/oreo.jpg';
+  if (s.includes('lays') || s.includes('lay') || idStr.includes('lays')) return 'assets/lays.jpg';
+  if (s.includes('dairymilk') || idStr.includes('dairymilk')) return 'assets/dairymilk.png';
+  if (s.includes('parleg') || idStr.includes('parleg')) return 'assets/parleg.png';
+  return img || 'assets/lays.jpg';
+}
+
 class ServerSupabase {
   constructor() {
     this.fallbackData = this.loadFallback();
@@ -302,10 +320,12 @@ class ServerSupabase {
         // Merge with master packing slip catalog definitions to preserve procurement rate and metadata
         const merged = products.map(remoteP => {
           const master = DEFAULT_PRODUCTS.find(d => d.id === remoteP.id);
+          const resolvedImg = resolveProductImage(remoteP.image_url || (master && master.image_url), remoteP.id);
           if (master) {
             return {
               ...master,
               ...remoteP,
+              image_url: resolvedImg,
               reference_name: remoteP.reference_name || master.reference_name,
               purchase_price: (remoteP.purchase_price !== undefined && remoteP.purchase_price !== null) ? Number(remoteP.purchase_price) : master.purchase_price,
               selling_price: (remoteP.selling_price !== undefined && remoteP.selling_price !== null) ? Number(remoteP.selling_price) : (master.selling_price !== undefined ? master.selling_price : null),
@@ -315,7 +335,10 @@ class ServerSupabase {
               is_available: remoteP.is_available !== undefined ? Boolean(remoteP.is_available) : master.is_available
             };
           }
-          return remoteP;
+          return {
+            ...remoteP,
+            image_url: resolvedImg
+          };
         });
 
         const remoteIds = new Set(products.map(p => p.id));
@@ -342,10 +365,12 @@ class ServerSupabase {
       if (res && res.length > 0) {
         const remoteP = res[0];
         const master = DEFAULT_PRODUCTS.find(d => d.id === remoteP.id);
+        const resolvedImg = resolveProductImage(remoteP.image_url || (master && master.image_url), remoteP.id);
         if (master) {
           return {
             ...master,
             ...remoteP,
+            image_url: resolvedImg,
             reference_name: remoteP.reference_name || master.reference_name,
             purchase_price: (remoteP.purchase_price !== undefined && remoteP.purchase_price !== null) ? Number(remoteP.purchase_price) : master.purchase_price,
             selling_price: (remoteP.selling_price !== undefined && remoteP.selling_price !== null) ? Number(remoteP.selling_price) : (master.selling_price !== undefined ? master.selling_price : null),
@@ -353,7 +378,10 @@ class ServerSupabase {
             is_available: remoteP.is_available !== undefined ? Boolean(remoteP.is_available) : master.is_available
           };
         }
-        return remoteP;
+        return {
+          ...remoteP,
+          image_url: resolvedImg
+        };
       }
     } catch (err) {
       console.warn(`[ServerSupabase] getProduct(${productId}) fallback:`, err.message);
