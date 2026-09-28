@@ -27,7 +27,7 @@ const DEFAULT_PRODUCTS = [
     expected_stock: 110,
     physical_stock: 110,
     low_stock_threshold: 10,
-    image_url: 'assets/lays.png',
+    image_url: 'assets/lays.jpg',
     is_active: true,
     is_available: true,
     description: 'Classic salted crispy potato chips. Reference: LAYS RS 5 @ ₹4.38'
@@ -45,7 +45,7 @@ const DEFAULT_PRODUCTS = [
     expected_stock: 22,
     physical_stock: 22,
     low_stock_threshold: 5,
-    image_url: 'assets/dailee_mango.svg',
+    image_url: 'assets/dailee_mango.jpg',
     is_active: true,
     is_available: true,
     description: 'Refreshing mango fruit juice drink. Reference: DAILEE [MANGO 12] @ ₹7.00'
@@ -63,7 +63,7 @@ const DEFAULT_PRODUCTS = [
     expected_stock: 44,
     physical_stock: 44,
     low_stock_threshold: 8,
-    image_url: 'assets/oreo.png',
+    image_url: 'assets/oreo.jpg',
     is_active: true,
     is_available: true,
     description: 'Rich chocolate cookies with sweet vanilla creme. Reference: OREO RS 10 @ ₹8.86'
@@ -81,7 +81,7 @@ const DEFAULT_PRODUCTS = [
     expected_stock: 1,
     physical_stock: 1,
     low_stock_threshold: 1,
-    image_url: 'assets/munch.svg',
+    image_url: 'assets/munch.jpg',
     is_active: true,
     is_available: true,
     description: 'Crispy chocolate wafer box. Reference: MUNCH RS 10 [BOX] @ ₹209.00. Selling price requires admin input.'
@@ -99,7 +99,7 @@ const DEFAULT_PRODUCTS = [
     expected_stock: 58,
     physical_stock: 58,
     low_stock_threshold: 10,
-    image_url: 'assets/snickers.svg',
+    image_url: 'assets/snickers.jpg',
     is_active: true,
     is_available: true,
     description: 'Milk chocolate bar with roasted peanuts and caramel. Reference: SNICKERS [10] 40PES @ ₹7.88'
@@ -117,7 +117,7 @@ const DEFAULT_PRODUCTS = [
     expected_stock: 9,
     physical_stock: 9,
     low_stock_threshold: 4,
-    image_url: 'assets/bournvita.svg',
+    image_url: 'assets/bournvita.jpg',
     is_active: true,
     is_available: true,
     description: 'Wholesome malted chocolate cookies. Reference: BOURNVITA BISCUIT [10] @ ₹8.50'
@@ -135,7 +135,7 @@ const DEFAULT_PRODUCTS = [
     expected_stock: 17,
     physical_stock: 17,
     low_stock_threshold: 5,
-    image_url: 'assets/chocos.svg',
+    image_url: 'assets/chocos.jpg',
     is_active: true,
     is_available: true,
     description: 'Crunchy chocolate flavoured snack. Reference: CHOCOS RS 10 @ ₹8.60'
@@ -309,9 +309,9 @@ class ServerSupabase {
               reference_name: remoteP.reference_name || master.reference_name,
               purchase_price: (remoteP.purchase_price !== undefined && remoteP.purchase_price !== null) ? Number(remoteP.purchase_price) : master.purchase_price,
               selling_price: (remoteP.selling_price !== undefined && remoteP.selling_price !== null) ? Number(remoteP.selling_price) : (master.selling_price !== undefined ? master.selling_price : null),
-              stock: remoteP.reference_name ? Number(remoteP.stock) : master.stock,
-              expected_stock: remoteP.reference_name ? Number(remoteP.expected_stock || remoteP.stock) : master.expected_stock,
-              physical_stock: remoteP.reference_name ? Number(remoteP.physical_stock || remoteP.stock) : master.physical_stock,
+              stock: (remoteP.id === 'munch' ? master.stock : (remoteP.reference_name ? Number(remoteP.stock) : master.stock)),
+              expected_stock: (remoteP.id === 'munch' ? master.expected_stock : (remoteP.reference_name ? Number(remoteP.expected_stock || remoteP.stock) : master.expected_stock)),
+              physical_stock: (remoteP.id === 'munch' ? master.physical_stock : (remoteP.reference_name ? Number(remoteP.physical_stock || remoteP.stock) : master.physical_stock)),
               is_available: remoteP.is_available !== undefined ? Boolean(remoteP.is_available) : master.is_available
             };
           }

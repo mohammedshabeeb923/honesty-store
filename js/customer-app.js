@@ -253,8 +253,8 @@ class CustomerApp {
                  loading="lazy" 
                  onerror="this.onerror=null;this.src='assets/lays.png';" />
           </div>
-          <div class="product-name">${prod.name}</div>
-          ${prod.variant ? `<div style="font-size:11px; color:#64748b; margin-top:-3px; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${prod.variant}</div>` : ''}
+          <div class="product-name" title="${prod.name}">${prod.name}</div>
+          <div class="product-variant-line">${prod.variant || '&nbsp;'}</div>
           <div class="product-stock-line ${isLowStock ? 'warning' : ''}">
             ${isUnavailable 
               ? '<span style="color:#ef4444; font-weight:700;">Temporarily Unavailable</span>'
@@ -263,10 +263,10 @@ class CustomerApp {
           <div class="product-bottom-row">
             <div class="product-price">
               ${hasValidSellingPrice ? `
-                ₹${displayPrice}
-                ${hasDiscount ? `<span style="font-size:11px; text-decoration:line-through; color:#94a3b8; margin-left:4px; font-weight:400;">₹${mrpPrice}</span>` : ''}
+                <span class="price-val">₹${displayPrice}</span>
+                ${hasDiscount ? `<span class="price-mrp" style="font-size:11px; text-decoration:line-through; color:#94a3b8; margin-left:3px; font-weight:400;">₹${mrpPrice}</span>` : ''}
               ` : `
-                <span class="badge-tag muted" style="font-size: 11px; color: #dc2626; background: #fee2e2; border: 1px solid #fecaca; padding: 2px 6px; border-radius: 4px; font-weight: 600;">Price unavailable</span>
+                <span class="badge-tag muted price-unavail-badge">Price unavailable</span>
               `}
             </div>
             ${!canPurchase ? `

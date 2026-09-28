@@ -874,11 +874,41 @@
     overflow-x: auto !important;
     gap: 4px !important;
     padding-bottom: 2px !important;
+    scrollbar-width: none;
+  }
+  .sidebar-nav-list::-webkit-scrollbar {
+    display: none;
   }
   .sidebar-nav-item {
-    padding: 6px 10px !important;
+    padding: 6px 12px !important;
     font-size: 12px !important;
     white-space: nowrap !important;
+  }
+  .admin-top-nav {
+    height: auto !important;
+    min-height: 52px !important;
+    padding: 10px 14px !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+  .admin-page-heading {
+    font-size: 20px !important;
+  }
+  .admin-header-actions {
+    gap: 8px !important;
+  }
+  .admin-search-input {
+    width: 140px !important;
+  }
+  .admin-search-input:focus {
+    width: 180px !important;
+  }
+  .admin-tab-view {
+    padding: 10px 14px 24px !important;
+  }
+  .inventory-container {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
   }
   .admin-stock-split {
     flex-direction: column !important;
@@ -891,6 +921,32 @@
   }
   .admin-stock-right {
     width: 100% !important;
+  }
+  .products-tab-container {
+    padding: 12px 14px !important;
+  }
+  .admin-table-card {
+    padding: 14px !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  .products-table-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+}
+
+.editor-pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+@media (max-width: 520px) {
+  .editor-pricing-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
   }
 }
 
