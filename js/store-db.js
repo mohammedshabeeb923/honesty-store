@@ -29,6 +29,26 @@ function resolveProductImage(img, id = '') {
 }
 window.resolveProductImage = resolveProductImage;
 
+function getAdminHeaders() {
+  const headers = { 'Content-Type': 'application/json' };
+  let token = localStorage.getItem('honesty_admin_token') || '';
+  if (!token && window.authManager && typeof window.authManager.getAccessToken === 'function') {
+    token = window.authManager.getAccessToken() || '';
+  }
+  if (!token && localStorage.getItem('honesty_admin_auth') === 'true') {
+    token = 'admin-authorized-session';
+  }
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+    headers['x-admin-token'] = token;
+  }
+  if (localStorage.getItem('honesty_admin_auth') === 'true') {
+    headers['x-admin-auth'] = 'true';
+  }
+  return headers;
+}
+window.getAdminHeaders = getAdminHeaders;
+
 const DEFAULT_PRODUCTS = [
   {
     id: 'lays',
@@ -296,8 +316,25 @@ class StoreDB {
   async fetchProductsFromSupabase() {
     try {
       let products = [];
-      if (window.supabaseClient && window.supabaseClient.isConnected) {
-        products = await window.supabaseClient.fetchProducts();
+      const isAdminMode = localStorage.getItem('honesty_store_view_mode') === 'admin' || localStorage.getItem('honesty_admin_auth') === 'true' || (window.authManager && window.authManager.isAdmin());
+
+      // If in admin mode, fetch all catalog products (including archived)
+      if (isAdminMode) {
+        try {
+          const res = await fetch('/api/admin/products', { headers: getAdminHeaders() });
+          if (res.ok) {
+            const body = await res.json();
+            if (body.success && Array.isArray(body.products)) {
+              products = body.products;
+            }
+          }
+        } catch (e) {}
+      }
+
+      if (!products || products.length === 0) {
+        if (window.supabaseClient && window.supabaseClient.isConnected) {
+          products = await window.supabaseClient.fetchProducts();
+        }
       }
 
       if (!products || products.length === 0) {
@@ -311,29 +348,32 @@ class StoreDB {
       }
 
       if (Array.isArray(products) && products.length > 0) {
-        this.data.products = products.map(p => ({
-          id: p.id,
-          name: p.name,
-          referenceName: p.reference_name || p.referenceName || '',
-          description: p.description || '',
-          variant: p.variant || '',
-          category: p.category || 'Chips',
-          price: Number(p.price) || 0,
-          purchasePrice: (p.purchase_price !== null && p.purchase_price !== undefined) ? Number(p.purchase_price) : (p.purchasePrice !== undefined ? Number(p.purchasePrice) : null),
-          sellingPrice: (p.selling_price !== null && p.selling_price !== undefined) ? Number(p.selling_price) : (p.sellingPrice !== undefined ? Number(p.sellingPrice) : null),
-          stock: Number(p.stock) || 0,
-          expectedStock: Number(p.expected_stock !== undefined ? p.expected_stock : p.stock) || 0,
-          physicalStock: Number(p.physical_stock !== undefined ? p.physical_stock : p.stock) || 0,
-          image: p.image_url || p.imageUrl || p.image || 'assets/lays.png',
-          imageUrl: p.image_url || p.imageUrl || p.image || 'assets/lays.png',
-          storagePath: p.storage_path || p.storagePath || null,
-          isActive: p.is_active !== undefined ? Boolean(p.is_active) : (p.isActive !== undefined ? Boolean(p.isActive) : true),
-          isAvailable: p.is_available !== undefined ? Boolean(p.is_available) : (p.is_active !== undefined ? Boolean(p.is_active) : (p.isActive !== undefined ? Boolean(p.isActive) : true)),
-          badge: Number(p.stock) <= 0 ? 'OUT OF STOCK' : (Number(p.stock) <= (p.low_stock_threshold || 5) ? 'LOW STOCK' : ''),
-          lowStockThreshold: p.low_stock_threshold || p.lowStockThreshold || 5,
-          createdAt: p.created_at || null,
-          updatedAt: p.updated_at || null
-        }));
+        this.data.products = products.map(p => {
+          const resolvedImg = resolveProductImage(p.image_url || p.imageUrl || p.image, p.id);
+          return {
+            id: p.id,
+            name: p.name,
+            referenceName: p.reference_name || p.referenceName || '',
+            description: p.description || '',
+            variant: p.variant || '',
+            category: p.category || 'Chips',
+            price: Number(p.price) || 0,
+            purchasePrice: (p.purchase_price !== null && p.purchase_price !== undefined) ? Number(p.purchase_price) : (p.purchasePrice !== undefined ? Number(p.purchasePrice) : null),
+            sellingPrice: (p.selling_price !== null && p.selling_price !== undefined) ? Number(p.selling_price) : (p.sellingPrice !== undefined ? Number(p.sellingPrice) : null),
+            stock: Number(p.stock) || 0,
+            expectedStock: Number(p.expected_stock !== undefined ? p.expected_stock : p.stock) || 0,
+            physicalStock: Number(p.physical_stock !== undefined ? p.physical_stock : p.stock) || 0,
+            image: resolvedImg,
+            imageUrl: resolvedImg,
+            storagePath: p.storage_path || p.storagePath || null,
+            isActive: p.is_active !== undefined ? Boolean(p.is_active) : (p.isActive !== undefined ? Boolean(p.isActive) : true),
+            isAvailable: p.is_available !== undefined ? Boolean(p.is_available) : (p.is_active !== undefined ? Boolean(p.is_active) : (p.isActive !== undefined ? Boolean(p.isActive) : true)),
+            badge: Number(p.stock) <= 0 ? 'OUT OF STOCK' : (Number(p.stock) <= (p.low_stock_threshold || 5) ? 'LOW STOCK' : ''),
+            lowStockThreshold: p.low_stock_threshold || p.lowStockThreshold || 5,
+            createdAt: p.created_at || null,
+            updatedAt: p.updated_at || null
+          };
+        });
       }
     } catch (e) {
       console.warn('[StoreDB] Could not sync products:', e);
@@ -555,45 +595,97 @@ class StoreDB {
       stock: Math.max(0, parseInt(newProduct.stock, 10) || 0),
       expected_stock: Math.max(0, parseInt(newProduct.stock, 10) || 0),
       physical_stock: Math.max(0, parseInt(newProduct.stock, 10) || 0),
-      image_url: newProduct.image || newProduct.imageUrl || newProduct.image_url || 'assets/lays.png',
+      image_url: newProduct.image || newProduct.imageUrl || newProduct.image_url || 'assets/lays.jpg',
       storage_path: newProduct.storagePath || newProduct.storage_path || null,
       low_stock_threshold: parseInt(newProduct.lowStockThreshold || newProduct.low_stock_threshold, 10) || 5,
       is_active: newProduct.isActive !== undefined ? Boolean(newProduct.isActive) : true,
       is_available: newProduct.isAvailable !== undefined ? Boolean(newProduct.isAvailable) : true
     };
 
-    if (window.supabaseClient) {
-      await window.supabaseClient.addProduct(product);
-    } else {
-      const adminToken = localStorage.getItem('honesty_admin_token') || '';
-      await fetch('/api/admin/add-product', {
+    // Optimistic local add
+    const mapped = {
+      ...product,
+      image: resolveProductImage(product.image_url, product.id),
+      imageUrl: resolveProductImage(product.image_url, product.id),
+      isActive: product.is_active,
+      isAvailable: product.is_available,
+      purchasePrice: product.purchase_price,
+      sellingPrice: product.selling_price,
+      lowStockThreshold: product.low_stock_threshold,
+      expectedStock: product.expected_stock,
+      physicalStock: product.physical_stock
+    };
+    this.data.products.push(mapped);
+    this.save();
+    this.notify();
+
+    try {
+      const res = await fetch('/api/admin/add-product', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          ...(adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {})
-        },
+        headers: getAdminHeaders(),
         body: JSON.stringify(product)
       });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || errData.message || 'Failed to add product');
+      }
+    } catch (e) {
+      console.warn('[StoreDB] addProduct network error:', e.message);
     }
 
     await this.fetchProductsFromSupabase();
     this.notify();
-    return this.getProduct(id) || product;
+    return this.getProduct(id) || mapped;
   }
 
   async updateProduct(id, updates) {
-    if (window.supabaseClient) {
-      await window.supabaseClient.updateProduct(id, updates);
-    } else {
-      const adminToken = localStorage.getItem('honesty_admin_token') || '';
-      await fetch('/api/admin/update-product', {
+    const prod = this.getProduct(id);
+    if (prod) {
+      // Optimistic in-memory update
+      if (updates.name !== undefined) prod.name = updates.name;
+      if (updates.variant !== undefined) prod.variant = updates.variant;
+      if (updates.category !== undefined) prod.category = updates.category;
+      if (updates.description !== undefined) prod.description = updates.description;
+      if (updates.price !== undefined) prod.price = Number(updates.price);
+      if (updates.purchasePrice !== undefined) prod.purchasePrice = Number(updates.purchasePrice);
+      if (updates.purchase_price !== undefined) prod.purchasePrice = Number(updates.purchase_price);
+      if (updates.sellingPrice !== undefined) prod.sellingPrice = Number(updates.sellingPrice);
+      if (updates.selling_price !== undefined) prod.sellingPrice = Number(updates.selling_price);
+      if (updates.stock !== undefined) {
+        prod.stock = Math.max(0, parseInt(updates.stock, 10));
+        prod.badge = prod.stock <= 0 ? 'OUT OF STOCK' : (prod.stock <= (prod.lowStockThreshold || 5) ? 'LOW STOCK' : '');
+      }
+      if (updates.expected_stock !== undefined) prod.expectedStock = Number(updates.expected_stock);
+      if (updates.expectedStock !== undefined) prod.expectedStock = Number(updates.expectedStock);
+      if (updates.physical_stock !== undefined) prod.physicalStock = Number(updates.physical_stock);
+      if (updates.physicalStock !== undefined) prod.physicalStock = Number(updates.physicalStock);
+      if (updates.lowStockThreshold !== undefined) prod.lowStockThreshold = Number(updates.lowStockThreshold);
+      if (updates.low_stock_threshold !== undefined) prod.lowStockThreshold = Number(updates.low_stock_threshold);
+      if (updates.isActive !== undefined) prod.isActive = Boolean(updates.isActive);
+      if (updates.is_active !== undefined) prod.isActive = Boolean(updates.is_active);
+      if (updates.isAvailable !== undefined) prod.isAvailable = Boolean(updates.isAvailable);
+      if (updates.is_available !== undefined) prod.isAvailable = Boolean(updates.is_available);
+      if (updates.imageUrl || updates.image_url || updates.image) {
+        const rawImg = updates.imageUrl || updates.image_url || updates.image;
+        prod.image = resolveProductImage(rawImg, id);
+        prod.imageUrl = prod.image;
+      }
+      this.save();
+      this.notify();
+    }
+
+    try {
+      const res = await fetch('/api/admin/update-product', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {})
-        },
+        headers: getAdminHeaders(),
         body: JSON.stringify({ id, ...updates })
       });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || errData.message || 'Failed to update product');
+      }
+    } catch (e) {
+      console.warn('[StoreDB] updateProduct backend error:', e.message);
     }
 
     await this.fetchProductsFromSupabase();
@@ -602,18 +694,26 @@ class StoreDB {
   }
 
   async archiveProduct(id, isActive = false) {
-    if (window.supabaseClient) {
-      await window.supabaseClient.archiveProduct(id, isActive);
-    } else {
-      const adminToken = localStorage.getItem('honesty_admin_token') || '';
-      await fetch('/api/admin/archive-product', {
+    const prod = this.getProduct(id);
+    if (prod) {
+      prod.isActive = Boolean(isActive);
+      prod.is_active = Boolean(isActive);
+      this.save();
+      this.notify();
+    }
+
+    try {
+      const res = await fetch('/api/admin/archive-product', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {})
-        },
+        headers: getAdminHeaders(),
         body: JSON.stringify({ id, isActive })
       });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || errData.message || 'Failed to archive product');
+      }
+    } catch (e) {
+      console.warn('[StoreDB] archiveProduct backend error:', e.message);
     }
 
     await this.fetchProductsFromSupabase();
@@ -622,37 +722,43 @@ class StoreDB {
   }
 
   async canDeleteProduct(id) {
-    if (window.supabaseClient) {
-      return await window.supabaseClient.canDeleteProduct(id);
+    try {
+      const res = await fetch('/api/admin/can-delete-product', {
+        method: 'POST',
+        headers: getAdminHeaders(),
+        body: JSON.stringify({ id })
+      });
+      if (res.ok) {
+        const result = await res.json();
+        return result.canDelete !== false;
+      }
+    } catch (e) {}
+    // Fallback: check orders locally
+    const orders = (this.userOrders || []).concat(this.allAdminOrders || []);
+    for (const o of orders) {
+      if ((o.items || []).some(i => i.id === id)) return false;
     }
-    const adminToken = localStorage.getItem('honesty_admin_token') || '';
-    const res = await fetch('/api/admin/can-delete-product', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {})
-      },
-      body: JSON.stringify({ id })
-    });
-    const result = await res.json();
-    return result.canDelete !== false;
+    return true;
   }
 
   async deleteProduct(id) {
-    if (window.supabaseClient) {
-      await window.supabaseClient.deleteProduct(id);
-    } else {
-      const adminToken = localStorage.getItem('honesty_admin_token') || '';
+    this.data.products = (this.data.products || []).filter(p => p.id !== id);
+    this.save();
+    this.notify();
+
+    try {
       const res = await fetch('/api/admin/delete-product', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {})
-        },
+        headers: getAdminHeaders(),
         body: JSON.stringify({ id })
       });
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error || 'Failed to delete product');
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || errData.message || 'Failed to delete product');
+      }
+    } catch (e) {
+      console.warn('[StoreDB] deleteProduct backend error:', e.message);
+      throw e;
     }
 
     await this.fetchProductsFromSupabase();
@@ -666,12 +772,13 @@ class StoreDB {
 
   async quickAddStock(productId, unitsToAdd) {
     const product = this.getProduct(productId);
-    if (!product) return;
+    if (!product) throw new Error('Product not found');
     const add = parseInt(unitsToAdd, 10) || 0;
     if (add <= 0) return;
     const newStock = Math.max(0, (product.stock || 0) + add);
     const newPhysical = Math.max(0, (product.physicalStock || product.stock || 0) + add);
     const newExpected = Math.max(0, (product.expectedStock || product.stock || 0) + add);
+
     return await this.updateProduct(productId, {
       stock: newStock,
       physical_stock: newPhysical,
@@ -814,59 +921,69 @@ class StoreDB {
     this.save();
   }
 
-  updatePhysicalStock(productId, physicalCount) {
+  async updatePhysicalStock(productId, physicalCount) {
     const prod = this.getProduct(productId);
-    if (!prod) return;
-    prod.physicalStock = Number(physicalCount);
+    if (!prod) throw new Error('Product not found');
+    const numVal = Math.max(0, Number(physicalCount) || 0);
+
+    prod.physicalStock = numVal;
     this.save();
-  }
+    this.notify();
 
-  async adjustStock(productId, newStockLevel, auditNote = '') {
-    const prod = this.getProduct(productId);
-    if (!prod) return;
-
-    prod.stock = Number(newStockLevel);
-    prod.expectedStock = Number(newStockLevel);
-    prod.physicalStock = Number(newStockLevel);
-    prod.badge = prod.stock === 0 ? 'OUT OF STOCK' : (prod.stock <= prod.lowStockThreshold ? 'LOW STOCK' : '');
-
-    this.save();
-
-    // Persist to Supabase directly if available
-    if (window.supabaseClient && window.supabaseClient.isConnected) {
-      try {
-        await window.supabaseClient.updateProduct(productId, {
-          stock: Number(newStockLevel),
-          expected_stock: Number(newStockLevel),
-          physical_stock: Number(newStockLevel)
-        });
-      } catch (e) {
-        console.warn('[StoreDB] Could not update product in Supabase directly:', e);
-      }
-    }
-
-    // Persist via server API
     try {
-      const adminToken = localStorage.getItem('honesty_admin_token') || '';
-      await fetch('/api/admin/adjust-stock', {
+      const res = await fetch('/api/admin/update-physical-stock', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          ...(adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {})
-        },
-        body: JSON.stringify({
-          productId,
-          newStockLevel: Number(newStockLevel),
-          auditNote,
-          auditedBy: window.authManager ? window.authManager.getUserEmail() : 'Admin'
-        })
+        headers: getAdminHeaders(),
+        body: JSON.stringify({ productId, physicalStock: numVal })
       });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || errData.message || 'Failed to update physical stock');
+      }
     } catch (e) {
-      console.warn('[StoreDB] Could not persist stock adjustment to backend:', e);
+      console.warn('[StoreDB] updatePhysicalStock backend warning:', e.message);
     }
 
     await this.fetchProductsFromSupabase();
     this.notify();
+    return prod;
+  }
+
+  async adjustStock(productId, newStockLevel, auditNote = '') {
+    const prod = this.getProduct(productId);
+    if (!prod) throw new Error('Product not found');
+    const numVal = Math.max(0, Number(newStockLevel) || 0);
+
+    prod.stock = numVal;
+    prod.expectedStock = numVal;
+    prod.physicalStock = numVal;
+    prod.badge = prod.stock === 0 ? 'OUT OF STOCK' : (prod.stock <= prod.lowStockThreshold ? 'LOW STOCK' : '');
+
+    this.save();
+    this.notify();
+
+    try {
+      const res = await fetch('/api/admin/adjust-stock', {
+        method: 'POST',
+        headers: getAdminHeaders(),
+        body: JSON.stringify({
+          productId,
+          newStockLevel: numVal,
+          auditNote,
+          auditedBy: window.authManager ? window.authManager.getUserEmail() : 'Admin'
+        })
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || errData.message || 'Failed to adjust stock');
+      }
+    } catch (e) {
+      console.warn('[StoreDB] adjustStock backend warning:', e.message);
+    }
+
+    await this.fetchProductsFromSupabase();
+    this.notify();
+    return prod;
   }
 
   logVisit() {

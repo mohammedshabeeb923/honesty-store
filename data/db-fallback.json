@@ -4,7 +4,7 @@
       "id": "upitest",
       "name": "₹1 Live UPI Test",
       "reference_name": "GATEWAY VERIFICATION ITEM",
-      "variant": null,
+      "variant": "Gateway Verification Item",
       "category": "Chips",
       "price": 1,
       "purchase_price": 1,
@@ -16,7 +16,7 @@
       "image_url": "assets/lays.jpg",
       "is_active": true,
       "is_available": true,
-      "description": null,
+      "description": "Live ₹1 gateway testing item.",
       "updated_at": "2026-09-28T07:22:52.168+00:00",
       "storage_path": null,
       "created_at": "2026-09-28T12:41:38.919358+00:00"
@@ -97,11 +97,32 @@
       "low_stock_threshold": 3,
       "is_active": true,
       "updated_at": "2026-09-25T17:33:43.03+00:00",
-      "description": null,
+      "description": "",
       "selling_price": null,
       "storage_path": null,
       "created_at": "2026-09-28T12:41:38.919358+00:00",
       "purchase_price": null,
+      "reference_name": null,
+      "is_available": true
+    },
+    {
+      "id": "prod_1790606425052",
+      "name": "kitkat",
+      "variant": "kitkat 30gm",
+      "category": "Chocolates",
+      "price": 30,
+      "stock": 21,
+      "expected_stock": 21,
+      "physical_stock": 21,
+      "image_url": "assets/lays.jpg",
+      "low_stock_threshold": 5,
+      "is_active": true,
+      "updated_at": "2026-09-28T14:40:26.279438+00:00",
+      "description": "",
+      "selling_price": 30,
+      "storage_path": null,
+      "created_at": "2026-09-28T14:40:26.279438+00:00",
+      "purchase_price": 0,
       "reference_name": null,
       "is_available": true
     },
@@ -181,7 +202,7 @@
       "low_stock_threshold": 5,
       "is_active": true,
       "updated_at": "2026-09-24T18:50:13.068469+00:00",
-      "description": null,
+      "description": "",
       "selling_price": null,
       "storage_path": null,
       "created_at": "2026-09-28T12:41:38.919358+00:00",
@@ -306,5 +327,6 @@
     "sales_today": 20,
     "store_visits": 0,
     "completed_payments": 1
-  }
+  },
+  "deleted_product_ids": []
 }

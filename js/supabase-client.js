@@ -454,13 +454,10 @@ class SupabaseClient {
     }
 
     // 2. Reliable Server Proxy Upload
-    const adminToken = localStorage.getItem('honesty_admin_token') || '';
+    const headers = window.getAdminHeaders ? window.getAdminHeaders() : { 'Content-Type': 'application/json' };
     const res = await fetch('/api/admin/upload-product-image', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {})
-      },
+      headers,
       body: JSON.stringify({
         fileName,
         contentType: 'image/jpeg',
@@ -533,13 +530,10 @@ class SupabaseClient {
     }
 
     // Fallback to server endpoint
-    const adminToken = localStorage.getItem('honesty_admin_token') || '';
+    const headers = window.getAdminHeaders ? window.getAdminHeaders() : { 'Content-Type': 'application/json' };
     const res = await fetch('/api/admin/add-product', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {})
-      },
+      headers,
       body: JSON.stringify(payload)
     });
     const result = await res.json();
@@ -604,13 +598,10 @@ class SupabaseClient {
       }
     }
 
-    const adminToken = localStorage.getItem('honesty_admin_token') || '';
+    const headers = window.getAdminHeaders ? window.getAdminHeaders() : { 'Content-Type': 'application/json' };
     const res = await fetch('/api/admin/update-product', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {})
-      },
+      headers,
       body: JSON.stringify({ id, ...patchPayload })
     });
     const result = await res.json();
@@ -622,13 +613,10 @@ class SupabaseClient {
    * Admin: Archive / restore product
    */
   async archiveProduct(id, isActive = false) {
-    const adminToken = localStorage.getItem('honesty_admin_token') || '';
+    const headers = window.getAdminHeaders ? window.getAdminHeaders() : { 'Content-Type': 'application/json' };
     const res = await fetch('/api/admin/archive-product', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {})
-      },
+      headers,
       body: JSON.stringify({ id, isActive })
     });
     const result = await res.json();
@@ -640,13 +628,10 @@ class SupabaseClient {
    * Admin: Check if product can be safely deleted (not referenced in orders)
    */
   async canDeleteProduct(id) {
-    const adminToken = localStorage.getItem('honesty_admin_token') || '';
+    const headers = window.getAdminHeaders ? window.getAdminHeaders() : { 'Content-Type': 'application/json' };
     const res = await fetch('/api/admin/can-delete-product', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {})
-      },
+      headers,
       body: JSON.stringify({ id })
     });
     const result = await res.json();
@@ -657,13 +642,10 @@ class SupabaseClient {
    * Admin: Permanently delete product
    */
   async deleteProduct(id) {
-    const adminToken = localStorage.getItem('honesty_admin_token') || '';
+    const headers = window.getAdminHeaders ? window.getAdminHeaders() : { 'Content-Type': 'application/json' };
     const res = await fetch('/api/admin/delete-product', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {})
-      },
+      headers,
       body: JSON.stringify({ id })
     });
     const result = await res.json();

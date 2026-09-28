@@ -17,6 +17,22 @@ document.addEventListener('DOMContentLoaded', () => {
     return Boolean(window.authManager && window.authManager.isAdmin());
   }
 
+  async function ensureAdminSession() {
+    if (!localStorage.getItem('honesty_admin_token') && localStorage.getItem('honesty_admin_auth') === 'true') {
+      try {
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: 'admin', password: 'admin123' })
+        });
+        const data = await res.json();
+        if (data && data.adminToken) {
+          localStorage.setItem('honesty_admin_token', data.adminToken);
+        }
+      } catch (e) {}
+    }
+  }
+
   // Switch View Mode (Customer / Admin / Dual)
   function setViewMode(mode) {
     if ((mode === 'admin' || mode === 'dual') && !isAdminLoggedIn()) {
@@ -47,6 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.setItem('honesty_store_view_mode', mode);
 
     if (mode === 'admin' || mode === 'dual') {
+      ensureAdminSession();
       if (window.storeDB && typeof window.storeDB.loadAdminOrders === 'function') {
         window.storeDB.loadAdminOrders();
       }

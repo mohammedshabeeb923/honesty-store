@@ -165,27 +165,46 @@ class AdminApp {
     if (adjustForm) {
       adjustForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const newStock = document.getElementById('adjust-stock-input').value;
-        const note = document.getElementById('adjust-stock-note').value;
-        await window.storeDB.adjustStock(this.selectedProductId, newStock, note);
-        document.getElementById('adjust-stock-modal').classList.remove('active');
-        this.render();
+        const submitBtn = adjustForm.querySelector('button[type="submit"]');
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.style.opacity = '0.6'; }
+        try {
+          const newStock = document.getElementById('adjust-stock-input').value;
+          const note = document.getElementById('adjust-stock-note').value;
+          await window.storeDB.adjustStock(this.selectedProductId, newStock, note);
+          if (window.showToast) window.showToast(`Stock updated to ${newStock} units`, 'success');
+          document.getElementById('adjust-stock-modal').classList.remove('active');
+          this.render();
+        } catch (err) {
+          console.error('[AdminApp] adjustStock error:', err);
+          alert('Could not adjust stock: ' + err.message);
+        } finally {
+          if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = '1'; }
+        }
       });
     }
 
     // Save Physical Stock Count Form
     const physForm = document.getElementById('physical-stock-form');
     if (physForm) {
-      physForm.addEventListener('submit', (e) => {
+      physForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const inputVal = document.getElementById('physical-stock-input').value;
-        if (this.selectedProductId && inputVal !== '') {
-          window.storeDB.updatePhysicalStock(this.selectedProductId, Number(inputVal));
-          if (window.showToast) window.showToast(`Physical shelf units updated to ${inputVal}`, 'success');
+        const submitBtn = physForm.querySelector('button[type="submit"]');
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.style.opacity = '0.6'; }
+        try {
+          const inputVal = document.getElementById('physical-stock-input').value;
+          if (this.selectedProductId && inputVal !== '') {
+            await window.storeDB.updatePhysicalStock(this.selectedProductId, Number(inputVal));
+            if (window.showToast) window.showToast(`Physical shelf units updated to ${inputVal}`, 'success');
+          }
+          const modal = document.getElementById('physical-stock-modal');
+          if (modal) modal.classList.remove('active');
+          this.render();
+        } catch (err) {
+          console.error('[AdminApp] updatePhysicalStock error:', err);
+          alert('Could not update physical stock: ' + err.message);
+        } finally {
+          if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = '1'; }
         }
-        const modal = document.getElementById('physical-stock-modal');
-        if (modal) modal.classList.remove('active');
-        this.render();
       });
     }
 
@@ -210,14 +229,23 @@ class AdminApp {
     if (quickAddForm) {
       quickAddForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const prodId = document.getElementById('add-stock-prod-id').value;
-        const addQty = parseInt(document.getElementById('add-stock-qty-input').value, 10);
-        if (prodId && addQty > 0) {
-          await window.storeDB.quickAddStock(prodId, addQty);
-          if (window.showToast) window.showToast(`Added +${addQty} units of stock`, 'success');
+        const submitBtn = quickAddForm.querySelector('button[type="submit"]');
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.style.opacity = '0.6'; }
+        try {
+          const prodId = document.getElementById('add-stock-prod-id').value;
+          const addQty = parseInt(document.getElementById('add-stock-qty-input').value, 10);
+          if (prodId && addQty > 0) {
+            await window.storeDB.quickAddStock(prodId, addQty);
+            if (window.showToast) window.showToast(`Added +${addQty} units of stock`, 'success');
+          }
+          document.getElementById('quick-add-stock-modal').classList.remove('active');
+          this.render();
+        } catch (err) {
+          console.error('[AdminApp] quickAddStock error:', err);
+          alert('Could not add stock: ' + err.message);
+        } finally {
+          if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = '1'; }
         }
-        document.getElementById('quick-add-stock-modal').classList.remove('active');
-        this.render();
       });
     }
 
@@ -725,9 +753,9 @@ class AdminApp {
     let products = window.storeDB.data.products;
     if (this.searchQuery) {
       products = products.filter(p =>
-        p.name.toLowerCase().includes(this.searchQuery) ||
-        p.variant.toLowerCase().includes(this.searchQuery) ||
-        p.category.toLowerCase().includes(this.searchQuery)
+        (p.name || '').toLowerCase().includes(this.searchQuery) ||
+        (p.variant || '').toLowerCase().includes(this.searchQuery) ||
+        (p.category || '').toLowerCase().includes(this.searchQuery)
       );
     }
 
@@ -744,15 +772,17 @@ class AdminApp {
         statusText = 'Restock';
       }
 
+      const imgSrc = window.resolveProductImage ? window.resolveProductImage(prod.image, prod.id) : (prod.image || 'assets/lays.jpg');
+
       return `
         <div class="stock-item-row ${isSelected ? 'selected' : ''}" onclick="window.adminApp.selectProduct('${prod.id}')">
           <div class="stock-item-left">
             <div class="stock-thumb-wrap">
-              <img src="${prod.image}" alt="${prod.name}" />
+              <img src="${imgSrc}" alt="${prod.name}" onerror="this.onerror=null;this.src='assets/lays.jpg';" />
             </div>
             <div class="stock-item-info">
               <h4>${prod.name}</h4>
-              <p>${prod.variant}</p>
+              <p>${prod.variant || ''}</p>
             </div>
           </div>
           <div class="stock-item-right">
@@ -783,15 +813,16 @@ class AdminApp {
     const diff = physical - expected;
 
     const diffDisplay = diff > 0 ? `+${diff}` : `${diff}`;
+    const detailImg = window.resolveProductImage ? window.resolveProductImage(prod.image, prod.id) : (prod.image || 'assets/lays.jpg');
 
     this.detailPanel.innerHTML = `
       <div class="detail-panel-header">
         <div class="detail-panel-titles">
           <h3>Detail View</h3>
-          <p>${prod.name} ${prod.variant}</p>
+          <p>${prod.name} ${prod.variant || ''}</p>
         </div>
         <div class="detail-header-thumb">
-          <img src="${prod.image}" alt="${prod.name}" />
+          <img src="${detailImg}" alt="${prod.name}" onerror="this.onerror=null;this.src='assets/lays.jpg';" />
         </div>
       </div>
 
