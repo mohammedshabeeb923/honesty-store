@@ -533,6 +533,71 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // 6b. Public Dynamic Categories Route
+  if (req.method === 'GET' && reqPath === '/api/categories') {
+    try {
+      const categories = await serverSupabase.getCategories();
+      sendJson(200, { success: true, categories });
+    } catch (err) {
+      sendJson(200, { success: true, categories: ['Chips', 'Biscuits', 'Chocolates', 'Drinks'] });
+    }
+    return;
+  }
+
+  // 6c. Admin Authoritative Sales Analytics Route
+  if (req.method === 'GET' && reqPath === '/api/admin/sales') {
+    if (!await isAuthorizedAdmin(req)) {
+      sendJson(401, { success: false, message: 'Admin authorization required' });
+      return;
+    }
+    try {
+      const queryParams = Object.fromEntries(new URLSearchParams(queryString || ''));
+      const analytics = await serverSupabase.getSalesAnalytics(queryParams);
+      sendJson(200, { success: true, ...analytics });
+    } catch (err) {
+      sendJson(500, { success: false, error: err.message });
+    }
+    return;
+  }
+
+  // 6d. Admin Daily End-of-Day Sales Report
+  if (req.method === 'GET' && reqPath === '/api/admin/daily-report') {
+    if (!await isAuthorizedAdmin(req)) {
+      sendJson(401, { success: false, message: 'Admin authorization required' });
+      return;
+    }
+    try {
+      const queryParams = Object.fromEntries(new URLSearchParams(queryString || ''));
+      const report = await serverSupabase.getDailyReport(queryParams.date);
+      sendJson(200, { success: true, ...report });
+    } catch (err) {
+      sendJson(500, { success: false, error: err.message });
+    }
+    return;
+  }
+
+  // 6e. Admin Product Sales History ("Who Took What")
+  if (req.method === 'GET' && (reqPath === '/api/admin/product-sales' || reqPath.startsWith('/api/admin/product-sales/'))) {
+    if (!await isAuthorizedAdmin(req)) {
+      sendJson(401, { success: false, message: 'Admin authorization required' });
+      return;
+    }
+    try {
+      const queryParams = Object.fromEntries(new URLSearchParams(queryString || ''));
+      const pathParts = reqPath.split('/');
+      const productId = queryParams.productId || queryParams.id || (pathParts.length > 4 ? pathParts[4] : null);
+      if (!productId) {
+        sendJson(400, { success: false, message: 'productId is required' });
+        return;
+      }
+      const history = await serverSupabase.getProductSalesHistory(productId);
+      sendJson(200, { success: true, ...history });
+    } catch (err) {
+      sendJson(500, { success: false, error: err.message });
+    }
+    return;
+  }
+
   // 7. Admin Users Telemetry (Sanitized - no password hashes exposed)
   if (req.method === 'GET' && reqPath === '/api/admin/users') {
     if (!await isAuthorizedAdmin(req)) {
@@ -902,16 +967,30 @@ const server = http.createServer(async (req, res) => {
             throw new Error(`Insufficient stock for "${dbProd.name}". Only ${dbProd.stock} left in store.`);
           }
 
-          const unitPrice = Number(dbProd.price);
+          const unitPrice = (dbProd.selling_price !== null && dbProd.selling_price !== undefined && Number(dbProd.selling_price) > 0)
+            ? Number(dbProd.selling_price)
+            : Number(dbProd.price);
           const itemTotal = unitPrice * qty;
           computedTotal += itemTotal;
 
+          let cat = dbProd.category || 'Chips';
+          if (['drinks', 'beverages', 'drink', 'beverage'].includes(cat.toLowerCase())) cat = 'Drinks';
+          else if (['biscuits', 'biscuit'].includes(cat.toLowerCase())) cat = 'Biscuits';
+          else if (['chocolates', 'chocolate'].includes(cat.toLowerCase())) cat = 'Chocolates';
+
           computedItems.push({
             id: dbProd.id,
+            product_id: dbProd.id,
             name: dbProd.name,
-            variant: dbProd.variant,
+            product_name_snapshot: dbProd.name,
+            variant: dbProd.variant || '',
+            category: cat,
+            product_category_snapshot: cat,
             price: unitPrice,
+            unit_price: unitPrice,
             qty: qty,
+            quantity: qty,
+            item_total: itemTotal,
             image: dbProd.image_url || dbProd.image
           });
         }
@@ -1045,6 +1124,9 @@ const server = http.createServer(async (req, res) => {
       if (orderId && (paymentStatus === 'SUCCESS' || paymentStatus === 'PAID')) {
         await serverSupabase.confirmOrderPayment(orderId, paymentId, orderId);
         console.log(`[Cashfree Webhook] Order ${orderId} confirmed as PAID.`);
+      } else if (orderId && (paymentStatus === 'FAILED' || paymentStatus === 'USER_DROPPED' || paymentStatus === 'CANCELLED')) {
+        await serverSupabase.markOrderAsFailed(orderId, paymentStatus, paymentId);
+        console.log(`[Cashfree Webhook] Order ${orderId} marked as ${paymentStatus}.`);
       }
 
       sendJson(200, { status: 'ACKNOWLEDGED' });
@@ -1097,6 +1179,16 @@ const server = http.createServer(async (req, res) => {
             cfOrderId: orderData.cf_order_id,
             order: confirmResult.order,
             alreadyPaid: confirmResult.alreadyPaid
+          });
+          return;
+        } else if (orderData.order_status === 'FAILED' || orderData.order_status === 'CANCELLED' || orderData.order_status === 'TERMINATED') {
+          const failedOrder = await serverSupabase.markOrderAsFailed(orderId, orderData.order_status, orderData.cf_payment_id);
+          sendJson(200, {
+            success: true,
+            isPaid: false,
+            orderStatus: 'FAILED',
+            order: failedOrder,
+            orderData
           });
           return;
         } else {

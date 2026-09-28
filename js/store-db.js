@@ -75,7 +75,7 @@ const DEFAULT_PRODUCTS = [
     name: 'Dailee Mango',
     referenceName: 'DAILEE [MANGO 12]',
     variant: 'Mango Drink (12 Pack)',
-    category: 'Beverages',
+    category: 'Drinks',
     price: 10,
     purchasePrice: 7.00,
     sellingPrice: 10,

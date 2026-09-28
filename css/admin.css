@@ -1316,3 +1316,392 @@
   background: #f1f5f9;
   color: #64748b;
 }
+
+/* ============================================================ */
+/* SALES & PAYMENT TRACKING SECTION STYLES                      */
+/* ============================================================ */
+
+.sales-tab-container {
+  padding: 0 4px;
+}
+
+.sales-tab-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.sales-subnav-row {
+  display: flex;
+  background: #ffffff;
+  padding: 4px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.sales-subnav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sales-subnav-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.sales-subnav-btn.active {
+  background: #0f172a;
+  color: #ffffff;
+  box-shadow: 0 2px 5px rgba(15, 23, 42, 0.15);
+}
+
+.sales-subtab-view {
+  display: none;
+}
+
+.sales-subtab-view.active {
+  display: block;
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Sales KPI Cards Grid */
+.sales-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.sales-kpi-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 16px 18px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  position: relative;
+  overflow: hidden;
+}
+
+.sales-kpi-card.revenue {
+  border-left: 4px solid #10b981;
+}
+
+.sales-kpi-card.orders {
+  border-left: 4px solid #3b82f6;
+}
+
+.sales-kpi-card.items {
+  border-left: 4px solid #f59e0b;
+}
+
+.sales-kpi-card.payments {
+  border-left: 4px solid #8b5cf6;
+}
+
+.kpi-icon-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.kpi-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.kpi-badge {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.kpi-badge.success {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.kpi-icon {
+  font-size: 16px;
+}
+
+.kpi-big-val {
+  font-size: 26px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.15;
+  margin-bottom: 4px;
+}
+
+.kpi-foot-label {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.kpi-payments-breakdown {
+  display: flex;
+  gap: 6px;
+  margin: 6px 0 4px;
+}
+
+.pay-stat {
+  font-size: 11px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.pay-stat.success {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.pay-stat.warning {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.pay-stat.danger {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+/* Date Period Pills Row */
+.sales-controls-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.date-pills-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.date-pill-btn {
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.date-pill-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.date-pill-btn.active {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+}
+
+.sales-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Category Grid */
+.category-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 16px;
+}
+
+.category-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 18px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.category-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.category-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.category-icon-box {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.category-icon-box.chips { background: #fef3c7; color: #b45309; }
+.category-icon-box.biscuits { background: #ffedd5; color: #c2410c; }
+.category-icon-box.chocolates { background: #fce7f3; color: #be185d; }
+.category-icon-box.drinks { background: #e0f2fe; color: #0369a1; }
+
+.category-name-text {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.category-revenue-val {
+  font-size: 24px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.category-metrics-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #64748b;
+  padding-top: 8px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+/* Status Badges */
+.badge-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.badge-status.paid {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.badge-status.pending {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.badge-status.failed {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.badge-status.completed {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.badge-status.cancelled {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+/* Clickable Order link */
+.order-link-btn {
+  background: none;
+  border: none;
+  color: #0284c7;
+  font-weight: 800;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.order-link-btn:hover {
+  color: #0369a1;
+}
+
+/* Order Detail Receipt in Modal */
+.order-receipt-card {
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 16px;
+}
+
+.order-receipt-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.receipt-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 13px;
+}
+
+.receipt-summary-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.receipt-summary-line.total {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 8px;
+  margin-top: 4px;
+}
+

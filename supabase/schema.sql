@@ -116,29 +116,63 @@ ALTER TABLE public.products ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFA
 -- 4. ORDERS TABLE (Strictly linked to auth.users.id)
 CREATE TABLE IF NOT EXISTS public.orders (
     id TEXT PRIMARY KEY,
+    order_number TEXT,
     user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     customer_phone TEXT,
     customer_email TEXT,
     customer_name TEXT,
+    customer_identifier TEXT,
     amount NUMERIC(10, 2) NOT NULL,
+    subtotal NUMERIC(10, 2),
+    discount NUMERIC(10, 2) DEFAULT 0.00,
+    total_amount NUMERIC(10, 2),
     item_count INTEGER NOT NULL,
     items JSONB NOT NULL,
     status TEXT NOT NULL DEFAULT 'PENDING', -- 'PENDING', 'PAID', 'FAILED', 'CANCELLED'
+    payment_status TEXT DEFAULT 'PENDING',
     payment_method TEXT DEFAULT 'UPI',
     payment_gateway TEXT DEFAULT 'Cashfree',
+    payment_reference TEXT,
     cashfree_order_id TEXT,
     cashfree_payment_id TEXT,
+    order_status TEXT DEFAULT 'PENDING',
     time_label TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Ensure user_id, customer_email, customer_name, and updated_at exist
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS order_number TEXT;
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL;
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS customer_email TEXT;
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS customer_name TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS customer_identifier TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS subtotal NUMERIC(10, 2);
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS discount NUMERIC(10, 2) DEFAULT 0.00;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS total_amount NUMERIC(10, 2);
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS payment_status TEXT DEFAULT 'PENDING';
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS payment_reference TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS order_status TEXT DEFAULT 'PENDING';
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 ALTER TABLE public.orders ALTER COLUMN customer_phone DROP NOT NULL;
+
+-- 4b. ORDER ITEMS TABLE (Immutable price & name snapshot for accurate historical reporting)
+CREATE TABLE IF NOT EXISTS public.order_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    order_id TEXT NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
+    product_id TEXT NOT NULL,
+    product_name_snapshot TEXT NOT NULL,
+    product_category_snapshot TEXT NOT NULL DEFAULT 'Chips',
+    unit_price NUMERIC(10, 2) NOT NULL,
+    quantity INTEGER NOT NULL DEFAULT 1,
+    item_total NUMERIC(10, 2) NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON public.order_items(order_id);
+CREATE INDEX IF NOT EXISTS idx_order_items_product_id ON public.order_items(product_id);
+CREATE INDEX IF NOT EXISTS idx_order_items_category ON public.order_items(product_category_snapshot);
+CREATE INDEX IF NOT EXISTS idx_order_items_created_at ON public.order_items(created_at);
 
 -- 5. STOCK AUDIT LOGS (Reconciliation History)
 CREATE TABLE IF NOT EXISTS public.stock_audits (

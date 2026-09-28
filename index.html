@@ -182,6 +182,7 @@
                 <button class="category-chip" data-category="Chips">Chips</button>
                 <button class="category-chip" data-category="Biscuits">Biscuits</button>
                 <button class="category-chip" data-category="Chocolates">Chocolates</button>
+                <button class="category-chip" data-category="Drinks">Drinks</button>
               </div>
 
               <!-- 2-Column Product Grid -->
@@ -544,6 +545,7 @@
                     <option value="Chips">Chips</option>
                     <option value="Biscuits">Biscuits</option>
                     <option value="Chocolates">Chocolates</option>
+                    <option value="Drinks">Drinks</option>
                     <option value="Beverages">Beverages</option>
                     <option value="Snacks">Snacks</option>
                   </select>
@@ -598,25 +600,432 @@
           </div>
         </section>
 
-        <!-- TAB 3: SALES -->
+        <!-- TAB 3: SALES & PAYMENT TRACKING -->
         <section class="admin-tab-view" id="admin-tab-sales">
-          <div class="admin-table-card">
-            <h3>Live Transactions Feed</h3>
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Order ID</th>
-                  <th>Timestamp</th>
-                  <th>Items Purchased</th>
-                  <th>Amount</th>
-                  <th>Status</th>
-                  <th>Channel</th>
-                </tr>
-              </thead>
-              <tbody id="sales-table-body">
-                <!-- Populated dynamically -->
-              </tbody>
-            </table>
+          <div class="sales-tab-container">
+            <!-- Header bar with title and subnav -->
+            <div class="sales-tab-header">
+              <div>
+                <h3 style="margin: 0; font-size: 18px; font-weight: 800; color: #0f172a;">Sales, Payments & Item Analytics</h3>
+                <p style="margin: 3px 0 0 0; font-size: 12px; color: #64748b;">Authoritative financial reports, item-level audit trails, and daily settlement summaries.</p>
+              </div>
+              <div class="sales-subnav-row">
+                <button type="button" class="sales-subnav-btn active" data-subtab="overview">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                  Overview & Orders
+                </button>
+                <button type="button" class="sales-subnav-btn" data-subtab="daily">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  Daily Report
+                </button>
+                <button type="button" class="sales-subnav-btn" data-subtab="products">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                  Product Sales
+                </button>
+                <button type="button" class="sales-subnav-btn" data-subtab="categories">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+                  Category Sales
+                </button>
+                <button type="button" class="sales-subnav-btn" data-subtab="payments">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                  Payment Audit
+                </button>
+              </div>
+            </div>
+
+            <!-- SUBTAB 1: OVERVIEW & TRANSACTIONS TABLE -->
+            <div class="sales-subtab-view active" id="sales-subtab-overview">
+              <!-- KPI Cards Row -->
+              <div class="sales-kpi-grid">
+                <div class="sales-kpi-card revenue">
+                  <div class="kpi-icon-row">
+                    <span class="kpi-label">Confirmed Revenue</span>
+                    <span class="kpi-badge success">PAID ONLY</span>
+                  </div>
+                  <div class="kpi-big-val" id="kpi-confirmed-revenue">₹0</div>
+                  <div class="kpi-foot-label">Excludes pending & failed orders</div>
+                </div>
+
+                <div class="sales-kpi-card orders">
+                  <div class="kpi-icon-row">
+                    <span class="kpi-label">Confirmed Orders</span>
+                    <span class="kpi-icon">📦</span>
+                  </div>
+                  <div class="kpi-big-val" id="kpi-confirmed-orders">0</div>
+                  <div class="kpi-foot-label" id="kpi-avg-order-val">Avg: ₹0 / order</div>
+                </div>
+
+                <div class="sales-kpi-card items">
+                  <div class="kpi-icon-row">
+                    <span class="kpi-label">Items Sold</span>
+                    <span class="kpi-icon">🏷️</span>
+                  </div>
+                  <div class="kpi-big-val" id="kpi-items-sold">0</div>
+                  <div class="kpi-foot-label">Total shelf units taken</div>
+                </div>
+
+                <div class="sales-kpi-card payments">
+                  <div class="kpi-icon-row">
+                    <span class="kpi-label">Payment Audits</span>
+                    <span class="kpi-icon">💳</span>
+                  </div>
+                  <div class="kpi-payments-breakdown">
+                    <span class="pay-stat success" title="Successful Payments"><strong id="kpi-pay-success">0</strong> Paid</span>
+                    <span class="pay-stat warning" title="Pending Payments"><strong id="kpi-pay-pending">0</strong> Pend</span>
+                    <span class="pay-stat danger" title="Failed / Dropped Payments"><strong id="kpi-pay-failed">0</strong> Fail</span>
+                  </div>
+                  <div class="kpi-foot-label" id="kpi-pay-rate">100% success rate</div>
+                </div>
+              </div>
+
+              <!-- Filter & Search Controls Card -->
+              <div class="admin-table-card" style="margin-top: 16px; padding: 14px 18px;">
+                <!-- Date Period Pills Row -->
+                <div class="sales-controls-top-row">
+                  <div class="date-pills-row">
+                    <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Period:</span>
+                    <button type="button" class="date-pill-btn active" data-period="today">Today</button>
+                    <button type="button" class="date-pill-btn" data-period="yesterday">Yesterday</button>
+                    <button type="button" class="date-pill-btn" data-period="7days">Last 7 Days</button>
+                    <button type="button" class="date-pill-btn" data-period="month">This Month</button>
+                    <button type="button" class="date-pill-btn" data-period="custom">Custom Range</button>
+                  </div>
+
+                  <div class="sales-actions-right">
+                    <button type="button" class="action-pill-btn" id="btn-export-sales-csv" style="background:#fff; color:#0f172a; border:1px solid #cbd5e1; font-weight:700;">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      Export CSV
+                    </button>
+                    <button type="button" class="action-pill-btn" id="btn-refresh-sales" style="background:#0f172a; color:#fff; border:none; font-weight:700;">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                      Refresh
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Custom Date Range Row (Hidden by default, shown when custom selected) -->
+                <div class="custom-date-range-row" id="custom-date-range-row" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid #f1f5f9;">
+                  <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <label style="font-size: 12px; font-weight: 700; color: #475569;">From:</label>
+                    <input type="date" id="sales-custom-start" class="admin-input-field" style="padding: 6px 10px; font-size: 12px; width: 140px;" />
+                    <label style="font-size: 12px; font-weight: 700; color: #475569;">To:</label>
+                    <input type="date" id="sales-custom-end" class="admin-input-field" style="padding: 6px 10px; font-size: 12px; width: 140px;" />
+                    <button type="button" id="btn-apply-custom-dates" class="action-pill-btn" style="background:#0284c7; color:#fff; border:none; padding: 6px 14px; font-size: 12px; font-weight:700; cursor:pointer;">Apply Dates</button>
+                  </div>
+                </div>
+
+                <!-- Filter Inputs Row -->
+                <div class="sales-filters-row" style="margin-top: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                  <div class="admin-search-wrap" style="flex: 2; min-width: 220px;">
+                    <span class="admin-search-icon" style="display:flex;">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    </span>
+                    <input type="text" class="admin-search-input" id="sales-search-input" placeholder="Search Order #, Customer, Phone, or Item..." style="font-size: 12px;" />
+                  </div>
+
+                  <select id="sales-filter-payment-status" class="admin-select-pill">
+                    <option value="ALL">All Payments</option>
+                    <option value="PAID">✓ Paid Only</option>
+                    <option value="PENDING">⏳ Pending Only</option>
+                    <option value="FAILED">✕ Failed Only</option>
+                  </select>
+
+                  <select id="sales-filter-order-status" class="admin-select-pill">
+                    <option value="ALL">All Order Statuses</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="PENDING">Pending</option>
+                    <option value="CANCELLED">Cancelled</option>
+                  </select>
+
+                  <select id="sales-filter-category" class="admin-select-pill">
+                    <option value="ALL">All Categories</option>
+                    <option value="Chips">Chips</option>
+                    <option value="Biscuits">Biscuits</option>
+                    <option value="Chocolates">Chocolates</option>
+                    <option value="Drinks">Drinks</option>
+                  </select>
+
+                  <select id="sales-filter-method" class="admin-select-pill">
+                    <option value="ALL">All Channels</option>
+                    <option value="Cashfree UPI">Cashfree UPI</option>
+                    <option value="UPI">UPI</option>
+                    <option value="Card">Card</option>
+                    <option value="Cash / Honor">Cash / Trust</option>
+                  </select>
+
+                  <button type="button" id="btn-clear-sales-filters" class="action-pill-btn" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; font-size:11px; padding:6px 10px; cursor:pointer;">
+                    Reset
+                  </button>
+                </div>
+              </div>
+
+              <!-- Transactions Table Card -->
+              <div class="admin-table-card" style="margin-top: 16px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+                  <h4 style="margin:0; font-size:15px; font-weight:800; color:#0f172a;">Orders & Transactions Log</h4>
+                  <span id="sales-orders-count-badge" style="font-size:12px; color:#64748b; font-weight:600;">Showing 0 orders</span>
+                </div>
+
+                <div class="table-responsive" style="overflow-x: auto;">
+                  <table class="data-table" id="sales-orders-table">
+                    <thead>
+                      <tr>
+                        <th>Order #</th>
+                        <th>Date & Time</th>
+                        <th>Customer</th>
+                        <th>Items Snapshot</th>
+                        <th>Amount</th>
+                        <th>Payment Status</th>
+                        <th>Order Status</th>
+                        <th>Method</th>
+                        <th style="text-align: right;">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="sales-table-body">
+                      <!-- Rendered dynamically -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- SUBTAB 2: DAILY REPORT -->
+            <div class="sales-subtab-view" id="sales-subtab-daily" style="display: none;">
+              <div class="daily-report-header-card" style="background: #fff; padding: 14px 18px; border-radius: 12px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div class="daily-date-picker-wrap" style="display: flex; align-items: center; gap: 8px;">
+                  <span style="font-size: 13px; font-weight: 700; color: #0f172a;">Settlement Date:</span>
+                  <button type="button" class="action-pill-btn" id="btn-daily-prev-day" title="Previous Day" style="padding: 6px 10px; background:#f1f5f9; border:1px solid #cbd5e1; cursor:pointer;">‹</button>
+                  <input type="date" id="daily-report-date-input" class="admin-input-field" style="padding: 6px 10px; font-size: 13px; font-weight: 700; width: 145px;" />
+                  <button type="button" class="action-pill-btn" id="btn-daily-next-day" title="Next Day" style="padding: 6px 10px; background:#f1f5f9; border:1px solid #cbd5e1; cursor:pointer;">›</button>
+                  <button type="button" class="action-pill-btn" id="btn-daily-today" style="background:#0f172a; color:#fff; border:none; padding: 6px 12px; font-size: 12px; font-weight:700; cursor:pointer;">Today</button>
+                </div>
+                <div class="daily-header-actions">
+                  <button type="button" class="action-pill-btn" onclick="window.print()" style="background:#fff; color:#0f172a; border:1px solid #cbd5e1; font-weight:700; cursor:pointer;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                    Print Daily Report
+                  </button>
+                </div>
+              </div>
+
+              <!-- Daily Metric Cards -->
+              <div class="sales-kpi-grid" style="margin-top: 14px;">
+                <div class="sales-kpi-card">
+                  <span class="kpi-label">Gross Sales</span>
+                  <div class="kpi-big-val" id="daily-stat-gross">₹0</div>
+                  <div class="kpi-foot-label">Before discounts</div>
+                </div>
+                <div class="sales-kpi-card">
+                  <span class="kpi-label">Discounts</span>
+                  <div class="kpi-big-val" id="daily-stat-discounts" style="color: #64748b;">₹0</div>
+                  <div class="kpi-foot-label">Promotional & honor adjustments</div>
+                </div>
+                <div class="sales-kpi-card revenue">
+                  <span class="kpi-label">Net Confirmed Sales</span>
+                  <div class="kpi-big-val" id="daily-stat-net" style="color: #047857;">₹0</div>
+                  <div class="kpi-foot-label">Confirmed collected revenue</div>
+                </div>
+                <div class="sales-kpi-card orders">
+                  <span class="kpi-label">Orders Count</span>
+                  <div class="kpi-big-val" id="daily-stat-orders">0</div>
+                  <div class="kpi-foot-label">Purchases completed</div>
+                </div>
+                <div class="sales-kpi-card items">
+                  <span class="kpi-label">Units Taken</span>
+                  <div class="kpi-big-val" id="daily-stat-units">0</div>
+                  <div class="kpi-foot-label">Physical shelf inventory</div>
+                </div>
+              </div>
+
+              <!-- Two Column Split: Products Sold Today & Category / Payment Breakdown -->
+              <div style="display: grid; grid-template-columns: 3fr 2fr; gap: 16px; margin-top: 16px;">
+                <!-- Left: Product Breakdown -->
+                <div class="admin-table-card">
+                  <h4 style="margin: 0 0 12px 0; font-size: 15px; font-weight: 800; color: #0f172a;">Products Sold on this Date</h4>
+                  <div class="table-responsive">
+                    <table class="data-table">
+                      <thead>
+                        <tr>
+                          <th>Product</th>
+                          <th>Category</th>
+                          <th>Units Sold</th>
+                          <th>Snapshot Price</th>
+                          <th>Gross Revenue</th>
+                        </tr>
+                      </thead>
+                      <tbody id="daily-products-tbody">
+                        <!-- Rendered dynamically -->
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- Right: Category Breakdown & Payment Breakdown -->
+                <div style="display: flex; flex-direction: column; gap: 16px;">
+                  <div class="admin-table-card">
+                    <h4 style="margin: 0 0 12px 0; font-size: 15px; font-weight: 800; color: #0f172a;">Category Breakdown</h4>
+                    <div class="table-responsive">
+                      <table class="data-table">
+                        <thead>
+                          <tr>
+                            <th>Category</th>
+                            <th>Units Sold</th>
+                            <th>Revenue</th>
+                            <th>Share %</th>
+                          </tr>
+                        </thead>
+                        <tbody id="daily-categories-tbody">
+                          <!-- Rendered dynamically -->
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div class="admin-table-card">
+                    <h4 style="margin: 0 0 10px 0; font-size: 15px; font-weight: 800; color: #0f172a;">Payment Channels</h4>
+                    <div id="daily-payments-breakdown-box" style="display: flex; flex-direction: column; gap: 8px;">
+                      <!-- Rendered dynamically -->
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Today's Transaction Records -->
+              <div class="admin-table-card" style="margin-top: 16px;">
+                <h4 style="margin: 0 0 12px 0; font-size: 15px; font-weight: 800; color: #0f172a;">Transactions on Selected Date</h4>
+                <div class="table-responsive">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Order #</th>
+                        <th>Time</th>
+                        <th>Customer</th>
+                        <th>Items Snapshot</th>
+                        <th>Amount</th>
+                        <th>Payment Status</th>
+                        <th>Method</th>
+                        <th style="text-align: right;">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="daily-orders-tbody">
+                      <!-- Rendered dynamically -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- SUBTAB 3: PRODUCT SALES (ITEM-LEVEL) -->
+            <div class="sales-subtab-view" id="sales-subtab-products" style="display: none;">
+              <div class="admin-table-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+                  <div>
+                    <h4 style="margin: 0; font-size: 16px; font-weight: 800; color: #0f172a;">Item-Level Sales & Inventory Traceability</h4>
+                    <p style="margin: 2px 0 0 0; font-size: 12px; color: #64748b;">Click "Who Took What" to trace every individual customer purchase of that product.</p>
+                  </div>
+                  <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="text" id="prod-sales-search-input" class="admin-input-field" placeholder="Filter product name..." style="font-size: 12px; width: 180px; padding: 7px 10px;" />
+                    <select id="prod-sales-cat-filter" class="admin-select-pill">
+                      <option value="ALL">All Categories</option>
+                      <option value="Chips">Chips</option>
+                      <option value="Biscuits">Biscuits</option>
+                      <option value="Chocolates">Chocolates</option>
+                      <option value="Drinks">Drinks</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="table-responsive">
+                  <table class="data-table" id="product-sales-table">
+                    <thead>
+                      <tr>
+                        <th style="width: 50px;">Photo</th>
+                        <th>Product Name</th>
+                        <th>Category</th>
+                        <th>Selling Price</th>
+                        <th>Current Stock</th>
+                        <th>Units Sold</th>
+                        <th>Total Revenue</th>
+                        <th>Orders Count</th>
+                        <th style="text-align: right;">Traceability</th>
+                      </tr>
+                    </thead>
+                    <tbody id="product-sales-tbody">
+                      <!-- Rendered dynamically -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- SUBTAB 4: CATEGORY SALES -->
+            <div class="sales-subtab-view" id="sales-subtab-categories" style="display: none;">
+              <!-- 4 Category Cards -->
+              <div class="category-cards-grid" id="category-cards-grid">
+                <!-- Rendered dynamically for Chips, Biscuits, Chocolates, Drinks -->
+              </div>
+
+              <!-- Category Performance Comparison Table -->
+              <div class="admin-table-card" style="margin-top: 16px;">
+                <h4 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 800; color: #0f172a;">Category Sales Comparison</h4>
+                <div class="table-responsive">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Category</th>
+                        <th>Units Sold</th>
+                        <th>Total Revenue</th>
+                        <th>Sales Share (%)</th>
+                        <th>Avg. Price per Unit</th>
+                      </tr>
+                    </thead>
+                    <tbody id="category-sales-tbody">
+                      <!-- Rendered dynamically -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- SUBTAB 5: PAYMENT AUDIT & GATEWAY TRACKING -->
+            <div class="sales-subtab-view" id="sales-subtab-payments" style="display: none;">
+              <div class="admin-table-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+                  <div>
+                    <h4 style="margin: 0; font-size: 16px; font-weight: 800; color: #0f172a;">Payment Gateway Audit Log</h4>
+                    <p style="margin: 2px 0 0 0; font-size: 12px; color: #64748b;">Full audit record of Cashfree UPI and gateway payment attempts.</p>
+                  </div>
+                  <div style="display: flex; gap: 8px;">
+                    <select id="payments-filter-status" class="admin-select-pill">
+                      <option value="ALL">All Payment Statuses</option>
+                      <option value="PAID">PAID Only</option>
+                      <option value="PENDING">PENDING Only</option>
+                      <option value="FAILED">FAILED Only</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="table-responsive">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Gateway Reference</th>
+                        <th>Payment ID</th>
+                        <th>Store Order #</th>
+                        <th>Customer</th>
+                        <th>Amount</th>
+                        <th>Method</th>
+                        <th>Status</th>
+                        <th>Date & Time</th>
+                      </tr>
+                    </thead>
+                    <tbody id="payment-tracking-tbody">
+                      <!-- Rendered dynamically -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
           </div>
         </section>
 
@@ -977,6 +1386,7 @@
               <option value="Chips">Chips</option>
               <option value="Biscuits">Biscuits</option>
               <option value="Chocolates">Chocolates</option>
+              <option value="Drinks">Drinks</option>
               <option value="Beverages">Beverages</option>
               <option value="Snacks">Snacks</option>
             </select>
@@ -1324,6 +1734,77 @@
     </div>
   </div>
 
+  <!-- 9. ORDER DETAIL MODAL (#order-detail-modal) -->
+  <div class="modal-overlay" id="order-detail-modal">
+    <div class="modal-dialog" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 36px; height: 36px; border-radius: 10px; background: #e0f2fe; color: #0369a1; display: flex; align-items: center; justify-content: center;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          </div>
+          <div>
+            <h3 class="modal-title" id="order-modal-title" style="margin: 0; font-size: 17px; font-weight: 800;">Order Details</h3>
+            <span id="order-modal-timestamp" style="font-size: 11px; color: #64748b;">Created: -</span>
+          </div>
+        </div>
+        <button type="button" class="btn-close-modal" id="btn-close-order-modal" style="border:none; background:none; font-size:18px; cursor:pointer; color:#64748b;">✕</button>
+      </div>
+
+      <div id="order-detail-modal-body">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- 10. PRODUCT BUYERS MODAL ("WHO TOOK WHAT") -->
+  <div class="modal-overlay" id="product-buyers-modal">
+    <div class="modal-dialog" style="max-width: 720px; max-height: 90vh; overflow-y: auto;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 36px; height: 36px; border-radius: 10px; background: #fef3c7; color: #b45309; display: flex; align-items: center; justify-content: center;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <div>
+            <h3 class="modal-title" id="buyers-modal-prod-name" style="margin: 0; font-size: 17px; font-weight: 800;">Product Buyers History</h3>
+            <div style="font-size: 11px; color: #64748b;">Who took what: Customer purchases audit trail</div>
+          </div>
+        </div>
+        <button type="button" class="btn-close-modal" id="btn-close-buyers-modal" style="border:none; background:none; font-size:18px; cursor:pointer; color:#64748b;">✕</button>
+      </div>
+
+      <!-- Stat summary strip -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+        <div style="background: #f8fafc; padding: 12px 14px; border-radius: 10px; border: 1px solid #e2e8f0;">
+          <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Confirmed Units Sold</div>
+          <div style="font-size: 20px; font-weight: 800; color: #0f172a;" id="buyers-modal-units">0 units</div>
+        </div>
+        <div style="background: #ecfdf5; padding: 12px 14px; border-radius: 10px; border: 1px solid #a7f3d0;">
+          <div style="font-size: 11px; color: #047857; font-weight: 700; text-transform: uppercase;">Total Confirmed Revenue</div>
+          <div style="font-size: 20px; font-weight: 800; color: #047857;" id="buyers-modal-revenue">₹0</div>
+        </div>
+      </div>
+
+      <div class="table-responsive" style="max-height: 420px; overflow-y: auto;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Customer</th>
+              <th>Order #</th>
+              <th>Quantity</th>
+              <th>Snapshot Price</th>
+              <th>Line Total</th>
+              <th>Date & Time</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="product-buyers-tbody">
+            <!-- Rendered dynamically -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification Container -->
   <div id="toast-container"></div>
 
@@ -1371,14 +1852,14 @@
   </script>
 
   <!-- Application Scripts with Correct Dependency Order & Cache-Busting -->
-  <script src="js/config.js?v=10.0"></script>
-  <script src="js/supabase-client.js?v=10.0"></script>
-  <script src="js/auth.js?v=10.0"></script>
-  <script src="js/store-db.js?v=10.0"></script>
-  <script src="js/cashfree-client.js?v=10.0"></script>
-  <script src="js/customer-app.js?v=10.0"></script>
-  <script src="js/admin-app.js?v=10.0"></script>
-  <script src="js/app.js?v=10.0"></script>
+  <script src="js/config.js?v=11.0"></script>
+  <script src="js/supabase-client.js?v=11.0"></script>
+  <script src="js/auth.js?v=11.0"></script>
+  <script src="js/store-db.js?v=11.0"></script>
+  <script src="js/cashfree-client.js?v=11.0"></script>
+  <script src="js/customer-app.js?v=11.0"></script>
+  <script src="js/admin-app.js?v=11.0"></script>
+  <script src="js/app.js?v=11.0"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

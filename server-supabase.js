@@ -37,7 +37,7 @@ const DEFAULT_PRODUCTS = [
     name: 'Dailee Mango',
     reference_name: 'DAILEE [MANGO 12]',
     variant: 'Mango Drink (12 Pack)',
-    category: 'Beverages',
+    category: 'Drinks',
     price: 10.00,
     purchase_price: 7.00,
     selling_price: 10.00,
@@ -176,6 +176,16 @@ function resolveProductImage(img, id = '') {
   if (s.includes('dairymilk') || idStr.includes('dairymilk')) return 'assets/dairymilk.png';
   if (s.includes('parleg') || idStr.includes('parleg')) return 'assets/parleg.png';
   return img || 'assets/lays.jpg';
+}
+
+function normalizeCategory(cat) {
+  if (!cat) return 'Chips';
+  const c = String(cat).trim().toLowerCase();
+  if (['drinks', 'beverages', 'drink', 'beverage'].includes(c)) return 'Drinks';
+  if (['biscuits', 'biscuit'].includes(c)) return 'Biscuits';
+  if (['chocolates', 'chocolate'].includes(c)) return 'Chocolates';
+  if (['chips', 'chip', 'snacks', 'snack'].includes(c)) return 'Chips';
+  return cat.charAt(0).toUpperCase() + cat.slice(1);
 }
 
 class ServerSupabase {
@@ -375,7 +385,7 @@ class ServerSupabase {
               name: remoteP.name || (master ? master.name : ''),
               reference_name: remoteP.reference_name || (master ? master.reference_name : null),
               variant: remoteP.variant || (master ? master.variant : ''),
-              category: remoteP.category || (master ? master.category : 'Chips'),
+              category: normalizeCategory(remoteP.category || (master ? master.category : 'Chips')),
               description: remoteP.description || (master ? master.description : ''),
               price: priceVal,
               purchase_price: purchasePriceVal,
@@ -418,10 +428,12 @@ class ServerSupabase {
           remoteP.image_url || (master && master.image_url),
           remoteP.id
         );
+        const catVal = normalizeCategory(remoteP.category || (master ? master.category : 'Chips'));
         return {
           ...(master || {}),
           ...remoteP,
           id: remoteP.id,
+          category: catVal,
           image_url: resolvedImg
         };
       }
@@ -743,20 +755,72 @@ class ServerSupabase {
 
   // 3. CREATE ORDER (PENDING)
   async createOrder(orderData) {
+    const rawId = orderData.id || orderData.orderId || ('order_' + Date.now());
+    const safeSeq = String(rawId).replace(/\D/g, '').slice(-6) || Math.floor(100000 + Math.random() * 900000);
+    const orderNumber = orderData.orderNumber || orderData.order_number || `HS-${safeSeq}`;
+
+    // Normalize and enrich items with immutable snapshot
+    const rawItems = Array.isArray(orderData.items) ? orderData.items : [];
+    const itemsSnapshot = [];
+    let computedSubtotal = 0;
+
+    for (const item of rawItems) {
+      const qty = Math.max(1, Number(item.qty || item.quantity) || 1);
+      const unitPrice = Number(item.unit_price !== undefined ? item.unit_price : (item.price !== undefined ? item.price : 10));
+      const itemTotal = Number(item.item_total !== undefined ? item.item_total : (unitPrice * qty));
+      computedSubtotal += itemTotal;
+
+      let cat = item.category || item.product_category_snapshot || 'Chips';
+      if (['drinks', 'beverages', 'drink', 'beverage'].includes(cat.toLowerCase())) cat = 'Drinks';
+      else if (['biscuits', 'biscuit'].includes(cat.toLowerCase())) cat = 'Biscuits';
+      else if (['chocolates', 'chocolate'].includes(cat.toLowerCase())) cat = 'Chocolates';
+
+      itemsSnapshot.push({
+        id: item.id || item.product_id,
+        product_id: item.id || item.product_id,
+        name: item.name || item.product_name_snapshot || 'Item',
+        product_name_snapshot: item.name || item.product_name_snapshot || 'Item',
+        variant: item.variant || '',
+        category: cat,
+        product_category_snapshot: cat,
+        unit_price: unitPrice,
+        price: unitPrice,
+        qty: qty,
+        quantity: qty,
+        item_total: itemTotal,
+        image: item.image || item.image_url || null
+      });
+    }
+
+    const subtotal = Number(orderData.subtotal !== undefined ? orderData.subtotal : (computedSubtotal || orderData.amount || 0));
+    const discount = Number(orderData.discount || 0);
+    const totalAmount = Number(orderData.total_amount !== undefined ? orderData.total_amount : (orderData.amount || subtotal - discount));
+
     const record = {
-      id: orderData.id,
-      user_id: orderData.userId || null,
-      customer_email: orderData.customerEmail || null,
-      customer_name: orderData.customerName || null,
-      customer_phone: orderData.customerPhone || null,
-      amount: Number(orderData.amount),
-      item_count: Number(orderData.itemCount || (Array.isArray(orderData.items) ? orderData.items.length : 1)),
-      items: orderData.items || [],
+      id: rawId,
+      order_number: orderNumber,
+      user_id: orderData.userId || orderData.user_id || null,
+      customer_email: orderData.customerEmail || orderData.customer_email || null,
+      customer_name: orderData.customerName || orderData.customer_name || null,
+      customer_phone: orderData.customerPhone || orderData.customer_phone || null,
+      customer_identifier: orderData.customerIdentifier || orderData.customer_identifier || orderData.customerEmail || orderData.customerPhone || 'Guest',
+      subtotal: subtotal,
+      discount: discount,
+      total_amount: totalAmount,
+      amount: totalAmount,
+      item_count: itemsSnapshot.reduce((acc, i) => acc + i.quantity, 0) || Number(orderData.itemCount || 1),
+      items: itemsSnapshot,
       status: orderData.status || 'PENDING',
-      payment_method: orderData.paymentMethod || 'UPI',
-      payment_gateway: 'Cashfree',
+      payment_status: orderData.paymentStatus || orderData.payment_status || 'PENDING',
+      order_status: orderData.orderStatus || orderData.order_status || orderData.status || 'PENDING',
+      payment_method: orderData.paymentMethod || orderData.payment_method || 'UPI',
+      payment_gateway: orderData.paymentGateway || orderData.payment_gateway || 'Cashfree',
+      payment_reference: orderData.paymentReference || orderData.payment_reference || orderData.cashfreePaymentId || rawId,
+      cashfree_order_id: orderData.cashfreeOrderId || orderData.cashfree_order_id || null,
+      cashfree_payment_id: orderData.cashfreePaymentId || orderData.cashfree_payment_id || null,
       time_label: orderData.timeLabel || 'TODAY',
-      created_at: new Date().toISOString()
+      created_at: orderData.createdAt || orderData.created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString()
     };
 
     // Save locally first for guaranteed resilience
@@ -766,18 +830,76 @@ class ServerSupabase {
     } else {
       this.fallbackData.orders.unshift(record);
     }
+
+    // Also persist order_items in fallback
+    if (!this.fallbackData.order_items) this.fallbackData.order_items = [];
+    const crypto = require('crypto');
+    const orderItemRecords = itemsSnapshot.map(item => ({
+      id: crypto.randomUUID(),
+      order_id: record.id,
+      product_id: item.product_id,
+      product_name_snapshot: item.product_name_snapshot,
+      product_category_snapshot: item.product_category_snapshot,
+      unit_price: item.unit_price,
+      quantity: item.quantity,
+      item_total: item.item_total,
+      created_at: record.created_at
+    }));
+
+    this.fallbackData.order_items = [
+      ...orderItemRecords,
+      ...this.fallbackData.order_items.filter(oi => oi.order_id !== record.id)
+    ];
     this.saveFallback();
 
-    // Persist to Supabase
+    // Persist to Supabase orders table
     try {
       await this.fetchApi('orders', {
         method: 'POST',
         headers: { 'Prefer': 'resolution=merge-duplicates' },
         body: record
       });
-      console.log(`[ServerSupabase] Order ${record.id} created in Supabase (Status: ${record.status}, User: ${record.user_id || 'guest'})`);
+      console.log(`[ServerSupabase] Order ${record.id} (${record.order_number}) created in Supabase (Status: ${record.status}, User: ${record.user_id || 'guest'})`);
     } catch (err) {
       console.warn(`[ServerSupabase] createOrder(${record.id}) remote warning:`, err.message);
+      if (err.message && err.message.includes('Could not find the') && err.message.includes('column')) {
+        // Fallback to base columns if migrations not yet applied on Supabase
+        try {
+          const baseRecord = {
+            id: record.id,
+            user_id: record.user_id,
+            customer_email: record.customer_email,
+            customer_name: record.customer_name,
+            customer_phone: record.customer_phone,
+            amount: record.amount,
+            item_count: record.item_count,
+            items: record.items,
+            status: record.status,
+            payment_method: record.payment_method,
+            time_label: record.time_label,
+            created_at: record.created_at,
+            updated_at: record.updated_at
+          };
+          await this.fetchApi('orders', {
+            method: 'POST',
+            headers: { 'Prefer': 'resolution=merge-duplicates' },
+            body: baseRecord
+          });
+          console.log(`[ServerSupabase] Order ${record.id} created with base schema in Supabase.`);
+        } catch (e2) {}
+      }
+    }
+
+    // Persist to Supabase order_items table
+    if (orderItemRecords.length > 0) {
+      try {
+        await this.fetchApi('order_items', {
+          method: 'POST',
+          body: orderItemRecords
+        });
+      } catch (err) {
+        // Ignored if table not yet migrated on remote
+      }
     }
 
     return record;
@@ -791,7 +913,18 @@ class ServerSupabase {
     try {
       const remoteOrders = await this.fetchApi('orders', { query: `?id=eq.${orderId}&select=*` });
       if (remoteOrders && remoteOrders.length > 0) {
-        order = remoteOrders[0];
+        const rem = remoteOrders[0];
+        order = {
+          ...(order || {}),
+          ...rem,
+          customer_phone: rem.customer_phone || (order ? order.customer_phone : null),
+          customer_name: rem.customer_name || (order ? order.customer_name : null),
+          customer_email: rem.customer_email || (order ? order.customer_email : null),
+          order_number: rem.order_number || (order ? order.order_number : null),
+          items: (Array.isArray(rem.items) && rem.items.length > 0 && rem.items[0].product_name_snapshot) 
+            ? rem.items 
+            : (order && Array.isArray(order.items) ? order.items : (rem.items || []))
+        };
       }
     } catch (e) {}
 
@@ -800,16 +933,20 @@ class ServerSupabase {
     }
 
     // Idempotency: If already marked Paid, don't double-deduct inventory
-    if (order.status === 'PAID' || order.status === 'Paid') {
+    if (order.status === 'PAID' || order.payment_status === 'PAID') {
       console.log(`[ServerSupabase] Order ${orderId} is already confirmed as PAID.`);
       return { order, alreadyPaid: true };
     }
 
     const verifiedAt = new Date().toISOString();
     order.status = 'PAID';
+    order.order_status = 'COMPLETED';
+    order.payment_status = 'PAID';
+    order.payment_reference = cfPaymentId || cfOrderId || order.payment_reference || orderId;
     order.cashfree_payment_id = cfPaymentId || order.cashfree_payment_id;
     order.cashfree_order_id = cfOrderId || order.cashfree_order_id;
     order.verified_at = verifiedAt;
+    order.updated_at = verifiedAt;
 
     // Update in fallback
     const idx = (this.fallbackData.orders || []).findIndex(o => o.id === orderId);
@@ -823,13 +960,30 @@ class ServerSupabase {
         query: `?id=eq.${orderId}`,
         body: {
           status: 'PAID',
+          order_status: 'COMPLETED',
+          payment_status: 'PAID',
+          payment_reference: order.payment_reference,
           cashfree_payment_id: cfPaymentId,
-          cashfree_order_id: cfOrderId
+          cashfree_order_id: cfOrderId,
+          updated_at: verifiedAt
         }
       });
-      console.log(`[ServerSupabase] Order ${orderId} marked as PAID in Supabase.`);
+      console.log(`[ServerSupabase] Order ${orderId} marked as PAID/COMPLETED in Supabase.`);
     } catch (e) {
       console.warn(`[ServerSupabase] Could not update order ${orderId} in Supabase:`, e.message);
+      if (e.message && e.message.includes('Could not find the') && e.message.includes('column')) {
+        try {
+          await this.fetchApi('orders', {
+            method: 'PATCH',
+            query: `?id=eq.${orderId}`,
+            body: {
+              status: 'PAID',
+              updated_at: verifiedAt
+            }
+          });
+          console.log(`[ServerSupabase] Order ${orderId} marked as PAID with base schema in Supabase.`);
+        } catch (e2) {}
+      }
     }
 
     // 2. Atomically Deduct Inventory in Supabase using PostgreSQL RPC (Row-locked)
@@ -1074,7 +1228,23 @@ class ServerSupabase {
 
       const remote = await this.fetchApi('orders', { query });
       if (remote && Array.isArray(remote)) {
-        return remote;
+        const localMap = new Map((this.fallbackData.orders || []).map(o => [o.id, o]));
+        return remote.map(rem => {
+          const loc = localMap.get(rem.id);
+          return {
+            ...(loc || {}),
+            ...rem,
+            customer_phone: rem.customer_phone || (loc ? loc.customer_phone : null),
+            customer_name: rem.customer_name || (loc ? loc.customer_name : null),
+            customer_email: rem.customer_email || (loc ? loc.customer_email : null),
+            order_number: rem.order_number || (loc ? loc.order_number : null),
+            payment_status: rem.payment_status || (loc ? loc.payment_status : rem.status),
+            order_status: rem.order_status || (loc ? loc.order_status : rem.status),
+            items: (Array.isArray(rem.items) && rem.items.length > 0 && rem.items[0].product_name_snapshot) 
+              ? rem.items 
+              : ((loc && Array.isArray(loc.items)) ? loc.items : (rem.items || []))
+          };
+        });
       }
     } catch (e) {
       console.warn('[ServerSupabase] getOrders fallback:', e.message);
@@ -1275,6 +1445,386 @@ class ServerSupabase {
       completedPayments: totalOrdersCount,
       topProducts,
       recentOrders: paidOrders.slice(0, 10)
+    };
+  }
+
+  // 12. MARK ORDER AS FAILED
+  async markOrderAsFailed(orderId, failureReason = 'Payment Failed', cfPaymentId = null) {
+    let order = (this.fallbackData.orders || []).find(o => o.id === orderId);
+    if (!order) return null;
+    const nowIso = new Date().toISOString();
+    order.status = 'FAILED';
+    order.order_status = 'FAILED';
+    order.payment_status = 'FAILED';
+    order.failure_reason = failureReason;
+    if (cfPaymentId) order.payment_reference = cfPaymentId;
+    order.updated_at = nowIso;
+    this.saveFallback();
+
+    try {
+      await this.fetchApi('orders', {
+        method: 'PATCH',
+        query: `?id=eq.${orderId}`,
+        body: {
+          status: 'FAILED',
+          order_status: 'FAILED',
+          payment_status: 'FAILED',
+          payment_reference: cfPaymentId || order.payment_reference,
+          updated_at: nowIso
+        }
+      });
+    } catch (e) {
+      if (e.message && e.message.includes('Could not find the') && e.message.includes('column')) {
+        try {
+          await this.fetchApi('orders', {
+            method: 'PATCH',
+            query: `?id=eq.${orderId}`,
+            body: {
+              status: 'FAILED',
+              updated_at: nowIso
+            }
+          });
+        } catch (e2) {}
+      }
+    }
+    return order;
+  }
+
+  // 13. DYNAMIC CATEGORIES RETRIEVAL
+  async getCategories() {
+    const defaultCategories = ['Chips', 'Biscuits', 'Chocolates', 'Drinks'];
+    try {
+      const prods = await this.getProducts(true);
+      const dbCategories = (prods || [])
+        .map(p => {
+          let cat = (p.category || '').trim();
+          if (['drinks', 'beverages', 'drink', 'beverage'].includes(cat.toLowerCase())) return 'Drinks';
+          if (['biscuits', 'biscuit'].includes(cat.toLowerCase())) return 'Biscuits';
+          if (['chocolates', 'chocolate'].includes(cat.toLowerCase())) return 'Chocolates';
+          if (['chips', 'chip', 'snacks', 'snack'].includes(cat.toLowerCase())) return 'Chips';
+          return cat ? (cat.charAt(0).toUpperCase() + cat.slice(1)) : null;
+        })
+        .filter(Boolean);
+
+      return Array.from(new Set([...defaultCategories, ...dbCategories]));
+    } catch (e) {
+      return defaultCategories;
+    }
+  }
+
+  // 14. AUTHORITATIVE SALES ANALYTICS & REPORTING
+  async getSalesAnalytics(options = {}) {
+    const {
+      period = 'today',
+      startDate = null,
+      endDate = null,
+      status = 'ALL',
+      paymentStatus = 'ALL',
+      category = 'ALL',
+      paymentMethod = 'ALL',
+      search = ''
+    } = options;
+
+    const allOrders = await this.getOrders({ isAdmin: true });
+    const allProducts = await this.getProducts(true);
+
+    // 1. Determine Date Range
+    const now = new Date();
+    let rangeStart = null;
+    let rangeEnd = null;
+
+    if (period === 'today') {
+      const todayStr = now.toISOString().split('T')[0];
+      rangeStart = new Date(`${todayStr}T00:00:00.000Z`);
+      rangeEnd = new Date(`${todayStr}T23:59:59.999Z`);
+    } else if (period === 'yesterday') {
+      const yDate = new Date(now.getTime() - 24 * 3600 * 1000);
+      const yStr = yDate.toISOString().split('T')[0];
+      rangeStart = new Date(`${yStr}T00:00:00.000Z`);
+      rangeEnd = new Date(`${yStr}T23:59:59.999Z`);
+    } else if (period === '7days') {
+      rangeStart = new Date(now.getTime() - 7 * 24 * 3600 * 1000);
+      rangeEnd = now;
+    } else if (period === 'month') {
+      const monthStartStr = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-01`;
+      rangeStart = new Date(`${monthStartStr}T00:00:00.000Z`);
+      rangeEnd = now;
+    } else if (period === 'custom' && (startDate || endDate)) {
+      if (startDate) rangeStart = new Date(`${startDate}T00:00:00.000Z`);
+      if (endDate) rangeEnd = new Date(`${endDate}T23:59:59.999Z`);
+    }
+
+    // 2. Filter orders by date range
+    let filteredOrders = allOrders.filter(o => {
+      const orderDate = new Date(o.created_at || o.createdAt || Date.now());
+      if (rangeStart && orderDate < rangeStart) return false;
+      if (rangeEnd && orderDate > rangeEnd) return false;
+      return true;
+    });
+
+    // 3. Filter by search query
+    if (search && search.trim()) {
+      const q = search.trim().toLowerCase();
+      filteredOrders = filteredOrders.filter(o => {
+        const idMatch = (o.id || '').toLowerCase().includes(q) || (o.order_number || '').toLowerCase().includes(q);
+        const nameMatch = (o.customer_name || '').toLowerCase().includes(q);
+        const emailMatch = (o.customer_email || '').toLowerCase().includes(q);
+        const phoneMatch = (o.customer_phone || '').includes(q);
+        const itemMatch = (Array.isArray(o.items) ? o.items : []).some(i => (i.name || i.product_name_snapshot || '').toLowerCase().includes(q));
+        return idMatch || nameMatch || emailMatch || phoneMatch || itemMatch;
+      });
+    }
+
+    // 4. Filter by paymentStatus
+    if (paymentStatus && paymentStatus !== 'ALL') {
+      filteredOrders = filteredOrders.filter(o => {
+        const ps = (o.payment_status || (o.status === 'PAID' ? 'PAID' : o.status) || '').toUpperCase();
+        return ps === paymentStatus.toUpperCase();
+      });
+    }
+
+    // 5. Filter by orderStatus
+    if (status && status !== 'ALL') {
+      filteredOrders = filteredOrders.filter(o => {
+        const st = (o.order_status || o.status || '').toUpperCase();
+        return st === status.toUpperCase();
+      });
+    }
+
+    // 6. Filter by paymentMethod
+    if (paymentMethod && paymentMethod !== 'ALL') {
+      filteredOrders = filteredOrders.filter(o => {
+        const pm = (o.payment_method || '').toUpperCase();
+        return pm === paymentMethod.toUpperCase();
+      });
+    }
+
+    // 7. Filter by Category
+    if (category && category !== 'ALL') {
+      const targetCat = category.toLowerCase();
+      filteredOrders = filteredOrders.filter(o => {
+        const items = Array.isArray(o.items) ? o.items : [];
+        return items.some(i => {
+          let ic = (i.category || i.product_category_snapshot || '').toLowerCase();
+          if (['drinks', 'beverages', 'drink', 'beverage'].includes(ic)) ic = 'drinks';
+          return ic === targetCat;
+        });
+      });
+    }
+
+    // 8. Aggregations (Only confirmed PAID / COMPLETED transactions count toward confirmed revenue)
+    let confirmedRevenue = 0;
+    let confirmedOrdersCount = 0;
+    let totalItemsSold = 0;
+    let grossSales = 0;
+    let totalDiscounts = 0;
+    let successfulPaymentsCount = 0;
+    let successfulPaymentsAmount = 0;
+    let pendingPaymentsCount = 0;
+    let pendingPaymentsAmount = 0;
+    let failedPaymentsCount = 0;
+    let failedPaymentsAmount = 0;
+
+    const productStats = {};
+    const categoryStats = {
+      'Chips': { category: 'Chips', itemsSold: 0, revenue: 0 },
+      'Biscuits': { category: 'Biscuits', itemsSold: 0, revenue: 0 },
+      'Chocolates': { category: 'Chocolates', itemsSold: 0, revenue: 0 },
+      'Drinks': { category: 'Drinks', itemsSold: 0, revenue: 0 }
+    };
+
+    allProducts.forEach(p => {
+      let pCat = p.category || 'Chips';
+      if (['drinks', 'beverages', 'drink', 'beverage'].includes(pCat.toLowerCase())) pCat = 'Drinks';
+      productStats[p.id] = {
+        id: p.id,
+        name: p.name,
+        category: pCat,
+        currentStock: Number(p.stock) || 0,
+        unitPrice: Number(p.selling_price || p.price) || 0,
+        unitsSold: 0,
+        revenue: 0,
+        ordersCount: 0
+      };
+    });
+
+    filteredOrders.forEach(o => {
+      const amt = Number(o.total_amount !== undefined ? o.total_amount : o.amount) || 0;
+      const sub = Number(o.subtotal !== undefined ? o.subtotal : amt) || amt;
+      const disc = Number(o.discount || 0);
+      const isPaid = (o.payment_status === 'PAID' || o.status === 'PAID' || o.order_status === 'COMPLETED');
+      const isPending = (o.payment_status === 'PENDING' || o.status === 'PENDING');
+      const isFailed = (o.payment_status === 'FAILED' || o.status === 'FAILED' || o.status === 'CANCELLED');
+
+      if (isPaid) {
+        successfulPaymentsCount += 1;
+        successfulPaymentsAmount += amt;
+        confirmedRevenue += amt;
+        confirmedOrdersCount += 1;
+        grossSales += sub;
+        totalDiscounts += disc;
+
+        const items = Array.isArray(o.items) ? o.items : [];
+        const seenInThisOrder = new Set();
+
+        items.forEach(item => {
+          const pid = item.id || item.product_id;
+          const qty = Math.max(1, Number(item.qty || item.quantity) || 1);
+          const unitPrice = Number(item.unit_price !== undefined ? item.unit_price : (item.price !== undefined ? item.price : 0));
+          const lineTotal = Number(item.item_total !== undefined ? item.item_total : (unitPrice * qty));
+
+          totalItemsSold += qty;
+
+          let cat = item.category || item.product_category_snapshot || 'Chips';
+          if (['drinks', 'beverages', 'drink', 'beverage'].includes(cat.toLowerCase())) cat = 'Drinks';
+          else if (['biscuits', 'biscuit'].includes(cat.toLowerCase())) cat = 'Biscuits';
+          else if (['chocolates', 'chocolate'].includes(cat.toLowerCase())) cat = 'Chocolates';
+
+          if (!categoryStats[cat]) {
+            categoryStats[cat] = { category: cat, itemsSold: 0, revenue: 0 };
+          }
+          categoryStats[cat].itemsSold += qty;
+          categoryStats[cat].revenue += lineTotal;
+
+          if (!productStats[pid]) {
+            productStats[pid] = {
+              id: pid,
+              name: item.name || item.product_name_snapshot || pid,
+              category: cat,
+              currentStock: 0,
+              unitPrice: unitPrice,
+              unitsSold: 0,
+              revenue: 0,
+              ordersCount: 0
+            };
+          }
+          productStats[pid].unitsSold += qty;
+          productStats[pid].revenue += lineTotal;
+          if (!seenInThisOrder.has(pid)) {
+            seenInThisOrder.add(pid);
+            productStats[pid].ordersCount += 1;
+          }
+        });
+      } else if (isPending) {
+        pendingPaymentsCount += 1;
+        pendingPaymentsAmount += amt;
+      } else if (isFailed) {
+        failedPaymentsCount += 1;
+        failedPaymentsAmount += amt;
+      }
+    });
+
+    // Category percentage share
+    const categoriesArray = Object.values(categoryStats).map(c => ({
+      ...c,
+      share: confirmedRevenue > 0 ? Number(((c.revenue / confirmedRevenue) * 100).toFixed(1)) : 0
+    }));
+
+    // Product breakdown sorted by revenue descending
+    const productsArray = Object.values(productStats).sort((a, b) => b.revenue - a.revenue);
+
+    // Payments transaction list
+    const paymentsList = filteredOrders.map(o => ({
+      paymentId: o.payment_reference || o.cashfree_payment_id || o.id,
+      orderId: o.id,
+      orderNumber: o.order_number || ('HS-' + (o.id.replace(/\D/g, '').slice(-6) || '000000')),
+      amount: Number(o.total_amount !== undefined ? o.total_amount : o.amount) || 0,
+      method: o.payment_method || 'UPI',
+      status: o.payment_status || (o.status === 'PAID' ? 'PAID' : o.status) || 'PENDING',
+      customer: o.customer_name || o.customer_email || o.customer_phone || 'Customer',
+      customerEmail: o.customer_email || '',
+      customerPhone: o.customer_phone || '',
+      timestamp: o.created_at || o.createdAt
+    }));
+
+    return {
+      period,
+      startDate: rangeStart ? rangeStart.toISOString() : null,
+      endDate: rangeEnd ? rangeEnd.toISOString() : null,
+      summary: {
+        confirmedRevenue,
+        confirmedOrdersCount,
+        totalItemsSold,
+        grossSales,
+        discounts: totalDiscounts,
+        netSales: confirmedRevenue,
+        successfulPayments: { count: successfulPaymentsCount, amount: successfulPaymentsAmount },
+        pendingPayments: { count: pendingPaymentsCount, amount: pendingPaymentsAmount },
+        failedPayments: { count: failedPaymentsCount, amount: failedPaymentsAmount }
+      },
+      products: productsArray,
+      categories: categoriesArray,
+      orders: filteredOrders,
+      payments: paymentsList
+    };
+  }
+
+  // 15. DAILY END-OF-DAY REPORT
+  async getDailyReport(dateStr) {
+    const targetDate = dateStr || new Date().toISOString().split('T')[0];
+    const analytics = await this.getSalesAnalytics({
+      period: 'custom',
+      startDate: targetDate,
+      endDate: targetDate
+    });
+
+    return {
+      date: targetDate,
+      ...analytics
+    };
+  }
+
+  // 16. "WHO TOOK WHAT" - PRODUCT PURCHASE TRACEABILITY
+  async getProductSalesHistory(productId) {
+    const orders = await this.getOrders({ isAdmin: true });
+    const product = await this.getProduct(productId);
+
+    const transactions = [];
+    let totalUnitsSold = 0;
+    let totalRevenue = 0;
+
+    orders.forEach(o => {
+      const isPaid = (o.payment_status === 'PAID' || o.status === 'PAID' || o.order_status === 'COMPLETED');
+      const items = Array.isArray(o.items) ? o.items : [];
+      const matchingItems = items.filter(i => (i.id === productId || i.product_id === productId));
+
+      matchingItems.forEach(item => {
+        const qty = Math.max(1, Number(item.qty || item.quantity) || 1);
+        const unitPrice = Number(item.unit_price !== undefined ? item.unit_price : (item.price !== undefined ? item.price : (product ? product.price : 10)));
+        const itemTotal = Number(item.item_total !== undefined ? item.item_total : (unitPrice * qty));
+
+        if (isPaid) {
+          totalUnitsSold += qty;
+          totalRevenue += itemTotal;
+        }
+
+        transactions.push({
+          orderId: o.id,
+          orderNumber: o.order_number || ('HS-' + (o.id.replace(/\D/g, '').slice(-6) || '000000')),
+          customerName: o.customer_name || 'Customer',
+          customerEmail: o.customer_email || '',
+          customerPhone: o.customer_phone || '',
+          quantity: qty,
+          unitPrice,
+          itemTotal,
+          date: o.created_at ? new Date(o.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Today',
+          time: o.created_at ? new Date(o.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '',
+          timestamp: o.created_at,
+          paymentMethod: o.payment_method || 'UPI',
+          paymentReference: o.payment_reference || o.cashfree_payment_id || o.id,
+          paymentStatus: o.payment_status || (o.status === 'PAID' ? 'PAID' : o.status) || 'PENDING',
+          orderStatus: o.order_status || o.status || 'PENDING'
+        });
+      });
+    });
+
+    transactions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    return {
+      product: product || { id: productId, name: productId },
+      totalUnitsSold,
+      totalRevenue,
+      transactions
     };
   }
 }
