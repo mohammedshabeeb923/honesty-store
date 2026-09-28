@@ -204,6 +204,48 @@ class AdminApp {
         if (modal) modal.classList.remove('active');
       });
     }
+
+    // Quick Add Stock Modal Form
+    const quickAddForm = document.getElementById('quick-add-stock-form');
+    if (quickAddForm) {
+      quickAddForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const prodId = document.getElementById('add-stock-prod-id').value;
+        const addQty = parseInt(document.getElementById('add-stock-qty-input').value, 10);
+        if (prodId && addQty > 0) {
+          await window.storeDB.quickAddStock(prodId, addQty);
+          if (window.showToast) window.showToast(`Added +${addQty} units of stock`, 'success');
+        }
+        document.getElementById('quick-add-stock-modal').classList.remove('active');
+        this.render();
+      });
+    }
+
+    const btnCloseAddStock = document.getElementById('btn-close-add-stock-modal');
+    if (btnCloseAddStock) {
+      btnCloseAddStock.addEventListener('click', () => {
+        document.getElementById('quick-add-stock-modal').classList.remove('active');
+      });
+    }
+
+    const btnCancelAddStock = document.getElementById('btn-cancel-add-stock-modal');
+    if (btnCancelAddStock) {
+      btnCancelAddStock.addEventListener('click', () => {
+        document.getElementById('quick-add-stock-modal').classList.remove('active');
+      });
+    }
+  }
+
+  openQuickAddStockModal(productId) {
+    const prod = window.storeDB.getProduct(productId);
+    if (!prod) return;
+    const modal = document.getElementById('quick-add-stock-modal');
+    if (!modal) return;
+    document.getElementById('add-stock-prod-id').value = prod.id;
+    document.getElementById('add-stock-modal-title').innerText = `Add Stock: ${prod.name}`;
+    document.getElementById('add-stock-current-display').innerText = `${prod.stock} units`;
+    document.getElementById('add-stock-qty-input').value = '10';
+    modal.classList.add('active');
   }
 
   subscribeToStore() {
@@ -263,9 +305,11 @@ class AdminApp {
     const form = document.getElementById('product-editor-form');
     const idInput = document.getElementById('editor-prod-id');
     const nameInput = document.getElementById('editor-prod-name');
+    const refNameInput = document.getElementById('editor-prod-ref-name');
     const variantInput = document.getElementById('editor-prod-variant');
     const catInput = document.getElementById('editor-prod-category');
     const descInput = document.getElementById('editor-prod-description');
+    const purchasePriceInput = document.getElementById('editor-prod-purchase-price');
     const priceInput = document.getElementById('editor-prod-price');
     const sellPriceInput = document.getElementById('editor-prod-selling-price');
     const stockInput = document.getElementById('editor-prod-stock');
@@ -290,10 +334,12 @@ class AdminApp {
       if (submitText) submitText.innerText = 'Update Product';
       if (idInput) idInput.value = prod.id;
       if (nameInput) nameInput.value = prod.name || '';
+      if (refNameInput) refNameInput.value = prod.referenceName || '';
       if (variantInput) variantInput.value = prod.variant || '';
       if (catInput) catInput.value = prod.category || 'Chips';
       if (descInput) descInput.value = prod.description || '';
-      if (priceInput) priceInput.value = prod.price || 20;
+      if (purchasePriceInput) purchasePriceInput.value = (prod.purchasePrice !== null && prod.purchasePrice !== undefined) ? prod.purchasePrice : '';
+      if (priceInput) priceInput.value = prod.price || 10;
       if (sellPriceInput) sellPriceInput.value = (prod.sellingPrice !== null && prod.sellingPrice !== undefined) ? prod.sellingPrice : '';
       if (stockInput) stockInput.value = prod.stock !== undefined ? prod.stock : 0;
       if (threshInput) threshInput.value = prod.lowStockThreshold || 5;
@@ -318,9 +364,12 @@ class AdminApp {
       if (titleEl) titleEl.innerText = 'Add Shelf Product';
       if (submitText) submitText.innerText = 'Add to Shelf';
       if (idInput) idInput.value = '';
+      if (refNameInput) refNameInput.value = '';
+      if (purchasePriceInput) purchasePriceInput.value = '';
+      if (sellPriceInput) sellPriceInput.value = '';
       if (imgUrlInput) imgUrlInput.value = 'assets/lays.png';
       if (storagePathInput) storagePathInput.value = '';
-      if (priceInput) priceInput.value = '20';
+      if (priceInput) priceInput.value = '10';
       if (stockInput) stockInput.value = '15';
       if (threshInput) threshInput.value = '5';
       if (activeInput) activeInput.checked = true;
@@ -402,12 +451,15 @@ class AdminApp {
     e.preventDefault();
     const id = document.getElementById('editor-prod-id').value;
     const name = document.getElementById('editor-prod-name').value.trim();
+    const referenceName = document.getElementById('editor-prod-ref-name')?.value.trim() || null;
     const variant = document.getElementById('editor-prod-variant').value.trim();
     const category = document.getElementById('editor-prod-category').value;
     const description = document.getElementById('editor-prod-description').value.trim();
     const price = parseFloat(document.getElementById('editor-prod-price').value);
-    const sellPriceRaw = document.getElementById('editor-prod-selling-price').value;
-    const sellingPrice = sellPriceRaw ? parseFloat(sellPriceRaw) : price;
+    const purchasePriceRaw = document.getElementById('editor-prod-purchase-price')?.value;
+    const purchasePrice = (purchasePriceRaw !== undefined && purchasePriceRaw !== '') ? parseFloat(purchasePriceRaw) : null;
+    const sellPriceRaw = document.getElementById('editor-prod-selling-price')?.value;
+    const sellingPrice = (sellPriceRaw !== undefined && sellPriceRaw !== '') ? parseFloat(sellPriceRaw) : null;
     const stock = parseInt(document.getElementById('editor-prod-stock').value, 10);
     const threshold = parseInt(document.getElementById('editor-prod-threshold').value, 10) || 5;
     const isActive = document.getElementById('editor-prod-active').checked;
@@ -429,10 +481,14 @@ class AdminApp {
 
     const payload = {
       name,
+      referenceName,
+      reference_name: referenceName,
       variant,
       category,
       description,
       price,
+      purchasePrice,
+      purchase_price: purchasePrice,
       sellingPrice,
       selling_price: sellingPrice,
       stock,
@@ -511,6 +567,7 @@ class AdminApp {
     if (this.searchQuery) {
       filtered = filtered.filter(p =>
         (p.name || '').toLowerCase().includes(this.searchQuery) ||
+        (p.referenceName || '').toLowerCase().includes(this.searchQuery) ||
         (p.variant || '').toLowerCase().includes(this.searchQuery) ||
         (p.category || '').toLowerCase().includes(this.searchQuery)
       );
@@ -519,7 +576,7 @@ class AdminApp {
     if (filtered.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="7" style="text-align: center; padding: 36px 14px; color: #64748b;">
+          <td colspan="8" style="text-align: center; padding: 36px 14px; color: #64748b;">
             No products match the selected criteria.
           </td>
         </tr>
@@ -539,10 +596,30 @@ class AdminApp {
         stockBadge = '<span class="badge-tag warning">Low Stock</span>';
       }
 
-      const hasDiscount = prod.sellingPrice !== null && prod.sellingPrice !== undefined && Number(prod.sellingPrice) < Number(prod.price);
-      const priceDisplay = hasDiscount 
-        ? `<div style="font-weight: 700; color: #0f172a;">₹${prod.sellingPrice} <span style="font-size: 11px; text-decoration: line-through; color: #94a3b8; font-weight: 400;">₹${prod.price}</span></div>`
-        : `<div style="font-weight: 700; color: #0f172a;">₹${prod.price}</div>`;
+      // Purchase Rate formatting
+      const purchaseDisplay = (prod.purchasePrice !== null && prod.purchasePrice !== undefined)
+        ? `₹${Number(prod.purchasePrice).toFixed(2)}`
+        : '<span style="color:#94a3b8;">—</span>';
+
+      // Selling Price formatting
+      const hasValidSellingPrice = prod.sellingPrice !== null && prod.sellingPrice !== undefined && Number(prod.sellingPrice) > 0;
+      const hasDiscount = hasValidSellingPrice && prod.price && Number(prod.sellingPrice) < Number(prod.price);
+      let sellingPriceDisplay = '';
+      if (hasValidSellingPrice) {
+        sellingPriceDisplay = `
+          <div style="font-weight: 700; color: #0284c7; font-size: 14px;">
+            ₹${Number(prod.sellingPrice).toFixed(2)}
+            ${hasDiscount ? `<span style="font-size: 11px; text-decoration: line-through; color: #94a3b8; font-weight: 400; margin-left: 4px;">₹${Number(prod.price).toFixed(2)}</span>` : ''}
+          </div>
+        `;
+      } else {
+        sellingPriceDisplay = `
+          <span class="badge-tag warning" style="font-size: 11px; font-weight: 700; background: #fef3c7; color: #b45309; border: 1px solid #fde68a;">
+            Price Required
+          </span>
+          <div style="font-size: 10px; color: #dc2626; margin-top: 2px;">Hidden from sales</div>
+        `;
+      }
 
       return `
         <tr style="${isArchived ? 'opacity: 0.65; background: #fafafa;' : ''}">
@@ -555,15 +632,22 @@ class AdminApp {
             </div>
           </td>
           <td>
-            <div style="font-weight: 700; color: #0f172a; font-size: 14px;">${prod.name}</div>
+            <div style="font-weight: 700; color: #0f172a; font-size: 14px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+              <span>${prod.name}</span>
+              ${prod.referenceName ? `<span style="font-size: 10px; background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; font-weight: 600; font-family: monospace;">[${prod.referenceName}]</span>` : ''}
+            </div>
             ${prod.variant ? `<div style="font-size: 12px; color: #64748b; margin-top: 1px;">${prod.variant}</div>` : ''}
-            ${prod.description ? `<div style="font-size: 11px; color: #94a3b8; margin-top: 2px; max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${prod.description}</div>` : ''}
+            ${prod.description ? `<div style="font-size: 11px; color: #94a3b8; margin-top: 2px; max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${prod.description}</div>` : ''}
           </td>
           <td>
-            <span class="badge-tag muted">${prod.category || 'Chips'}</span>
+            <span class="badge-tag muted">${prod.category || 'Snacks'}</span>
           </td>
           <td>
-            ${priceDisplay}
+            <div style="font-weight: 600; color: #334155; font-size: 13px;">${purchaseDisplay}</div>
+            <div style="font-size: 10px; color: #94a3b8;">Procurement</div>
+          </td>
+          <td>
+            ${sellingPriceDisplay}
           </td>
           <td>
             <div style="display: flex; align-items: center; gap: 8px;">
@@ -572,14 +656,17 @@ class AdminApp {
             </div>
           </td>
           <td>
-            <span class="badge-tag ${isArchived ? 'muted' : 'success'}">
-              ${isArchived ? 'Archived' : 'Active'}
+            <span class="badge-tag ${isArchived ? 'muted' : (prod.isAvailable === false ? 'warning' : 'success')}">
+              ${isArchived ? 'Archived' : (prod.isAvailable === false ? 'Disabled' : 'Active')}
             </span>
           </td>
           <td style="text-align: right;">
             <div style="display: inline-flex; gap: 6px;">
               <button class="btn-table-action edit" onclick="window.adminApp.openProductModal('${prod.id}')" title="Edit Product">
                 Edit
+              </button>
+              <button class="btn-table-action" style="background:#e0f2fe; color:#0369a1; border-color:#bae6fd;" onclick="window.adminApp.openQuickAddStockModal('${prod.id}')" title="Quick Add Stock Units">
+                + Stock
               </button>
               <button class="btn-table-action ${isArchived ? 'restore' : 'archive'}" 
                       onclick="window.adminApp.toggleProductArchive('${prod.id}', ${!isArchived})" 

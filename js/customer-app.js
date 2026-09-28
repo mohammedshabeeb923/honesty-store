@@ -227,15 +227,27 @@ class CustomerApp {
     this.productsGrid.innerHTML = products.map(prod => {
       const isOutOfStock = prod.stock <= 0;
       const isLowStock = prod.stock > 0 && prod.stock <= (prod.lowStockThreshold || 5);
+      const isUnavailable = prod.isAvailable === false || prod.isActive === false;
       const cartItem = cart.find(i => i.id === prod.id);
       const cartQty = cartItem ? cartItem.qty : 0;
-      const hasDiscount = prod.sellingPrice !== null && prod.sellingPrice !== undefined && Number(prod.sellingPrice) < Number(prod.price);
-      const displayPrice = hasDiscount ? prod.sellingPrice : prod.price;
+      
+      // Strict separation of Purchase Price and Selling Price:
+      // Customers must NEVER see purchase_price or reference rates.
+      const hasValidSellingPrice = prod.sellingPrice !== null && prod.sellingPrice !== undefined && Number(prod.sellingPrice) > 0;
+      const hasDiscount = hasValidSellingPrice && prod.price && Number(prod.sellingPrice) < Number(prod.price);
+      const displayPrice = hasValidSellingPrice 
+        ? (Number(prod.sellingPrice) % 1 === 0 ? Number(prod.sellingPrice).toFixed(0) : Number(prod.sellingPrice).toFixed(2))
+        : null;
+      const mrpPrice = (prod.price && Number(prod.price) > 0)
+        ? (Number(prod.price) % 1 === 0 ? Number(prod.price).toFixed(0) : Number(prod.price).toFixed(2))
+        : null;
+
+      const canPurchase = hasValidSellingPrice && !isOutOfStock && !isUnavailable;
 
       return `
-        <div class="product-card ${isOutOfStock ? 'out-of-stock' : ''}" data-id="${prod.id}">
+        <div class="product-card ${!canPurchase ? 'out-of-stock' : ''}" data-id="${prod.id}">
           <div class="card-img-wrap">
-            ${isLowStock ? '<span class="badge-low-stock">LOW STOCK</span>' : ''}
+            ${isUnavailable ? '<span class="badge-low-stock" style="background:#ef4444; color:#fff;">UNAVAILABLE</span>' : (isLowStock ? '<span class="badge-low-stock">LOW STOCK</span>' : '')}
             <img src="${prod.image || 'assets/lays.png'}" 
                  alt="${prod.name}" 
                  loading="lazy" 
@@ -244,14 +256,24 @@ class CustomerApp {
           <div class="product-name">${prod.name}</div>
           ${prod.variant ? `<div style="font-size:11px; color:#64748b; margin-top:-3px; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${prod.variant}</div>` : ''}
           <div class="product-stock-line ${isLowStock ? 'warning' : ''}">
-            ${isLowStock ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:-1px; margin-right:3px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' : ''}${prod.stock} IN STOCK
+            ${isUnavailable 
+              ? '<span style="color:#ef4444; font-weight:700;">Temporarily Unavailable</span>'
+              : (isLowStock ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:-1px; margin-right:3px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' : '') + `${prod.stock} IN STOCK`}
           </div>
           <div class="product-bottom-row">
             <div class="product-price">
-              ₹${displayPrice}
-              ${hasDiscount ? `<span style="font-size:11px; text-decoration:line-through; color:#94a3b8; margin-left:4px; font-weight:400;">₹${prod.price}</span>` : ''}
+              ${hasValidSellingPrice ? `
+                ₹${displayPrice}
+                ${hasDiscount ? `<span style="font-size:11px; text-decoration:line-through; color:#94a3b8; margin-left:4px; font-weight:400;">₹${mrpPrice}</span>` : ''}
+              ` : `
+                <span class="badge-tag muted" style="font-size: 11px; color: #dc2626; background: #fee2e2; border: 1px solid #fecaca; padding: 2px 6px; border-radius: 4px; font-weight: 600;">Price unavailable</span>
+              `}
             </div>
-            ${cartQty > 0 ? `
+            ${!canPurchase ? `
+              <button class="btn-add-item disabled" disabled title="${!hasValidSellingPrice ? 'Price unavailable - Awaiting admin input' : (isUnavailable ? 'Unavailable' : 'Out of stock')}">
+                ⊘
+              </button>
+            ` : (cartQty > 0 ? `
               <div class="product-stepper">
                 <button class="stepper-btn minus" onclick="window.customerApp.reduceCartItem('${prod.id}')" title="Reduce quantity">
                   −
@@ -260,12 +282,12 @@ class CustomerApp {
                 <button class="stepper-btn plus" onclick="window.customerApp.addToCart('${prod.id}')" title="Add one more">+</button>
               </div>
             ` : `
-              <button class="btn-add-item ${isOutOfStock ? 'disabled' : ''}" 
+              <button class="btn-add-item" 
                       onclick="window.customerApp.addToCart('${prod.id}')"
-                      ${isOutOfStock ? 'disabled title="Out of stock"' : 'title="Add to cart"'}>
-                ${isOutOfStock ? '⊘' : '+'}
+                      title="Add to cart">
+                +
               </button>
-            `}
+            `)}
           </div>
         </div>
       `;
@@ -273,6 +295,17 @@ class CustomerApp {
   }
 
   addToCart(productId) {
+    const prod = window.storeDB.getProduct(productId);
+    if (prod) {
+      if (prod.isAvailable === false || prod.isActive === false) {
+        if (window.showToast) window.showToast('This item is currently unavailable.', 'warning');
+        return;
+      }
+      if (!prod.sellingPrice || Number(prod.sellingPrice) <= 0) {
+        if (window.showToast) window.showToast('Price unavailable - Awaiting admin input.', 'warning');
+        return;
+      }
+    }
     const success = window.storeDB.addToCart(productId);
     if (!success) {
       if (window.showToast) window.showToast('This item is out of stock or maximum limit reached.', 'error');

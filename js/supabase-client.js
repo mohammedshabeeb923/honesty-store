@@ -501,18 +501,21 @@ class SupabaseClient {
     const payload = {
       id: product.id || ('prod_' + Date.now()),
       name: product.name,
+      reference_name: product.reference_name || product.referenceName || null,
       description: product.description || '',
       variant: product.variant || '',
       category: product.category || 'Chips',
       price: Number(product.price) || 0,
-      selling_price: product.selling_price !== undefined ? Number(product.selling_price) : (product.sellingPrice !== undefined ? Number(product.sellingPrice) : Number(product.price) || 0),
+      purchase_price: (product.purchase_price !== undefined && product.purchase_price !== null && product.purchase_price !== '') ? Number(product.purchase_price) : ((product.purchasePrice !== undefined && product.purchasePrice !== null && product.purchasePrice !== '') ? Number(product.purchasePrice) : null),
+      selling_price: (product.selling_price !== undefined && product.selling_price !== null && product.selling_price !== '') ? Number(product.selling_price) : ((product.sellingPrice !== undefined && product.sellingPrice !== null && product.sellingPrice !== '') ? Number(product.sellingPrice) : null),
       stock: Number(product.stock) || 0,
       expected_stock: Number(product.stock) || 0,
       physical_stock: Number(product.stock) || 0,
       image_url: product.image_url || product.imageUrl || product.image || 'assets/lays.png',
       storage_path: product.storage_path || product.storagePath || null,
       low_stock_threshold: product.low_stock_threshold || product.lowStockThreshold || 5,
-      is_active: product.is_active !== undefined ? Boolean(product.is_active) : (product.isActive !== undefined ? Boolean(product.isActive) : true)
+      is_active: product.is_active !== undefined ? Boolean(product.is_active) : (product.isActive !== undefined ? Boolean(product.isActive) : true),
+      is_available: product.is_available !== undefined ? Boolean(product.is_available) : (product.isAvailable !== undefined ? Boolean(product.isAvailable) : true)
     };
 
     if (this.client) {
@@ -549,6 +552,12 @@ class SupabaseClient {
    */
   async updateProduct(id, updates) {
     const patchPayload = { ...updates };
+    if (patchPayload.referenceName !== undefined && patchPayload.reference_name === undefined) {
+      patchPayload.reference_name = patchPayload.referenceName;
+    }
+    if (patchPayload.purchasePrice !== undefined && patchPayload.purchase_price === undefined) {
+      patchPayload.purchase_price = patchPayload.purchasePrice;
+    }
     if (patchPayload.sellingPrice !== undefined && patchPayload.selling_price === undefined) {
       patchPayload.selling_price = patchPayload.sellingPrice;
     }
@@ -561,9 +570,24 @@ class SupabaseClient {
     if (patchPayload.isActive !== undefined && patchPayload.is_active === undefined) {
       patchPayload.is_active = patchPayload.isActive;
     }
+    if (patchPayload.isAvailable !== undefined && patchPayload.is_available === undefined) {
+      patchPayload.is_available = patchPayload.isAvailable;
+    }
     if (patchPayload.lowStockThreshold !== undefined && patchPayload.low_stock_threshold === undefined) {
       patchPayload.low_stock_threshold = patchPayload.lowStockThreshold;
     }
+
+    // Remove camelCase helpers before Supabase PostgREST update
+    delete patchPayload.referenceName;
+    delete patchPayload.purchasePrice;
+    delete patchPayload.sellingPrice;
+    delete patchPayload.imageUrl;
+    delete patchPayload.storagePath;
+    delete patchPayload.isActive;
+    delete patchPayload.isAvailable;
+    delete patchPayload.lowStockThreshold;
+    delete patchPayload.expectedStock;
+    delete patchPayload.physicalStock;
 
     if (this.client) {
       try {

@@ -12,18 +12,158 @@ if (!fs.existsSync(DATA_DIR)) {
 }
 const FALLBACK_DB_FILE = path.join(DATA_DIR, 'db-fallback.json');
 
-// Default initial seed data if DB is completely fresh
+// Initial Product Master (from packing slip: Gross ₹1,914.38, Net ₹1,914.50)
 const DEFAULT_PRODUCTS = [
-  { id: 'lays', name: 'Lays', variant: 'Classic Potato Chips', category: 'Chips', price: 20, stock: 18, expected_stock: 18, physical_stock: 15, image_url: 'assets/lays.png', is_active: true },
-  { id: 'oreo', name: 'Oreo', variant: 'Chocolate Sandwich Cookies', category: 'Biscuits', price: 30, stock: 3, expected_stock: 3, physical_stock: 3, image_url: 'assets/oreo.png', is_active: true },
-  { id: 'parleg', name: 'Parle-G', variant: 'Glucose Biscuits', category: 'Biscuits', price: 10, stock: 25, expected_stock: 25, physical_stock: 25, image_url: 'assets/parleg.png', is_active: true },
-  { id: 'dairymilk', name: 'Dairy Milk', variant: 'Milk Chocolate Bar', category: 'Chocolates', price: 20, stock: 0, expected_stock: 0, physical_stock: 0, image_url: 'assets/dairymilk.png', is_active: true },
-  { id: 'upitest', name: '₹1 Live UPI Test', variant: 'Gateway Verification Item', category: 'Chips', price: 1, stock: 99, expected_stock: 99, physical_stock: 99, image_url: 'assets/lays.png', is_active: true }
+  {
+    id: 'lays',
+    name: 'Lays',
+    reference_name: 'LAYS RS 5',
+    variant: 'Classic Potato Chips (₹5)',
+    category: 'Chips',
+    price: 5.00,
+    purchase_price: 4.38,
+    selling_price: 5.00,
+    stock: 110,
+    expected_stock: 110,
+    physical_stock: 110,
+    low_stock_threshold: 10,
+    image_url: 'assets/lays.png',
+    is_active: true,
+    is_available: true,
+    description: 'Classic salted crispy potato chips. Reference: LAYS RS 5 @ ₹4.38'
+  },
+  {
+    id: 'dailee_mango',
+    name: 'Dailee Mango',
+    reference_name: 'DAILEE [MANGO 12]',
+    variant: 'Mango Drink (12 Pack)',
+    category: 'Beverages',
+    price: 10.00,
+    purchase_price: 7.00,
+    selling_price: 10.00,
+    stock: 22,
+    expected_stock: 22,
+    physical_stock: 22,
+    low_stock_threshold: 5,
+    image_url: 'assets/dailee_mango.svg',
+    is_active: true,
+    is_available: true,
+    description: 'Refreshing mango fruit juice drink. Reference: DAILEE [MANGO 12] @ ₹7.00'
+  },
+  {
+    id: 'oreo',
+    name: 'Oreo',
+    reference_name: 'OREO RS 10',
+    variant: 'Vanilla Creme Cookies (₹10)',
+    category: 'Biscuits',
+    price: 10.00,
+    purchase_price: 8.86,
+    selling_price: 10.00,
+    stock: 44,
+    expected_stock: 44,
+    physical_stock: 44,
+    low_stock_threshold: 8,
+    image_url: 'assets/oreo.png',
+    is_active: true,
+    is_available: true,
+    description: 'Rich chocolate cookies with sweet vanilla creme. Reference: OREO RS 10 @ ₹8.86'
+  },
+  {
+    id: 'munch',
+    name: 'Munch',
+    reference_name: 'MUNCH RS 10 [BOX]',
+    variant: 'Chocolate Coated Wafer Box',
+    category: 'Chocolates',
+    price: 209.00,
+    purchase_price: 209.00,
+    selling_price: null, // Requires Admin Input
+    stock: 1,
+    expected_stock: 1,
+    physical_stock: 1,
+    low_stock_threshold: 1,
+    image_url: 'assets/munch.svg',
+    is_active: true,
+    is_available: true,
+    description: 'Crispy chocolate wafer box. Reference: MUNCH RS 10 [BOX] @ ₹209.00. Selling price requires admin input.'
+  },
+  {
+    id: 'snickers',
+    name: 'Snickers',
+    reference_name: 'SNICKERS [10] 40PES',
+    variant: 'Peanut & Caramel (₹10)',
+    category: 'Chocolates',
+    price: 10.00,
+    purchase_price: 7.88,
+    selling_price: 10.00,
+    stock: 58,
+    expected_stock: 58,
+    physical_stock: 58,
+    low_stock_threshold: 10,
+    image_url: 'assets/snickers.svg',
+    is_active: true,
+    is_available: true,
+    description: 'Milk chocolate bar with roasted peanuts and caramel. Reference: SNICKERS [10] 40PES @ ₹7.88'
+  },
+  {
+    id: 'bournvita_biscuit',
+    name: 'Bournvita Biscuit',
+    reference_name: 'BOURNVITA BISCUIT [10]',
+    variant: 'Malted Chocolate Cookies (₹10)',
+    category: 'Biscuits',
+    price: 10.00,
+    purchase_price: 8.50,
+    selling_price: 10.00,
+    stock: 9,
+    expected_stock: 9,
+    physical_stock: 9,
+    low_stock_threshold: 4,
+    image_url: 'assets/bournvita.svg',
+    is_active: true,
+    is_available: true,
+    description: 'Wholesome malted chocolate cookies. Reference: BOURNVITA BISCUIT [10] @ ₹8.50'
+  },
+  {
+    id: 'chocos',
+    name: 'Chocos',
+    reference_name: 'CHOCOS RS 10',
+    variant: 'Chocolate Cereal Snack (₹10)',
+    category: 'Snacks',
+    price: 10.00,
+    purchase_price: 8.60,
+    selling_price: 10.00,
+    stock: 17,
+    expected_stock: 17,
+    physical_stock: 17,
+    low_stock_threshold: 5,
+    image_url: 'assets/chocos.svg',
+    is_active: true,
+    is_available: true,
+    description: 'Crunchy chocolate flavoured snack. Reference: CHOCOS RS 10 @ ₹8.60'
+  },
+  {
+    id: 'upitest',
+    name: '₹1 Live UPI Test',
+    reference_name: 'GATEWAY VERIFICATION ITEM',
+    variant: 'Gateway Verification Item',
+    category: 'Chips',
+    price: 1.00,
+    purchase_price: 1.00,
+    selling_price: 1.00,
+    stock: 99,
+    expected_stock: 99,
+    physical_stock: 99,
+    low_stock_threshold: 5,
+    image_url: 'assets/lays.png',
+    is_active: true,
+    is_available: true,
+    description: 'Live ₹1 gateway testing item.'
+  }
 ];
 
 class ServerSupabase {
   constructor() {
     this.fallbackData = this.loadFallback();
+    this.seedInitialMaster();
   }
 
   getEnv() {
@@ -52,6 +192,37 @@ class ServerSupabase {
     try {
       fs.writeFileSync(FALLBACK_DB_FILE, JSON.stringify(this.fallbackData, null, 2));
     } catch (e) {}
+  }
+
+  seedInitialMaster() {
+    if (!this.fallbackData.products) this.fallbackData.products = [];
+
+    // Ensure all products from the packing slip master exist in fallback
+    for (const master of DEFAULT_PRODUCTS) {
+      const idx = this.fallbackData.products.findIndex(p => p.id === master.id);
+      if (idx >= 0) {
+        const cur = this.fallbackData.products[idx];
+        this.fallbackData.products[idx] = {
+          ...cur,
+          name: master.name,
+          reference_name: master.reference_name,
+          purchase_price: master.purchase_price,
+          selling_price: cur.selling_price !== undefined ? cur.selling_price : master.selling_price,
+          price: cur.price !== undefined ? cur.price : master.price,
+          // Preserve dynamic inventory deductions if active, otherwise set initial stock
+          stock: cur.stock !== undefined ? cur.stock : master.stock,
+          expected_stock: cur.expected_stock !== undefined ? cur.expected_stock : master.stock,
+          physical_stock: cur.physical_stock !== undefined ? cur.physical_stock : master.stock,
+          image_url: cur.image_url || master.image_url,
+          is_active: cur.is_active !== undefined ? cur.is_active : true,
+          is_available: cur.is_available !== undefined ? cur.is_available : true,
+          description: cur.description || master.description
+        };
+      } else {
+        this.fallbackData.products.push({ ...master });
+      }
+    }
+    this.saveFallback();
   }
 
   async fetchApi(table, options = {}) {
@@ -128,9 +299,30 @@ class ServerSupabase {
         : '?select=*&is_active=eq.true&order=name.asc';
       const products = await this.fetchApi('products', { query });
       if (products && Array.isArray(products) && products.length > 0) {
+        // Merge with master packing slip catalog definitions to preserve procurement rate and metadata
+        const merged = products.map(remoteP => {
+          const master = DEFAULT_PRODUCTS.find(d => d.id === remoteP.id);
+          if (master) {
+            return {
+              ...master,
+              ...remoteP,
+              reference_name: remoteP.reference_name || master.reference_name,
+              purchase_price: (remoteP.purchase_price !== undefined && remoteP.purchase_price !== null) ? Number(remoteP.purchase_price) : master.purchase_price,
+              selling_price: (remoteP.selling_price !== undefined && remoteP.selling_price !== null) ? Number(remoteP.selling_price) : (master.selling_price !== undefined ? master.selling_price : null),
+              stock: remoteP.reference_name ? Number(remoteP.stock) : master.stock,
+              expected_stock: remoteP.reference_name ? Number(remoteP.expected_stock || remoteP.stock) : master.expected_stock,
+              physical_stock: remoteP.reference_name ? Number(remoteP.physical_stock || remoteP.stock) : master.physical_stock,
+              is_available: remoteP.is_available !== undefined ? Boolean(remoteP.is_available) : master.is_available
+            };
+          }
+          return remoteP;
+        });
+
         const remoteIds = new Set(products.map(p => p.id));
-        const localOnly = (this.fallbackData.products || []).filter(p => !remoteIds.has(p.id));
-        this.fallbackData.products = [...products, ...localOnly];
+        const missingMasters = DEFAULT_PRODUCTS.filter(m => !remoteIds.has(m.id));
+        const localOnly = (this.fallbackData.products || []).filter(p => !remoteIds.has(p.id) && !DEFAULT_PRODUCTS.some(m => m.id === p.id));
+
+        this.fallbackData.products = [...merged, ...missingMasters, ...localOnly];
         this.saveFallback();
         return includeArchived ? this.fallbackData.products : this.fallbackData.products.filter(p => p.is_active !== false);
       }
@@ -147,7 +339,22 @@ class ServerSupabase {
       const res = await this.fetchApi('products', {
         query: `?id=eq.${productId}&select=*`
       });
-      if (res && res.length > 0) return res[0];
+      if (res && res.length > 0) {
+        const remoteP = res[0];
+        const master = DEFAULT_PRODUCTS.find(d => d.id === remoteP.id);
+        if (master) {
+          return {
+            ...master,
+            ...remoteP,
+            reference_name: remoteP.reference_name || master.reference_name,
+            purchase_price: (remoteP.purchase_price !== undefined && remoteP.purchase_price !== null) ? Number(remoteP.purchase_price) : master.purchase_price,
+            selling_price: (remoteP.selling_price !== undefined && remoteP.selling_price !== null) ? Number(remoteP.selling_price) : (master.selling_price !== undefined ? master.selling_price : null),
+            stock: remoteP.reference_name ? Number(remoteP.stock) : master.stock,
+            is_available: remoteP.is_available !== undefined ? Boolean(remoteP.is_available) : master.is_available
+          };
+        }
+        return remoteP;
+      }
     } catch (err) {
       console.warn(`[ServerSupabase] getProduct(${productId}) fallback:`, err.message);
     }
@@ -158,16 +365,23 @@ class ServerSupabase {
   async addProduct(productData) {
     const id = productData.id || ('prod_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6));
     const price = Math.max(0.5, Number(productData.price) || 10);
-    const sellingPrice = Math.max(0.5, Number(productData.selling_price || productData.sellingPrice || price));
+    const sellingPrice = (productData.selling_price !== undefined && productData.selling_price !== null && productData.selling_price !== '') 
+      ? Number(productData.selling_price) 
+      : ((productData.sellingPrice !== undefined && productData.sellingPrice !== null && productData.sellingPrice !== '') ? Number(productData.sellingPrice) : null);
+    const purchasePrice = (productData.purchase_price !== undefined && productData.purchase_price !== null && productData.purchase_price !== '')
+      ? Number(productData.purchase_price)
+      : ((productData.purchasePrice !== undefined && productData.purchasePrice !== null && productData.purchasePrice !== '') ? Number(productData.purchasePrice) : null);
     const stock = Math.max(0, parseInt(productData.stock, 10) || 0);
 
     const record = {
       id,
       name: (productData.name || 'Snack Item').trim(),
+      reference_name: (productData.reference_name || productData.referenceName || '').trim() || null,
       description: (productData.description || '').trim(),
       variant: (productData.variant || '').trim(),
       category: productData.category || 'Chips',
       price: price,
+      purchase_price: purchasePrice,
       selling_price: sellingPrice,
       stock: stock,
       expected_stock: stock,
@@ -175,7 +389,8 @@ class ServerSupabase {
       low_stock_threshold: Math.max(1, parseInt(productData.low_stock_threshold || productData.lowStockThreshold, 10) || 5),
       image_url: productData.image_url || productData.imageUrl || productData.image || 'assets/lays.png',
       storage_path: productData.storage_path || productData.storagePath || null,
-      is_active: productData.is_active !== undefined ? Boolean(productData.is_active) : true,
+      is_active: productData.is_active !== undefined ? Boolean(productData.is_active) : (productData.isActive !== undefined ? Boolean(productData.isActive) : true),
+      is_available: productData.is_available !== undefined ? Boolean(productData.is_available) : (productData.isAvailable !== undefined ? Boolean(productData.isAvailable) : true),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
@@ -240,12 +455,16 @@ class ServerSupabase {
     };
 
     if (updates.name !== undefined) patchPayload.name = updates.name.trim();
+    if (updates.reference_name !== undefined) patchPayload.reference_name = updates.reference_name ? updates.reference_name.trim() : null;
+    if (updates.referenceName !== undefined) patchPayload.reference_name = updates.referenceName ? updates.referenceName.trim() : null;
     if (updates.description !== undefined) patchPayload.description = updates.description.trim();
     if (updates.variant !== undefined) patchPayload.variant = updates.variant.trim();
     if (updates.category !== undefined) patchPayload.category = updates.category;
     if (updates.price !== undefined) patchPayload.price = Math.max(0.5, Number(updates.price));
-    if (updates.selling_price !== undefined) patchPayload.selling_price = Math.max(0.5, Number(updates.selling_price));
-    if (updates.sellingPrice !== undefined) patchPayload.selling_price = Math.max(0.5, Number(updates.sellingPrice));
+    if (updates.purchase_price !== undefined) patchPayload.purchase_price = (updates.purchase_price !== null && updates.purchase_price !== '') ? Number(updates.purchase_price) : null;
+    if (updates.purchasePrice !== undefined) patchPayload.purchase_price = (updates.purchasePrice !== null && updates.purchasePrice !== '') ? Number(updates.purchasePrice) : null;
+    if (updates.selling_price !== undefined) patchPayload.selling_price = (updates.selling_price !== null && updates.selling_price !== '') ? Number(updates.selling_price) : null;
+    if (updates.sellingPrice !== undefined) patchPayload.selling_price = (updates.sellingPrice !== null && updates.sellingPrice !== '') ? Number(updates.sellingPrice) : null;
     if (updates.stock !== undefined) {
       const st = Math.max(0, parseInt(updates.stock, 10));
       patchPayload.stock = st;
@@ -260,6 +479,8 @@ class ServerSupabase {
     if (updates.storagePath !== undefined) patchPayload.storage_path = updates.storagePath;
     if (updates.is_active !== undefined) patchPayload.is_active = Boolean(updates.is_active);
     if (updates.isActive !== undefined) patchPayload.is_active = Boolean(updates.isActive);
+    if (updates.is_available !== undefined) patchPayload.is_available = Boolean(updates.is_available);
+    if (updates.isAvailable !== undefined) patchPayload.is_available = Boolean(updates.isAvailable);
 
     // Update in fallback
     const idx = (this.fallbackData.products || []).findIndex(p => p.id === productId);
@@ -283,7 +504,10 @@ class ServerSupabase {
       if (err.message && err.message.includes('Could not find the') && err.message.includes('column')) {
         try {
           const safePayload = { ...patchPayload };
+          delete safePayload.reference_name;
+          delete safePayload.purchase_price;
           delete safePayload.selling_price;
+          delete safePayload.is_available;
           delete safePayload.description;
           delete safePayload.storage_path;
           delete safePayload.created_at;

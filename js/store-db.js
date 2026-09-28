@@ -8,69 +8,164 @@ const UI_STORAGE_KEY = 'honesty_store_client_state_v2';
 
 const DEFAULT_PRODUCTS = [
   {
-    id: 'upitest',
-    name: '₹1 Live UPI Test',
-    variant: 'Gateway Verification Item',
-    category: 'Chips',
-    price: 1,
-    stock: 99,
-    expectedStock: 99,
-    physicalStock: 99,
-    image: 'assets/lays.png',
-    badge: 'TEST ₹1',
-    lowStockThreshold: 5
-  },
-  {
     id: 'lays',
     name: 'Lays',
-    variant: 'Classic Potato Chips',
+    referenceName: 'LAYS RS 5',
+    variant: 'Classic Potato Chips (₹5)',
     category: 'Chips',
-    price: 20,
-    stock: 18,
-    expectedStock: 18,
-    physicalStock: 15,
+    price: 5,
+    purchasePrice: 4.38,
+    sellingPrice: 5,
+    stock: 110,
+    expectedStock: 110,
+    physicalStock: 110,
     image: 'assets/lays.png',
+    imageUrl: 'assets/lays.png',
     badge: '',
-    lowStockThreshold: 5
+    lowStockThreshold: 10,
+    isActive: true,
+    isAvailable: true,
+    description: 'Classic salted crispy potato chips. Reference: LAYS RS 5 @ ₹4.38'
+  },
+  {
+    id: 'dailee_mango',
+    name: 'Dailee Mango',
+    referenceName: 'DAILEE [MANGO 12]',
+    variant: 'Mango Drink (12 Pack)',
+    category: 'Beverages',
+    price: 10,
+    purchasePrice: 7.00,
+    sellingPrice: 10,
+    stock: 22,
+    expectedStock: 22,
+    physicalStock: 22,
+    image: 'assets/dailee_mango.svg',
+    imageUrl: 'assets/dailee_mango.svg',
+    badge: '',
+    lowStockThreshold: 5,
+    isActive: true,
+    isAvailable: true,
+    description: 'Refreshing mango fruit juice drink. Reference: DAILEE [MANGO 12] @ ₹7.00'
   },
   {
     id: 'oreo',
     name: 'Oreo',
-    variant: 'Chocolate Sandwich Cookies',
-    category: 'Biscuits',
-    price: 30,
-    stock: 3,
-    expectedStock: 3,
-    physicalStock: 3,
-    image: 'assets/oreo.png',
-    badge: 'LOW STOCK',
-    lowStockThreshold: 5
-  },
-  {
-    id: 'parleg',
-    name: 'Parle-G',
-    variant: 'Glucose Biscuits',
+    referenceName: 'OREO RS 10',
+    variant: 'Vanilla Creme Cookies (₹10)',
     category: 'Biscuits',
     price: 10,
-    stock: 25,
-    expectedStock: 25,
-    physicalStock: 25,
-    image: 'assets/parleg.png',
+    purchasePrice: 8.86,
+    sellingPrice: 10,
+    stock: 44,
+    expectedStock: 44,
+    physicalStock: 44,
+    image: 'assets/oreo.png',
+    imageUrl: 'assets/oreo.png',
     badge: '',
-    lowStockThreshold: 5
+    lowStockThreshold: 8,
+    isActive: true,
+    isAvailable: true,
+    description: 'Rich chocolate cookies with sweet vanilla creme. Reference: OREO RS 10 @ ₹8.86'
   },
   {
-    id: 'dairymilk',
-    name: 'Dairy Milk',
-    variant: 'Milk Chocolate Bar',
+    id: 'munch',
+    name: 'Munch',
+    referenceName: 'MUNCH RS 10 [BOX]',
+    variant: 'Chocolate Coated Wafer Box',
     category: 'Chocolates',
-    price: 20,
-    stock: 0,
-    expectedStock: 0,
-    physicalStock: 0,
-    image: 'assets/dairymilk.png',
-    badge: 'OUT OF STOCK',
-    lowStockThreshold: 3
+    price: 209,
+    purchasePrice: 209.00,
+    sellingPrice: null, // Requires Admin Input
+    stock: 1,
+    expectedStock: 1,
+    physicalStock: 1,
+    image: 'assets/munch.svg',
+    imageUrl: 'assets/munch.svg',
+    badge: 'PRICE TBD',
+    lowStockThreshold: 1,
+    isActive: true,
+    isAvailable: true,
+    description: 'Crispy chocolate wafer box. Reference: MUNCH RS 10 [BOX] @ ₹209.00. Selling price requires admin input.'
+  },
+  {
+    id: 'snickers',
+    name: 'Snickers',
+    referenceName: 'SNICKERS [10] 40PES',
+    variant: 'Peanut & Caramel (₹10)',
+    category: 'Chocolates',
+    price: 10,
+    purchasePrice: 7.88,
+    sellingPrice: 10,
+    stock: 58,
+    expectedStock: 58,
+    physicalStock: 58,
+    image: 'assets/snickers.svg',
+    imageUrl: 'assets/snickers.svg',
+    badge: '',
+    lowStockThreshold: 10,
+    isActive: true,
+    isAvailable: true,
+    description: 'Milk chocolate bar with roasted peanuts and caramel. Reference: SNICKERS [10] 40PES @ ₹7.88'
+  },
+  {
+    id: 'bournvita_biscuit',
+    name: 'Bournvita Biscuit',
+    referenceName: 'BOURNVITA BISCUIT [10]',
+    variant: 'Malted Chocolate Cookies (₹10)',
+    category: 'Biscuits',
+    price: 10,
+    purchasePrice: 8.50,
+    sellingPrice: 10,
+    stock: 9,
+    expectedStock: 9,
+    physicalStock: 9,
+    image: 'assets/bournvita.svg',
+    imageUrl: 'assets/bournvita.svg',
+    badge: '',
+    lowStockThreshold: 4,
+    isActive: true,
+    isAvailable: true,
+    description: 'Wholesome malted chocolate cookies. Reference: BOURNVITA BISCUIT [10] @ ₹8.50'
+  },
+  {
+    id: 'chocos',
+    name: 'Chocos',
+    referenceName: 'CHOCOS RS 10',
+    variant: 'Chocolate Cereal Snack (₹10)',
+    category: 'Snacks',
+    price: 10,
+    purchasePrice: 8.60,
+    sellingPrice: 10,
+    stock: 17,
+    expectedStock: 17,
+    physicalStock: 17,
+    image: 'assets/chocos.svg',
+    imageUrl: 'assets/chocos.svg',
+    badge: '',
+    lowStockThreshold: 5,
+    isActive: true,
+    isAvailable: true,
+    description: 'Crunchy chocolate flavoured snack. Reference: CHOCOS RS 10 @ ₹8.60'
+  },
+  {
+    id: 'upitest',
+    name: '₹1 Live UPI Test',
+    referenceName: 'GATEWAY VERIFICATION ITEM',
+    variant: 'Gateway Verification Item',
+    category: 'Chips',
+    price: 1,
+    purchasePrice: 1.00,
+    sellingPrice: 1,
+    stock: 99,
+    expectedStock: 99,
+    physicalStock: 99,
+    image: 'assets/lays.png',
+    imageUrl: 'assets/lays.png',
+    badge: 'TEST ₹1',
+    lowStockThreshold: 5,
+    isActive: true,
+    isAvailable: true,
+    description: 'Live ₹1 gateway testing item.'
   }
 ];
 
@@ -196,10 +291,12 @@ class StoreDB {
         this.data.products = products.map(p => ({
           id: p.id,
           name: p.name,
+          referenceName: p.reference_name || p.referenceName || '',
           description: p.description || '',
           variant: p.variant || '',
           category: p.category || 'Chips',
           price: Number(p.price) || 0,
+          purchasePrice: (p.purchase_price !== null && p.purchase_price !== undefined) ? Number(p.purchase_price) : (p.purchasePrice !== undefined ? Number(p.purchasePrice) : null),
           sellingPrice: (p.selling_price !== null && p.selling_price !== undefined) ? Number(p.selling_price) : (p.sellingPrice !== undefined ? Number(p.sellingPrice) : null),
           stock: Number(p.stock) || 0,
           expectedStock: Number(p.expected_stock !== undefined ? p.expected_stock : p.stock) || 0,
@@ -208,6 +305,7 @@ class StoreDB {
           imageUrl: p.image_url || p.imageUrl || p.image || 'assets/lays.png',
           storagePath: p.storage_path || p.storagePath || null,
           isActive: p.is_active !== undefined ? Boolean(p.is_active) : (p.isActive !== undefined ? Boolean(p.isActive) : true),
+          isAvailable: p.is_available !== undefined ? Boolean(p.is_available) : (p.is_active !== undefined ? Boolean(p.is_active) : (p.isActive !== undefined ? Boolean(p.isActive) : true)),
           badge: Number(p.stock) <= 0 ? 'OUT OF STOCK' : (Number(p.stock) <= (p.low_stock_threshold || 5) ? 'LOW STOCK' : ''),
           lowStockThreshold: p.low_stock_threshold || p.lowStockThreshold || 5,
           createdAt: p.created_at || null,
@@ -424,18 +522,21 @@ class StoreDB {
     const product = {
       id,
       name: newProduct.name,
+      reference_name: newProduct.referenceName || newProduct.reference_name || null,
       description: newProduct.description || '',
       variant: newProduct.variant || '',
       category: newProduct.category || 'Chips',
       price: Number(newProduct.price) || 10,
-      selling_price: newProduct.sellingPrice !== undefined ? Number(newProduct.sellingPrice) : (newProduct.selling_price !== undefined ? Number(newProduct.selling_price) : Number(newProduct.price)),
+      purchase_price: (newProduct.purchasePrice !== undefined && newProduct.purchasePrice !== null && newProduct.purchasePrice !== '') ? Number(newProduct.purchasePrice) : ((newProduct.purchase_price !== undefined && newProduct.purchase_price !== null && newProduct.purchase_price !== '') ? Number(newProduct.purchase_price) : null),
+      selling_price: (newProduct.sellingPrice !== undefined && newProduct.sellingPrice !== null && newProduct.sellingPrice !== '') ? Number(newProduct.sellingPrice) : ((newProduct.selling_price !== undefined && newProduct.selling_price !== null && newProduct.selling_price !== '') ? Number(newProduct.selling_price) : null),
       stock: Math.max(0, parseInt(newProduct.stock, 10) || 0),
       expected_stock: Math.max(0, parseInt(newProduct.stock, 10) || 0),
       physical_stock: Math.max(0, parseInt(newProduct.stock, 10) || 0),
       image_url: newProduct.image || newProduct.imageUrl || newProduct.image_url || 'assets/lays.png',
       storage_path: newProduct.storagePath || newProduct.storage_path || null,
       low_stock_threshold: parseInt(newProduct.lowStockThreshold || newProduct.low_stock_threshold, 10) || 5,
-      is_active: newProduct.isActive !== undefined ? Boolean(newProduct.isActive) : true
+      is_active: newProduct.isActive !== undefined ? Boolean(newProduct.isActive) : true,
+      is_available: newProduct.isAvailable !== undefined ? Boolean(newProduct.isAvailable) : true
     };
 
     if (window.supabaseClient) {
@@ -540,11 +641,34 @@ class StoreDB {
     return this.data.cart || [];
   }
 
+  async quickAddStock(productId, unitsToAdd) {
+    const product = this.getProduct(productId);
+    if (!product) return;
+    const add = parseInt(unitsToAdd, 10) || 0;
+    if (add <= 0) return;
+    const newStock = Math.max(0, (product.stock || 0) + add);
+    const newPhysical = Math.max(0, (product.physicalStock || product.stock || 0) + add);
+    const newExpected = Math.max(0, (product.expectedStock || product.stock || 0) + add);
+    return await this.updateProduct(productId, {
+      stock: newStock,
+      physical_stock: newPhysical,
+      expected_stock: newExpected
+    });
+  }
+
   addToCart(productId) {
     const product = this.getProduct(productId);
-    if (!product || product.stock <= 0 || product.isActive === false) return false;
+    if (!product || product.stock <= 0 || product.isActive === false || product.isAvailable === false) return false;
 
-    const unitPrice = (product.sellingPrice !== null && product.sellingPrice !== undefined) ? product.sellingPrice : product.price;
+    // Selling price must be configured and > 0. Procurement rate is never used.
+    const unitPrice = (product.sellingPrice !== null && product.sellingPrice !== undefined && Number(product.sellingPrice) > 0)
+      ? Number(product.sellingPrice)
+      : (product.price && Number(product.price) > 0 ? Number(product.price) : 0);
+
+    if (unitPrice <= 0) {
+      console.warn(`[StoreDB] Cannot add ${product.name} to cart: price unavailable`);
+      return false;
+    }
 
     let cartItem = this.data.cart.find(item => item.id === productId);
     if (cartItem) {
