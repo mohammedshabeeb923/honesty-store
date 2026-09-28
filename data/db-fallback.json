@@ -72,15 +72,15 @@
       "price": 10,
       "purchase_price": 7,
       "selling_price": 10,
-      "stock": 12,
-      "expected_stock": 12,
-      "physical_stock": 12,
+      "stock": 10,
+      "expected_stock": 10,
+      "physical_stock": 10,
       "low_stock_threshold": 5,
       "image_url": "https://hiolzzvqcgernfebgdbm.supabase.co/storage/v1/object/public/product-images/dailee_mango_1790618665996.jpg",
       "is_active": true,
       "is_available": true,
       "description": "Refreshing mango fruit juice drink. Reference packing slip: DAILEE [MANGO 12] @ ₹7.00",
-      "updated_at": "2026-09-28T18:45:53.641109+00:00",
+      "updated_at": "2026-09-28T19:21:14.530655+00:00",
       "storage_path": "dailee_mango_1790618665996.jpg",
       "created_at": "2026-09-28T12:56:27.139609+00:00"
     },
@@ -135,15 +135,15 @@
       "price": 5,
       "purchase_price": 4.38,
       "selling_price": 5,
-      "stock": 95,
-      "expected_stock": 95,
-      "physical_stock": 95,
+      "stock": 90,
+      "expected_stock": 90,
+      "physical_stock": 90,
       "low_stock_threshold": 10,
       "image_url": "assets/lays.jpg",
       "is_active": true,
       "is_available": true,
       "description": "Classic salted crispy potato chips. Reference packing slip: LAYS RS 5 @ ₹4.38",
-      "updated_at": "2026-09-28T18:45:53.641109+00:00",
+      "updated_at": "2026-09-28T19:21:14.530655+00:00",
       "storage_path": null,
       "created_at": "2026-09-28T12:41:38.919358+00:00"
     },
@@ -354,12 +354,12 @@
       "phone": "9876543210",
       "full_name": "Shabinsha Live",
       "trust_score": 100,
-      "total_orders": 2,
-      "total_spent": 70,
+      "total_orders": 3,
+      "total_spent": 105,
       "pledge_signed": false,
       "created_at": "2026-09-25T16:42:11.536+00:00",
       "password_hash": "2715ebd50069e93d5f3e46898e914a3f:9e1d5acea2fe3f166c3b0705281eec38c616b389949331156d74da07c8791c89c23503dbc751ad2d300af7a7af9126526999d0d8e5c9fa6b5afe56c4f07e48f9",
-      "last_visit": "2026-09-28T18:45:53.215Z"
+      "last_visit": "2026-09-28T19:21:13.955Z"
     },
     {
       "id": "2940593a-59ba-46a7-bcc3-510220676885",
@@ -382,6 +382,12 @@
       "pledge_signed": false,
       "created_at": "2026-09-25T16:41:18.544+00:00",
       "password_hash": "d1d82e9683738e7ca22d5c5755935574:22fb443d3d0474cf719293eab93b33a76dc5630f24336b07d1ea3806d5007a80f712d216e7eff698ee2b1b122e39bcc4c24fd91f253606626903808e9a5ec101"
+    },
+    {
+      "phone": "9123456780",
+      "total_orders": 1,
+      "total_spent": 10,
+      "last_visit": "2026-09-28T19:20:58.957Z"
     }
   ],
   "stock_audits": [
@@ -407,9 +413,9 @@
     }
   ],
   "community_metrics": {
-    "sales_today": 195,
+    "sales_today": 240,
     "store_visits": 0,
-    "completed_payments": 6
+    "completed_payments": 8
   },
   "deleted_product_ids": [],
   "order_items": [

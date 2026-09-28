@@ -1912,6 +1912,10 @@ class AdminApp {
     const discount = Number(order.discount || 0);
     const total = Number(order.total_amount !== undefined ? order.total_amount : order.amount) || 0;
 
+    const custDisplay = (order.customer_name && !order.customer_name.toLowerCase().includes('honesty') && !order.customer_name.toLowerCase().includes('shopper'))
+      ? order.customer_name
+      : (order.customer_email ? order.customer_email.split('@')[0] : (order.customer_phone ? `Customer ${order.customer_phone}` : 'Customer'));
+
     bodyEl.innerHTML = `
       <!-- Customer Information Card -->
       <div class="order-receipt-card">
@@ -1919,7 +1923,7 @@ class AdminApp {
         <div class="order-receipt-grid">
           <div>
             <span style="color: #64748b;">Customer Name:</span>
-            <div style="font-weight: 700; color: #0f172a; font-size: 13px;">${order.customer_name || 'Honesty Customer'}</div>
+            <div style="font-weight: 700; color: #0f172a; font-size: 13px;">${custDisplay}</div>
           </div>
           <div>
             <span style="color: #64748b;">Phone Number:</span>

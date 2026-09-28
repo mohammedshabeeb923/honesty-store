@@ -940,8 +940,55 @@ const server = http.createServer(async (req, res) => {
       const token = authHeader.replace(/^Bearer\s+/i, '').trim();
       const supabaseUser = await getSupabaseUserFromToken(token);
       const userId = (supabaseUser && supabaseUser.id) || bodyUserId || null;
-      const userEmail = (supabaseUser && supabaseUser.email) || customerEmail || null;
-      const userName = (supabaseUser && supabaseUser.fullName) || customerName || 'Honesty Customer';
+
+      // Authoritative Customer Email Resolution
+      let userEmail = (supabaseUser && supabaseUser.email) || customerEmail || null;
+      if (userEmail) userEmail = String(userEmail).trim().toLowerCase();
+
+      // Authoritative Customer Name Resolution:
+      // Priority 1: Google account profile full name (if not placeholder)
+      // Priority 2: Client provided customerName (from checkout modal or localStorage)
+      // Priority 3: Name extracted from Gmail ID / Email username
+      // Priority 4: Phone number identifier (e.g. 'Customer 9876543210')
+      // NEVER use 'Honesty Customer' or 'honesty customers'
+      let userName = '';
+
+      if (supabaseUser && supabaseUser.fullName) {
+        const fn = supabaseUser.fullName.trim();
+        if (!fn.toLowerCase().includes('honesty') && !fn.toLowerCase().includes('shopper')) {
+          userName = fn;
+        }
+      }
+
+      if (!userName && customerName) {
+        const cn = String(customerName).trim();
+        if (cn.includes('@')) {
+          if (!userEmail) userEmail = cn.toLowerCase();
+          const part = cn.split('@')[0];
+          userName = part.replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim() || part;
+        } else if (!cn.toLowerCase().includes('honesty') && !cn.toLowerCase().includes('shopper') && !cn.toLowerCase().includes('guest')) {
+          userName = cn;
+        }
+      }
+
+      if (!userName && userEmail) {
+        const emailUser = userEmail.split('@')[0];
+        userName = emailUser.replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim() || emailUser;
+      }
+
+      if (!userName && cleanPhone) {
+        userName = `Customer ${cleanPhone}`;
+      }
+
+      if (!userName) {
+        userName = 'Customer';
+      }
+
+      // Cashfree compliance: alphanumeric, spaces, dots, hyphens, min 3 chars, max 60 chars
+      let cashfreeCustomerName = userName.replace(/[^a-zA-Z0-9\s._-]/g, '').trim().slice(0, 60);
+      if (cashfreeCustomerName.length < 3) {
+        cashfreeCustomerName = `Customer ${cleanPhone || 'User'}`;
+      }
       
       // Collision-proof order ID (Cashfree compliant: alphanumeric, hyphen, underscore only)
       const safeRandom = crypto.randomBytes(3).toString('hex').toUpperCase();
@@ -1042,7 +1089,7 @@ const server = http.createServer(async (req, res) => {
             customer_details: {
               customer_id: 'cust_' + (userId ? userId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 15) : cleanPhone),
               customer_phone: cleanPhone,
-              customer_name: userName,
+              customer_name: cashfreeCustomerName,
               customer_email: userEmail || undefined
             },
             order_meta: {
@@ -1120,9 +1167,18 @@ const server = http.createServer(async (req, res) => {
       const orderId = webhookData?.data?.order?.order_id || webhookData?.order_id;
       const paymentStatus = webhookData?.data?.payment?.payment_status || webhookData?.payment_status;
       const paymentId = webhookData?.data?.payment?.cf_payment_id || webhookData?.cf_payment_id;
+      const paymentPayer = webhookData?.data?.payment?.payment_method?.upi?.upi_id 
+        || webhookData?.data?.payment?.payer_name 
+        || webhookData?.data?.customer_details?.customer_name;
+      const paymentMethod = webhookData?.data?.payment?.payment_group || 'UPI';
 
       if (orderId && (paymentStatus === 'SUCCESS' || paymentStatus === 'PAID')) {
-        await serverSupabase.confirmOrderPayment(orderId, paymentId, orderId);
+        await serverSupabase.confirmOrderPayment(orderId, paymentId, orderId, {
+          payerInfo: paymentPayer,
+          paymentMethod,
+          customerDetails: webhookData?.data?.customer_details,
+          paymentInfo: webhookData?.data?.payment
+        });
         console.log(`[Cashfree Webhook] Order ${orderId} confirmed as PAID.`);
       } else if (orderId && (paymentStatus === 'FAILED' || paymentStatus === 'USER_DROPPED' || paymentStatus === 'CANCELLED')) {
         await serverSupabase.markOrderAsFailed(orderId, paymentStatus, paymentId);
@@ -1164,11 +1220,48 @@ const server = http.createServer(async (req, res) => {
         const isPaid = orderData.order_status === 'PAID';
 
         if (isPaid) {
+          // Fetch payment attempt details to capture payer UPI / name from payment
+          let payerInfo = null;
+          let paymentMethodDetail = null;
+          try {
+            const payUrl = env === 'PRODUCTION'
+              ? `https://api.cashfree.com/pg/orders/${orderId}/payments`
+              : `https://sandbox.cashfree.com/pg/orders/${orderId}/payments`;
+
+            const payRes = await fetch(payUrl, {
+              method: 'GET',
+              headers: {
+                'x-client-id': appId,
+                'x-client-secret': secretKey,
+                'x-api-version': '2023-08-01'
+              }
+            });
+            if (payRes.ok) {
+              const paymentsList = await payRes.json();
+              if (Array.isArray(paymentsList) && paymentsList.length > 0) {
+                const successPay = paymentsList.find(p => p.payment_status === 'SUCCESS') || paymentsList[0];
+                paymentMethodDetail = successPay.payment_group || (successPay.payment_method ? Object.keys(successPay.payment_method)[0] : 'UPI');
+                if (successPay.payment_method?.upi?.upi_id) {
+                  payerInfo = successPay.payment_method.upi.upi_id;
+                } else if (successPay.payer_name) {
+                  payerInfo = successPay.payer_name;
+                }
+              }
+            }
+          } catch (e) {
+            console.warn('[Cashfree PG] Payments query notice:', e.message);
+          }
+
           // Atomically confirm payment, deduct inventory in Supabase, and increment community metrics
           const confirmResult = await serverSupabase.confirmOrderPayment(
             orderId, 
             orderData.cf_payment_id || orderData.cf_order_id, 
-            orderData.cf_order_id
+            orderData.cf_order_id,
+            {
+              payerInfo: payerInfo || orderData.customer_details?.customer_name,
+              paymentMethod: paymentMethodDetail,
+              customerDetails: orderData.customer_details
+            }
           );
 
           sendJson(200, {

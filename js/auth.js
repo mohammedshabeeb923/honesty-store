@@ -22,18 +22,29 @@ class AuthManager {
     try {
       const cached = JSON.parse(localStorage.getItem('honesty_customer_user') || 'null');
       const savedPhone = localStorage.getItem('honesty_customer_phone') || '';
+      const savedName = localStorage.getItem('honesty_customer_name') || '';
+      const savedEmail = localStorage.getItem('honesty_customer_email') || '';
       const hasAdminAuth = localStorage.getItem('honesty_admin_auth') === 'true' && Boolean(localStorage.getItem('honesty_admin_token'));
       this.isAdminUser = hasAdminAuth;
 
-      if (cached && (cached.id || cached.email)) {
+      if (cached && (cached.id || cached.email || cached.fullName)) {
         this.user = cached;
-        if (savedPhone && !this.user.phone) {
-          this.user.phone = savedPhone;
+        if (savedPhone && !this.user.phone) this.user.phone = savedPhone;
+        if (savedEmail && !this.user.email) this.user.email = savedEmail;
+        if (savedName && (!this.user.fullName || this.user.fullName.toLowerCase().includes('honesty') || this.user.fullName.toLowerCase().includes('shopper'))) {
+          this.user.fullName = savedName;
+        }
+        // Sanitize generic names
+        if (this.user.fullName && (this.user.fullName.toLowerCase().includes('honesty') || this.user.fullName.toLowerCase().includes('shopper'))) {
+          this.user.fullName = this.user.email ? this.user.email.split('@')[0] : (savedPhone ? `Customer ${savedPhone}` : '');
         }
         this.isLoggedIn = true;
         console.log('[AuthManager] Restored persistent session for:', this.user.fullName || this.user.email);
-      } else if (savedPhone) {
-        this.user = { id: 'guest_' + savedPhone, email: '', fullName: 'Honesty Customer', phone: savedPhone };
+      } else if (savedPhone || savedEmail || savedName) {
+        let cleanName = savedName;
+        if (!cleanName && savedEmail) cleanName = savedEmail.split('@')[0];
+        if (!cleanName && savedPhone) cleanName = `Customer ${savedPhone}`;
+        this.user = { id: 'guest_' + (savedPhone || Date.now()), email: savedEmail, fullName: cleanName || 'Customer', phone: savedPhone };
         this.isLoggedIn = true;
       }
     } catch (e) {
@@ -91,7 +102,12 @@ class AuthManager {
   async handleUserSignedIn(authUser) {
     this.isLoggedIn = true;
     const meta = authUser.user_metadata || {};
-    const fullName = meta.full_name || meta.name || authUser.email?.split('@')[0] || 'Honesty Shopper';
+    let fullName = meta.full_name || meta.name || '';
+    if (!fullName || fullName.toLowerCase().includes('honesty') || fullName.toLowerCase().includes('shopper')) {
+      if (authUser.email) {
+        fullName = authUser.email.split('@')[0];
+      }
+    }
     const avatarUrl = meta.avatar_url || meta.picture || 'assets/avatar.png';
     const savedPhone = localStorage.getItem('honesty_customer_phone') || '';
     const phone = authUser.phone || meta.phone || savedPhone || '';
@@ -99,7 +115,7 @@ class AuthManager {
     this.user = {
       id: authUser.id,
       email: authUser.email || '',
-      fullName,
+      fullName: fullName || (authUser.email ? authUser.email.split('@')[0] : 'Customer'),
       avatarUrl,
       phone
     };
@@ -107,9 +123,9 @@ class AuthManager {
     // Persist session to localStorage across reloads and tab closures
     try {
       localStorage.setItem('honesty_customer_user', JSON.stringify(this.user));
-      if (phone) {
-        localStorage.setItem('honesty_customer_phone', phone);
-      }
+      if (this.user.fullName) localStorage.setItem('honesty_customer_name', this.user.fullName);
+      if (this.user.email) localStorage.setItem('honesty_customer_email', this.user.email);
+      if (phone) localStorage.setItem('honesty_customer_phone', phone);
     } catch (e) {}
 
     // Verify Admin Status
@@ -326,10 +342,16 @@ class AuthManager {
   loginAsGuest() {
     if (!this.user) {
       const savedPhone = localStorage.getItem('honesty_customer_phone') || '';
+      const savedName = localStorage.getItem('honesty_customer_name') || '';
+      const savedEmail = localStorage.getItem('honesty_customer_email') || '';
+      let cleanName = savedName;
+      if (!cleanName && savedEmail) cleanName = savedEmail.split('@')[0];
+      if (!cleanName && savedPhone) cleanName = `Customer ${savedPhone}`;
+
       this.user = {
         id: 'guest_' + Math.random().toString(36).slice(2, 10),
-        email: '',
-        fullName: 'Honesty Shopper',
+        email: savedEmail,
+        fullName: cleanName || 'Customer',
         avatarUrl: 'assets/avatar.png',
         phone: savedPhone
       };
@@ -560,11 +582,29 @@ class AuthManager {
   }
 
   getUserEmail() {
-    return this.user?.email || null;
+    return this.user?.email || localStorage.getItem('honesty_customer_email') || '';
   }
 
   getUserName() {
-    return this.user?.fullName || 'Honesty Customer';
+    if (this.user?.fullName && !this.user.fullName.toLowerCase().includes('honesty') && !this.user.fullName.toLowerCase().includes('shopper')) {
+      return this.user.fullName.trim();
+    }
+    if (this.user?.email) {
+      return this.user.email.split('@')[0].trim();
+    }
+    const savedName = localStorage.getItem('honesty_customer_name');
+    if (savedName && !savedName.toLowerCase().includes('honesty') && !savedName.toLowerCase().includes('shopper')) {
+      return savedName.trim();
+    }
+    const savedEmail = localStorage.getItem('honesty_customer_email');
+    if (savedEmail) {
+      return savedEmail.split('@')[0].trim();
+    }
+    const phone = this.getUserPhone();
+    if (phone) {
+      return `Customer ${phone}`;
+    }
+    return '';
   }
 
   getUserPhone() {
@@ -576,30 +616,70 @@ class AuthManager {
     return Boolean(ph && /^[6-9]\d{9}$/.test(ph));
   }
 
+  setCustomerDetails(phone, rawName = '', rawEmail = '') {
+    const cleanPhone = String(phone || '').replace(/\D/g, '').slice(-10);
+    if (!cleanPhone || !/^[6-9]\d{9}$/.test(cleanPhone)) {
+      throw new Error('Please enter a valid 10-digit Indian mobile number (e.g. 9876543210).');
+    }
+
+    let resolvedEmail = String(rawEmail || '').trim().toLowerCase();
+    let resolvedName = String(rawName || '').trim();
+
+    // If customer entered their Gmail address into the name field:
+    if (resolvedName && resolvedName.includes('@') && !resolvedEmail) {
+      resolvedEmail = resolvedName.toLowerCase();
+      resolvedName = resolvedEmail.split('@')[0];
+    }
+
+    if (!resolvedName && resolvedEmail) {
+      resolvedName = resolvedEmail.split('@')[0];
+    }
+
+    if (!resolvedName || resolvedName.toLowerCase().includes('honesty') || resolvedName.toLowerCase().includes('shopper')) {
+      resolvedName = `Customer ${cleanPhone}`;
+    }
+
+    if (this.user) {
+      this.user.phone = cleanPhone;
+      if (resolvedName) this.user.fullName = resolvedName;
+      if (resolvedEmail) this.user.email = resolvedEmail;
+    } else {
+      this.user = {
+        id: 'guest_' + cleanPhone,
+        email: resolvedEmail,
+        fullName: resolvedName,
+        phone: cleanPhone
+      };
+    }
+
+    try {
+      localStorage.setItem('honesty_customer_user', JSON.stringify(this.user));
+      localStorage.setItem('honesty_customer_phone', cleanPhone);
+      if (resolvedName) localStorage.setItem('honesty_customer_name', resolvedName);
+      if (resolvedEmail) localStorage.setItem('honesty_customer_email', resolvedEmail);
+    } catch (e) {}
+
+    // Sync phone with Supabase if logged in
+    if (window.supabaseClient && window.supabaseClient.client && this.isLoggedIn) {
+      window.supabaseClient.client.auth.updateUser({
+        data: { phone: cleanPhone, full_name: resolvedName }
+      }).catch(err => console.warn('[AuthManager] Supabase metadata sync warning:', err));
+    }
+
+    this.updateUI();
+    return { phone: cleanPhone, name: resolvedName, email: resolvedEmail };
+  }
+
   setUserPhone(phone) {
     const clean = String(phone || '').replace(/\D/g, '').slice(-10);
     if (!clean || !/^[6-9]\d{9}$/.test(clean)) {
       throw new Error('Please enter a valid 10-digit Indian mobile number (e.g. 9876543210).');
     }
-    if (this.user) {
-      this.user.phone = clean;
-      try {
-        localStorage.setItem('honesty_customer_user', JSON.stringify(this.user));
-      } catch (e) {}
-    } else {
-      this.user = { id: null, email: '', fullName: 'Honesty Customer', phone: clean };
-    }
-    localStorage.setItem('honesty_customer_phone', clean);
 
-    // Sync with Supabase Auth user metadata if logged in
-    if (window.supabaseClient && window.supabaseClient.client && this.isLoggedIn) {
-      window.supabaseClient.client.auth.updateUser({
-        data: { phone: clean }
-      }).catch(err => console.warn('[AuthManager] Supabase metadata sync warning:', err));
-    }
+    const existingName = this.getUserName() || `Customer ${clean}`;
+    const existingEmail = this.getUserEmail() || '';
 
-    this.updateUI();
-    return clean;
+    return this.setCustomerDetails(clean, existingName, existingEmail).phone;
   }
 
   getAccessToken() {

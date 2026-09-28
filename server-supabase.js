@@ -796,14 +796,33 @@ class ServerSupabase {
     const discount = Number(orderData.discount || 0);
     const totalAmount = Number(orderData.total_amount !== undefined ? orderData.total_amount : (orderData.amount || subtotal - discount));
 
+    let custEmail = orderData.customerEmail || orderData.customer_email || null;
+    if (custEmail) custEmail = String(custEmail).trim().toLowerCase();
+
+    let custName = orderData.customerName || orderData.customer_name || '';
+    const custPhone = orderData.customerPhone || orderData.customer_phone || '';
+    const cleanPh = custPhone ? String(custPhone).replace(/\D/g, '').slice(-10) : '';
+
+    if (!custName || custName.toLowerCase().includes('honesty') || custName.toLowerCase().includes('shopper')) {
+      if (custEmail) {
+        custName = custEmail.split('@')[0];
+      } else if (cleanPh) {
+        custName = `Customer ${cleanPh}`;
+      } else {
+        custName = 'Customer';
+      }
+    }
+
+    const customerIdentifier = orderData.customerIdentifier || orderData.customer_identifier || (custName ? (cleanPh ? `${custName} (+91 ${cleanPh})` : custName) : (cleanPh || custEmail || 'Guest'));
+
     const record = {
       id: rawId,
       order_number: orderNumber,
       user_id: orderData.userId || orderData.user_id || null,
-      customer_email: orderData.customerEmail || orderData.customer_email || null,
-      customer_name: orderData.customerName || orderData.customer_name || null,
-      customer_phone: orderData.customerPhone || orderData.customer_phone || null,
-      customer_identifier: orderData.customerIdentifier || orderData.customer_identifier || orderData.customerEmail || orderData.customerPhone || 'Guest',
+      customer_email: custEmail,
+      customer_name: custName,
+      customer_phone: cleanPh || null,
+      customer_identifier: customerIdentifier,
       subtotal: subtotal,
       discount: discount,
       total_amount: totalAmount,
@@ -906,7 +925,7 @@ class ServerSupabase {
   }
 
   // 4. VERIFY & CONFIRM ORDER PAYMENT (ATOMIC INVENTORY & METRICS UPDATE)
-  async confirmOrderPayment(orderId, cfPaymentId, cfOrderId) {
+  async confirmOrderPayment(orderId, cfPaymentId, cfOrderId, paymentMeta = {}) {
     let order = (this.fallbackData.orders || []).find(o => o.id === orderId);
 
     // Try fetching from Supabase
@@ -931,6 +950,48 @@ class ServerSupabase {
     if (!order) {
       throw new Error(`Order ${orderId} not found in database`);
     }
+
+    // Capture payment details & payer name from payment for easy tracking
+    if (paymentMeta) {
+      const payerCandidate = paymentMeta.payerInfo || paymentMeta.customerDetails?.customer_name;
+      const emailCandidate = paymentMeta.customerDetails?.customer_email;
+
+      if (payerCandidate && typeof payerCandidate === 'string' && payerCandidate.trim()) {
+        let cleanPayer = payerCandidate.trim();
+        if (!cleanPayer.toLowerCase().includes('honesty') && !cleanPayer.toLowerCase().includes('shopper')) {
+          if (!order.customer_name || order.customer_name.toLowerCase().includes('honesty') || order.customer_name.startsWith('Customer ') || cleanPayer.length > 2) {
+            if (cleanPayer.includes('@')) {
+              const vpaHandle = cleanPayer.split('@')[0];
+              order.customer_name = `${vpaHandle} (${cleanPayer})`;
+            } else {
+              order.customer_name = cleanPayer;
+            }
+          }
+        }
+      }
+
+      if (emailCandidate && !order.customer_email) {
+        order.customer_email = emailCandidate.toLowerCase().trim();
+      }
+
+      if (paymentMeta.paymentMethod) {
+        order.payment_method = String(paymentMeta.paymentMethod).toUpperCase();
+      }
+    }
+
+    // Sanitize customer_name: NEVER leave "Honesty Customer" or "Honesty Shopper"
+    if (!order.customer_name || order.customer_name.toLowerCase().includes('honesty') || order.customer_name.toLowerCase().includes('shopper')) {
+      if (order.customer_email) {
+        order.customer_name = order.customer_email.split('@')[0];
+      } else if (order.customer_phone) {
+        order.customer_name = `Customer ${order.customer_phone}`;
+      } else {
+        order.customer_name = 'Customer';
+      }
+    }
+
+    const cleanPh = order.customer_phone ? String(order.customer_phone).replace(/\D/g, '').slice(-10) : '';
+    order.customer_identifier = order.customer_name + (cleanPh ? ` (+91 ${cleanPh})` : '');
 
     // Idempotency: If already marked Paid, don't double-deduct inventory
     if (order.status === 'PAID' || order.payment_status === 'PAID') {
@@ -962,13 +1023,16 @@ class ServerSupabase {
           status: 'PAID',
           order_status: 'COMPLETED',
           payment_status: 'PAID',
+          customer_name: order.customer_name,
+          customer_email: order.customer_email,
+          customer_identifier: order.customer_identifier,
           payment_reference: order.payment_reference,
           cashfree_payment_id: cfPaymentId,
           cashfree_order_id: cfOrderId,
           updated_at: verifiedAt
         }
       });
-      console.log(`[ServerSupabase] Order ${orderId} marked as PAID/COMPLETED in Supabase.`);
+      console.log(`[ServerSupabase] Order ${orderId} marked as PAID/COMPLETED in Supabase (Customer: ${order.customer_name}).`);
     } catch (e) {
       console.warn(`[ServerSupabase] Could not update order ${orderId} in Supabase:`, e.message);
       if (e.message && e.message.includes('Could not find the') && e.message.includes('column')) {
@@ -978,6 +1042,8 @@ class ServerSupabase {
             query: `?id=eq.${orderId}`,
             body: {
               status: 'PAID',
+              customer_name: order.customer_name,
+              customer_email: order.customer_email,
               updated_at: verifiedAt
             }
           });
@@ -1231,12 +1297,26 @@ class ServerSupabase {
         const localMap = new Map((this.fallbackData.orders || []).map(o => [o.id, o]));
         return remote.map(rem => {
           const loc = localMap.get(rem.id);
+          let custName = rem.customer_name || (loc ? loc.customer_name : null);
+          let custEmail = rem.customer_email || (loc ? loc.customer_email : null);
+          let custPhone = rem.customer_phone || (loc ? loc.customer_phone : null);
+
+          if (!custName || custName.toLowerCase().includes('honesty') || custName.toLowerCase().includes('shopper')) {
+            if (custEmail) {
+              custName = custEmail.split('@')[0];
+            } else if (custPhone) {
+              custName = `Customer ${custPhone}`;
+            } else {
+              custName = 'Customer';
+            }
+          }
+
           return {
             ...(loc || {}),
             ...rem,
-            customer_phone: rem.customer_phone || (loc ? loc.customer_phone : null),
-            customer_name: rem.customer_name || (loc ? loc.customer_name : null),
-            customer_email: rem.customer_email || (loc ? loc.customer_email : null),
+            customer_phone: custPhone,
+            customer_name: custName,
+            customer_email: custEmail,
             order_number: rem.order_number || (loc ? loc.order_number : null),
             payment_status: rem.payment_status || (loc ? loc.payment_status : rem.status),
             order_status: rem.order_status || (loc ? loc.order_status : rem.status),
@@ -1250,7 +1330,15 @@ class ServerSupabase {
       console.warn('[ServerSupabase] getOrders fallback:', e.message);
     }
 
-    let orders = this.fallbackData.orders || [];
+    let orders = (this.fallbackData.orders || []).map(o => {
+      let custName = o.customer_name;
+      if (!custName || custName.toLowerCase().includes('honesty') || custName.toLowerCase().includes('shopper')) {
+        if (o.customer_email) custName = o.customer_email.split('@')[0];
+        else if (o.customer_phone) custName = `Customer ${o.customer_phone}`;
+        else custName = 'Customer';
+      }
+      return { ...o, customer_name: custName };
+    });
     if (isAdmin) return orders;
     if (userId) return orders.filter(o => o.user_id === userId);
     if (cleanPhone) return orders.filter(o => (o.customer_phone || '').includes(cleanPhone));
@@ -1724,18 +1812,27 @@ class ServerSupabase {
     const productsArray = Object.values(productStats).sort((a, b) => b.revenue - a.revenue);
 
     // Payments transaction list
-    const paymentsList = filteredOrders.map(o => ({
-      paymentId: o.payment_reference || o.cashfree_payment_id || o.id,
-      orderId: o.id,
-      orderNumber: o.order_number || ('HS-' + (o.id.replace(/\D/g, '').slice(-6) || '000000')),
-      amount: Number(o.total_amount !== undefined ? o.total_amount : o.amount) || 0,
-      method: o.payment_method || 'UPI',
-      status: o.payment_status || (o.status === 'PAID' ? 'PAID' : o.status) || 'PENDING',
-      customer: o.customer_name || o.customer_email || o.customer_phone || 'Customer',
-      customerEmail: o.customer_email || '',
-      customerPhone: o.customer_phone || '',
-      timestamp: o.created_at || o.createdAt
-    }));
+    const paymentsList = filteredOrders.map(o => {
+      let cust = o.customer_name;
+      if (!cust || cust.toLowerCase().includes('honesty') || cust.toLowerCase().includes('shopper')) {
+        if (o.customer_email) cust = o.customer_email.split('@')[0];
+        else if (o.customer_phone) cust = `Customer ${o.customer_phone}`;
+        else cust = 'Customer';
+      }
+
+      return {
+        paymentId: o.payment_reference || o.cashfree_payment_id || o.id,
+        orderId: o.id,
+        orderNumber: o.order_number || ('HS-' + (o.id.replace(/\D/g, '').slice(-6) || '000000')),
+        amount: Number(o.total_amount !== undefined ? o.total_amount : o.amount) || 0,
+        method: o.payment_method || 'UPI',
+        status: o.payment_status || (o.status === 'PAID' ? 'PAID' : o.status) || 'PENDING',
+        customer: cust,
+        customerEmail: o.customer_email || '',
+        customerPhone: o.customer_phone || '',
+        timestamp: o.created_at || o.createdAt
+      };
+    });
 
     return {
       period,
@@ -1801,7 +1898,9 @@ class ServerSupabase {
         transactions.push({
           orderId: o.id,
           orderNumber: o.order_number || ('HS-' + (o.id.replace(/\D/g, '').slice(-6) || '000000')),
-          customerName: o.customer_name || 'Customer',
+          customerName: (o.customer_name && !o.customer_name.toLowerCase().includes('honesty') && !o.customer_name.toLowerCase().includes('shopper'))
+            ? o.customer_name
+            : (o.customer_email ? o.customer_email.split('@')[0] : (o.customer_phone ? `Customer ${o.customer_phone}` : 'Customer')),
           customerEmail: o.customer_email || '',
           customerPhone: o.customer_phone || '',
           quantity: qty,
