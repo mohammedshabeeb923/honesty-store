@@ -127,48 +127,57 @@ class SupabaseClient {
   /**
    * Check if a given user has Administrator privileges.
    * Authoritative check:
-   * 1. Check PostgreSQL is_admin() SECURITY DEFINER function
-   * 2. Query public.admin_users table
-   * 3. Fallback to primary store administrator email
+   * Securely verifies admin status with the server-side whitelist.
+   * Admin emails are kept strictly private on the server and are never exposed in client scripts.
    */
   async checkIsAdmin(user) {
-    if (!user) return false;
-    const userEmail = (user.email || '').toLowerCase().trim();
-    const userId = user.id;
-
-    // Hardcoded owner fallback for safety
-    if (userEmail === 'mohammedshabeeb923@gmail.com') {
-      return true;
+    if (!user) {
+      localStorage.removeItem('honesty_admin_token');
+      localStorage.removeItem('honesty_admin_auth');
+      return false;
     }
 
-    if (!this.client) return false;
-
-    // 1. Try is_admin() RPC
     try {
-      const { data, error } = await this.client.rpc('is_admin');
-      if (!error && typeof data === 'boolean') {
-        return data;
+      const token = (window.authManager && typeof window.authManager.getAccessToken === 'function' ? window.authManager.getAccessToken() : null)
+        || user.token
+        || user.access_token
+        || localStorage.getItem('honesty_admin_token')
+        || '';
+
+      if (token) {
+        const res = await fetch('/api/check-admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.isAdmin) {
+            if (data.adminToken) {
+              localStorage.setItem('honesty_admin_token', data.adminToken);
+            }
+            localStorage.setItem('honesty_admin_auth', 'true');
+            return true;
+          }
+        }
       }
     } catch (e) {
-      // RPC may not exist if migration hasn't run yet
+      console.warn('[SupabaseClient] checkIsAdmin server check error:', e);
     }
 
-    // 2. Query admin_users table directly
-    try {
-      let query = this.client.from('admin_users').select('id, email, role');
-      if (userId) {
-        query = query.or(`user_id.eq.${userId},email.eq.${userEmail}`);
-      } else {
-        query = query.eq('email', userEmail);
-      }
-      const { data, error } = await query.limit(1);
-      if (!error && data && data.length > 0) {
-        return true;
-      }
-    } catch (e) {
-      // Table may not exist yet
+    // Direct Supabase RPC fallback if available
+    if (this.client) {
+      try {
+        const { data, error } = await this.client.rpc('is_admin');
+        if (!error && typeof data === 'boolean' && data) {
+          localStorage.setItem('honesty_admin_auth', 'true');
+          return true;
+        }
+      } catch (e) {}
     }
 
+    localStorage.removeItem('honesty_admin_token');
+    localStorage.removeItem('honesty_admin_auth');
     return false;
   }
 

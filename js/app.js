@@ -14,22 +14,35 @@ document.addEventListener('DOMContentLoaded', () => {
   let pendingAdminMode = null;
 
   function isAdminLoggedIn() {
-    return Boolean(window.authManager && window.authManager.isAdmin());
+    return Boolean(
+      window.authManager && 
+      window.authManager.isAdmin() && 
+      localStorage.getItem('honesty_admin_token')
+    );
   }
 
   async function ensureAdminSession() {
-    if (!localStorage.getItem('honesty_admin_token') && localStorage.getItem('honesty_admin_auth') === 'true') {
-      try {
-        const res = await fetch('/api/admin/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: 'admin', password: 'admin123' })
-        });
-        const data = await res.json();
-        if (data && data.adminToken) {
-          localStorage.setItem('honesty_admin_token', data.adminToken);
-        }
-      } catch (e) {}
+    if (window.authManager && window.authManager.isLoggedIn) {
+      const token = window.authManager.getAccessToken() || localStorage.getItem('honesty_admin_token');
+      if (token) {
+        try {
+          const res = await fetch('/api/check-admin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token })
+          });
+          const data = await res.json();
+          if (data && data.isAdmin && data.adminToken) {
+            localStorage.setItem('honesty_admin_token', data.adminToken);
+            localStorage.setItem('honesty_admin_auth', 'true');
+            window.authManager.isAdminUser = true;
+          } else {
+            localStorage.removeItem('honesty_admin_token');
+            localStorage.removeItem('honesty_admin_auth');
+            window.authManager.isAdminUser = false;
+          }
+        } catch (e) {}
+      }
     }
   }
 
@@ -43,7 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // If user is already logged in with Google, but not registered as admin:
       if (window.authManager && window.authManager.isLoggedIn && !window.authManager.isAdmin()) {
         if (errEl) {
-          errEl.innerHTML = `<strong>Admin Authorization Required:</strong> Signed in as <code>${window.authManager.getUserEmail()}</code>, but this account is not registered in the <code>admin_users</code> table.`;
+          errEl.innerHTML = '<strong>Access Denied:</strong> This account does not have administrator privileges.';
           errEl.style.display = 'block';
         }
       }
@@ -78,57 +91,6 @@ document.addEventListener('DOMContentLoaded', () => {
       setViewMode(btn.dataset.mode);
     });
   });
-
-  // Handle Admin Login Form
-  const adminLoginForm = document.getElementById('admin-login-form');
-  if (adminLoginForm) {
-    adminLoginForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const u = document.getElementById('admin-username-input')?.value.trim();
-      const p = document.getElementById('admin-password-input')?.value.trim();
-      const errEl = document.getElementById('admin-login-error');
-
-      try {
-        const res = await fetch('/api/admin/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: u, password: p })
-        });
-        const data = await res.json();
-        if (data.success && data.adminToken) {
-          localStorage.setItem('honesty_admin_token', data.adminToken);
-          localStorage.setItem('honesty_admin_auth', 'true');
-          if (errEl) errEl.style.display = 'none';
-          if (adminAuthModal) adminAuthModal.classList.remove('active');
-          const targetMode = pendingAdminMode || localStorage.getItem('honesty_store_view_mode') || 'admin';
-          pendingAdminMode = null;
-          setViewMode(targetMode);
-          if (window.adminApp && typeof window.adminApp.render === 'function') {
-            window.adminApp.render();
-          }
-          if (window.showToast) window.showToast('Admin Console unlocked.', 'success');
-        } else {
-          if (errEl) {
-            errEl.style.display = 'block';
-            errEl.innerText = data.message || 'Invalid username or password.';
-          }
-        }
-      } catch (err) {
-        // Fallback for offline mode if default credentials
-        if (u === 'admin' && p === 'admin123') {
-          localStorage.setItem('honesty_admin_auth', 'true');
-          if (errEl) errEl.style.display = 'none';
-          if (adminAuthModal) adminAuthModal.classList.remove('active');
-          setViewMode('admin');
-        } else {
-          if (errEl) {
-            errEl.style.display = 'block';
-            errEl.innerText = 'Connection error. Please try again.';
-          }
-        }
-      }
-    });
-  }
 
   // Handle Admin Logout button
   const btnAdminLogout = document.getElementById('btn-admin-logout');

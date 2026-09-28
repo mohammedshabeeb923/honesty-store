@@ -35,15 +35,9 @@ function getAdminHeaders() {
   if (!token && window.authManager && typeof window.authManager.getAccessToken === 'function') {
     token = window.authManager.getAccessToken() || '';
   }
-  if (!token && localStorage.getItem('honesty_admin_auth') === 'true') {
-    token = 'admin-authorized-session';
-  }
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
     headers['x-admin-token'] = token;
-  }
-  if (localStorage.getItem('honesty_admin_auth') === 'true') {
-    headers['x-admin-auth'] = 'true';
   }
   return headers;
 }

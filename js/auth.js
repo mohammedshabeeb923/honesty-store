@@ -118,6 +118,9 @@ class AuthManager {
     this.isAdminUser = await window.supabaseClient.checkIsAdmin(authUser);
     if (this.isAdminUser) {
       localStorage.setItem('honesty_admin_auth', 'true');
+    } else {
+      localStorage.removeItem('honesty_admin_auth');
+      localStorage.removeItem('honesty_admin_token');
     }
 
     this.updateUI();
@@ -213,11 +216,14 @@ class AuthManager {
         if (window.adminApp && typeof window.adminApp.render === 'function') {
           window.adminApp.render();
         }
-        if (window.showToast) window.showToast(`Welcome back, ${this.user.fullName}!`, 'success');
+        if (window.showToast) window.showToast('Welcome to Admin Console.', 'success');
         return;
       } else {
+        this.isAdminUser = false;
+        localStorage.removeItem('honesty_admin_auth');
+        localStorage.removeItem('honesty_admin_token');
         if (errEl) {
-          errEl.innerHTML = `<strong>Access Denied:</strong> Signed in as <code>${this.user.email}</code>, but this account is not registered in the <code>admin_users</code> table.`;
+          errEl.innerHTML = '<strong>Access Denied:</strong> This Google account does not have administrator privileges.';
           errEl.style.display = 'block';
         }
         return;
@@ -420,39 +426,6 @@ class AuthManager {
       });
     }
 
-    // Toggle Admin Secret Key input
-    const btnToggleKey = document.getElementById('btn-toggle-admin-key');
-    const adminKeyForm = document.getElementById('admin-key-form');
-    if (btnToggleKey && adminKeyForm) {
-      btnToggleKey.addEventListener('click', () => {
-        const isHidden = adminKeyForm.style.display === 'none';
-        adminKeyForm.style.display = isHidden ? 'flex' : 'none';
-      });
-    }
-
-    // Admin Secret Key Form Submit (Emergency access fallback)
-    if (adminKeyForm) {
-      adminKeyForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const key = document.getElementById('admin-secret-key-input')?.value.trim();
-        const errEl = document.getElementById('admin-login-error');
-        // Valid if matches configured secret or default admin key
-        if (key === 'admin123' || key === 'honesty-admin-secret-2026') {
-          this.isAdminUser = true;
-          localStorage.setItem('honesty_admin_auth', 'true');
-          const modal = document.getElementById('admin-auth-modal');
-          if (modal) modal.classList.remove('active');
-          if (window.adminApp && typeof window.adminApp.render === 'function') {
-            window.adminApp.render();
-          }
-          if (window.showToast) window.showToast('Admin Console unlocked via master key.', 'success');
-        } else {
-          if (errEl) {
-            errEl.innerText = 'Invalid Admin Secret Key.';
-            errEl.style.display = 'block';
-          }
-        }
-      });
     }
   }
 
@@ -516,7 +489,7 @@ class AuthManager {
   }
 
   isAdmin() {
-    return Boolean(this.isAdminUser || localStorage.getItem('honesty_admin_auth') === 'true');
+    return Boolean(this.isAdminUser && localStorage.getItem('honesty_admin_token'));
   }
 }
 

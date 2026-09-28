@@ -79,9 +79,17 @@ function verifyCustomerToken(token) {
   }
 }
 
-function signAdminToken(username) {
+// Authoritative Admin Whitelist (Strictly restricted to these Gmail accounts)
+const ALLOWED_ADMIN_EMAILS = [
+  'godson107111@gmail.com',
+  'mohammedshabeeb923@gmail.com',
+  'shahidkkvl@gmail.com'
+].map(e => e.toLowerCase().trim());
+
+function signAdminToken(email) {
+  const cleanEmail = String(email || '').toLowerCase().trim();
   const payload = {
-    username,
+    email: cleanEmail,
     role: 'admin',
     iat: Date.now(),
     exp: Date.now() + 7 * 24 * 3600 * 1000 // 7 days
@@ -96,14 +104,7 @@ function verifyAdminToken(token) {
   if (!token.startsWith('admin_sess_')) return false;
   const raw = token.slice('admin_sess_'.length);
   const parts = raw.split('.');
-  if (parts.length === 1) {
-    // Backwards compatibility for existing local admin session
-    try {
-      const decoded = Buffer.from(raw, 'base64').toString('utf8');
-      if (decoded.startsWith('admin_')) return true;
-    } catch (e) {}
-    return false;
-  }
+  if (parts.length !== 2) return false;
   const [body, sig] = parts;
   const expected = crypto.createHmac('sha256', SERVER_SECRET).update(body).digest('base64url');
   if (sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
@@ -112,7 +113,9 @@ function verifyAdminToken(token) {
   try {
     const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
     if (payload.exp && payload.exp < Date.now()) return false;
-    return payload.role === 'admin';
+    if (payload.role !== 'admin') return false;
+    const tokenEmail = (payload.email || payload.username || '').toLowerCase().trim();
+    return ALLOWED_ADMIN_EMAILS.includes(tokenEmail);
   } catch (e) {
     return false;
   }
@@ -149,29 +152,21 @@ async function isAuthorizedAdmin(req) {
   const authHeader = req.headers['authorization'] || '';
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
   const customHeader = req.headers['x-admin-token'] || '';
-  const adminAuthFlag = req.headers['x-admin-auth'] || '';
 
+  // 1. Signed HMAC admin token
   if (token && verifyAdminToken(token)) return true;
   if (customHeader && verifyAdminToken(customHeader)) return true;
 
-  // Supabase Google OAuth verification
-  if (token && token.length > 20 && !token.startsWith('admin_')) {
-    const user = await getSupabaseUserFromToken(token);
-    if (user) {
-      // Primary owner admin
-      if (user.email === 'mohammedshabeeb923@gmail.com') return true;
-      try {
-        const admins = await serverSupabase.fetchApi('admin_users', {
-          query: `?or=(user_id.eq.${user.id},email.eq.${user.email})&select=id`
-        });
-        if (admins && admins.length > 0) return true;
-      } catch (e) {}
+  // 2. Supabase Google OAuth access token verification
+  const candidate = (token && token.length > 20 && !token.startsWith('admin_')) ? token : customHeader;
+  if (candidate && candidate.length > 20 && !candidate.startsWith('admin_')) {
+    const user = await getSupabaseUserFromToken(candidate);
+    if (user && user.email) {
+      const email = user.email.toLowerCase().trim();
+      if (ALLOWED_ADMIN_EMAILS.includes(email)) {
+        return true;
+      }
     }
-  }
-
-  // Admin session flag authorized by admin console
-  if (adminAuthFlag === 'true' || token === 'admin-authorized-session' || customHeader === 'admin-authorized-session') {
-    return true;
   }
 
   return false;
@@ -403,6 +398,45 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+
+  // 2b. Authoritative Admin Check (Strictly verifies the 3 authorized Google accounts)
+  if (req.method === 'POST' && reqPath === '/api/check-admin') {
+    try {
+      const body = await parseJsonBody(req);
+      const token = body.token || (req.headers['authorization'] || '').replace(/^Bearer\s+/i, '').trim();
+
+      if (!token) {
+        sendJson(200, { success: true, isAdmin: false });
+        return;
+      }
+
+      // Check if it's already an HMAC admin token
+      if (verifyAdminToken(token)) {
+        sendJson(200, { success: true, isAdmin: true, adminToken: token });
+        return;
+      }
+
+      // Verify Google OAuth token with Supabase Auth
+      const user = await getSupabaseUserFromToken(token);
+      if (user && user.email) {
+        const cleanEmail = user.email.toLowerCase().trim();
+        if (ALLOWED_ADMIN_EMAILS.includes(cleanEmail)) {
+          const adminToken = signAdminToken(cleanEmail);
+          sendJson(200, {
+            success: true,
+            isAdmin: true,
+            adminToken
+          });
+          return;
+        }
+      }
+
+      sendJson(200, { success: true, isAdmin: false });
+    } catch (err) {
+      sendJson(200, { success: true, isAdmin: false });
+    }
+    return;
+  }
 
   // 3. Products List (Authoritative from Supabase)
   if (req.method === 'GET' && reqPath === '/api/products') {
@@ -703,26 +737,12 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 10. Admin Login
+  // 10. Admin Login (Disabled: Access strictly restricted to authorized Google accounts)
   if (req.method === 'POST' && reqPath === '/api/admin/login') {
-    try {
-      const { username, password } = await parseJsonBody(req);
-      const expectedUser = process.env.ADMIN_USER || 'admin';
-      const expectedPass = process.env.ADMIN_PASSWORD || 'admin123';
-
-      if (username === expectedUser && password === expectedPass) {
-        const adminToken = signAdminToken(username);
-        sendJson(200, {
-          success: true,
-          adminToken,
-          username
-        });
-      } else {
-        sendJson(401, { success: false, message: 'Invalid admin credentials' });
-      }
-    } catch (err) {
-      sendJson(400, { success: false, error: err.message });
-    }
+    sendJson(403, {
+      success: false,
+      message: 'Password login is disabled. Admin access is strictly restricted to authorized Google accounts.'
+    });
     return;
   }
 

@@ -13,9 +13,12 @@ CREATE TABLE IF NOT EXISTS public.admin_users (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Seed initial store owner admin email
+-- Seed authorized store admin emails
 INSERT INTO public.admin_users (email, role)
-VALUES ('mohammedshabeeb923@gmail.com', 'admin')
+VALUES 
+  ('godson107111@gmail.com', 'admin'),
+  ('mohammedshabeeb923@gmail.com', 'admin'),
+  ('shahidkkvl@gmail.com', 'admin')
 ON CONFLICT (email) DO NOTHING;
 
 -- Helper function: Checks if authenticated caller has admin privileges

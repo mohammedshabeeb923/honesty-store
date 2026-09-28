@@ -182,6 +182,21 @@ class ServerSupabase {
   constructor() {
     this.fallbackData = this.loadFallback();
     this.seedInitialMaster();
+    this.syncAdminUsers().catch(() => {});
+  }
+
+  async syncAdminUsers(adminEmails = ['godson107111@gmail.com', 'mohammedshabeeb923@gmail.com', 'shahidkkvl@gmail.com']) {
+    try {
+      for (const email of adminEmails) {
+        await this.fetchApi('admin_users', {
+          method: 'POST',
+          headers: { 'Prefer': 'resolution=merge-duplicates' },
+          body: { email: email.toLowerCase().trim(), role: 'admin' }
+        });
+      }
+    } catch (e) {
+      // Table may not exist yet or offline
+    }
   }
 
   getEnv() {
