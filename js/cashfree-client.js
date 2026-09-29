@@ -53,13 +53,18 @@ class CashfreeClient {
 
     // Verify valid 10-digit Indian mobile number required by Cashfree PG & UPI
     const phone = window.authManager ? window.authManager.getUserPhone() : (localStorage.getItem('honesty_customer_phone') || '');
-    const isValidPhone = Boolean(phone && /^[6-9]\d{9}$/.test(phone));
-    const customerName = window.authManager ? window.authManager.getUserName() : (localStorage.getItem('honesty_customer_name') || '');
-    const customerEmail = window.authManager ? window.authManager.getUserEmail() : (localStorage.getItem('honesty_customer_email') || '');
+    const cleanPhone = String(phone || '').replace(/\D/g, '').slice(-10);
+    const isValidPhone = Boolean(cleanPhone && /^[6-9]\d{9}$/.test(cleanPhone));
 
-    // Prompt for details if phone is missing or if name is unknown
-    if (!isValidPhone || (!customerName && !customerEmail)) {
-      this.promptForPhone(orderData, total);
+    const email = (window.authManager ? window.authManager.getUserEmail() : (localStorage.getItem('honesty_customer_email') || '')).trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const isValidEmail = Boolean(email && emailRegex.test(email));
+
+    const customerName = window.authManager ? window.authManager.getUserName() : (localStorage.getItem('honesty_customer_name') || '');
+
+    // BOTH Mobile Number and Email ID are strictly COMPULSORY
+    if (!isValidPhone || !isValidEmail) {
+      this.promptForCustomerDetails(orderData, total);
       return;
     }
 
@@ -88,9 +93,9 @@ class CashfreeClient {
           orderId,
           items: cart.map(i => ({ id: i.id, qty: i.qty })),
           orderAmount: total,
-          customerPhone: phone,
-          customerEmail: customerEmail || '',
-          customerName: customerName || `Customer ${phone}`,
+          customerPhone: cleanPhone,
+          customerEmail: email,
+          customerName: customerName || email.split('@')[0],
           userId: window.authManager ? window.authManager.getUserId() : null
         })
       });
@@ -191,20 +196,30 @@ class CashfreeClient {
   }
 
   promptForPhone(orderData, total) {
+    return this.promptForCustomerDetails(orderData, total);
+  }
+
+  promptForCustomerDetails(orderData, total) {
     const modal = document.getElementById('phone-collection-modal');
     const form = document.getElementById('phone-collection-form');
     const inputPhone = document.getElementById('checkout-phone-input');
+    const inputEmail = document.getElementById('checkout-email-input');
     const inputName = document.getElementById('checkout-name-input');
     const errEl = document.getElementById('phone-collection-error');
     const submitText = document.getElementById('phone-modal-submit-text');
     const btnCancel = document.getElementById('btn-cancel-phone-modal');
 
     if (!modal) {
-      const prompted = window.prompt('Please enter your 10-digit Indian mobile number for Cashfree & UPI:');
-      if (prompted && /^[6-9]\d{9}$/.test(prompted.replace(/\D/g, '').slice(-10))) {
-        const clean = prompted.replace(/\D/g, '').slice(-10);
-        if (window.authManager) window.authManager.setUserPhone(clean);
-        else localStorage.setItem('honesty_customer_phone', clean);
+      const promptedPhone = window.prompt('Compulsory: Please enter your 10-digit Indian mobile number for Cashfree & UPI:');
+      const promptedEmail = window.prompt('Compulsory: Please enter your Email ID for receipt & payment tracking:');
+      const cleanP = (promptedPhone || '').replace(/\D/g, '').slice(-10);
+      const cleanE = (promptedEmail || '').trim().toLowerCase();
+      if (/^[6-9]\d{9}$/.test(cleanP) && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanE)) {
+        if (window.authManager) window.authManager.setCustomerDetails(cleanP, cleanE);
+        else {
+          localStorage.setItem('honesty_customer_phone', cleanP);
+          localStorage.setItem('honesty_customer_email', cleanE);
+        }
         this.initiatePayment(orderData);
       }
       return;
@@ -213,11 +228,21 @@ class CashfreeClient {
     if (inputPhone) {
       const existingPhone = window.authManager ? window.authManager.getUserPhone() : (localStorage.getItem('honesty_customer_phone') || '');
       inputPhone.value = existingPhone || '';
-      setTimeout(() => inputPhone.focus(), 150);
+      if (!existingPhone) {
+        setTimeout(() => inputPhone.focus(), 150);
+      }
+    }
+
+    if (inputEmail) {
+      const existingEmail = window.authManager ? window.authManager.getUserEmail() : (localStorage.getItem('honesty_customer_email') || '');
+      inputEmail.value = existingEmail || '';
+      if (inputPhone && inputPhone.value && !existingEmail) {
+        setTimeout(() => inputEmail.focus(), 150);
+      }
     }
 
     if (inputName) {
-      const existingName = window.authManager ? (window.authManager.getUserName() || window.authManager.getUserEmail()) : (localStorage.getItem('honesty_customer_name') || localStorage.getItem('honesty_customer_email') || '');
+      const existingName = window.authManager ? window.authManager.getUserName() : (localStorage.getItem('honesty_customer_name') || '');
       if (existingName && !existingName.toLowerCase().includes('customer') && !existingName.toLowerCase().includes('honesty')) {
         inputName.value = existingName;
       }
@@ -234,33 +259,43 @@ class CashfreeClient {
       form.onsubmit = (e) => {
         e.preventDefault();
         const rawPhone = inputPhone ? inputPhone.value.trim() : '';
+        const rawEmail = inputEmail ? inputEmail.value.trim().toLowerCase() : '';
         const rawName = inputName ? inputName.value.trim() : '';
         const cleanPhone = rawPhone.replace(/\D/g, '').slice(-10);
 
         if (!cleanPhone || !/^[6-9]\d{9}$/.test(cleanPhone)) {
           if (errEl) {
-            errEl.innerText = 'Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.';
+            errEl.innerText = 'Mobile number is compulsory. Please enter a valid 10-digit Indian number starting with 6, 7, 8, or 9.';
             errEl.style.display = 'block';
           }
+          if (inputPhone) inputPhone.focus();
+          return;
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!rawEmail || !emailRegex.test(rawEmail)) {
+          if (errEl) {
+            errEl.innerText = 'Email ID is compulsory. Please enter a valid email address (e.g. rahul@gmail.com).';
+            errEl.style.display = 'block';
+          }
+          if (inputEmail) inputEmail.focus();
           return;
         }
 
         try {
           if (window.authManager && typeof window.authManager.setCustomerDetails === 'function') {
-            window.authManager.setCustomerDetails(cleanPhone, rawName);
+            window.authManager.setCustomerDetails(cleanPhone, rawEmail, rawName);
           } else {
             localStorage.setItem('honesty_customer_phone', cleanPhone);
+            localStorage.setItem('honesty_customer_email', rawEmail);
             if (rawName) {
-              if (rawName.includes('@')) {
-                localStorage.setItem('honesty_customer_email', rawName.trim().toLowerCase());
-                localStorage.setItem('honesty_customer_name', rawName.split('@')[0]);
-              } else {
-                localStorage.setItem('honesty_customer_name', rawName.trim());
-              }
+              localStorage.setItem('honesty_customer_name', rawName);
+            } else {
+              localStorage.setItem('honesty_customer_name', rawEmail.split('@')[0]);
             }
           }
           modal.classList.remove('active');
-          if (window.showToast) window.showToast(`Details saved for checkout.`, 'success');
+          if (window.showToast) window.showToast('Customer details saved successfully.', 'success');
           // Resume payment seamlessly
           this.initiatePayment(orderData);
         } catch (err) {

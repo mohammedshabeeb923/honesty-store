@@ -426,6 +426,13 @@ class AuthManager {
       }
       const phoneMsg = document.getElementById('profile-phone-msg');
       if (phoneMsg) phoneMsg.style.display = 'none';
+
+      const emailInput = document.getElementById('profile-email-input');
+      if (emailInput) {
+        emailInput.value = this.getUserEmail();
+      }
+      const emailMsg = document.getElementById('profile-email-msg');
+      if (emailMsg) emailMsg.style.display = 'none';
     } else {
       if (signinView) signinView.style.display = 'block';
       if (profileView) profileView.style.display = 'none';
@@ -480,11 +487,27 @@ class AuthManager {
       if (isValid) {
         phoneBadge.style.background = '#dcfce7';
         phoneBadge.style.color = '#15803d';
-        phoneBadge.innerText = '✓ Ready for Cashfree';
+        phoneBadge.innerText = '✓ Verified Ready';
       } else {
-        phoneBadge.style.background = '#fef3c7';
-        phoneBadge.style.color = '#b45309';
-        phoneBadge.innerText = '⚠️ Required for Payment';
+        phoneBadge.style.background = '#fee2e2';
+        phoneBadge.style.color = '#b91c1c';
+        phoneBadge.innerText = '⚠️ Compulsory';
+      }
+    }
+
+    // 5. Email status badge in profile view
+    const emailBadge = document.getElementById('profile-email-status-badge');
+    if (emailBadge) {
+      const email = this.getUserEmail();
+      const isValid = Boolean(email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
+      if (isValid) {
+        emailBadge.style.background = '#dcfce7';
+        emailBadge.style.color = '#15803d';
+        emailBadge.innerText = '✓ Verified Ready';
+      } else {
+        emailBadge.style.background = '#fee2e2';
+        emailBadge.style.color = '#b91c1c';
+        emailBadge.innerText = '⚠️ Compulsory';
       }
     }
   }
@@ -564,6 +587,32 @@ class AuthManager {
       });
     }
 
+    // Save email inside profile modal
+    const btnSaveEmail = document.getElementById('btn-save-profile-email');
+    const emailInput = document.getElementById('profile-email-input');
+    const emailMsg = document.getElementById('profile-email-msg');
+
+    if (btnSaveEmail && emailInput) {
+      btnSaveEmail.addEventListener('click', () => {
+        const val = emailInput.value.trim();
+        try {
+          const saved = this.setUserEmail(val);
+          if (emailMsg) {
+            emailMsg.style.color = '#16a34a';
+            emailMsg.innerText = `✓ Saved Email ID: ${saved}`;
+            emailMsg.style.display = 'block';
+          }
+          if (window.showToast) window.showToast(`Email ID ${saved} saved.`, 'success');
+        } catch (err) {
+          if (emailMsg) {
+            emailMsg.style.color = '#dc2626';
+            emailMsg.innerText = err.message;
+            emailMsg.style.display = 'block';
+          }
+        }
+      });
+    }
+
     // Sign out button in profile view
     const btnLogout = document.getElementById('btn-auth-logout');
     if (btnLogout) {
@@ -613,39 +662,59 @@ class AuthManager {
 
   hasValidPhone() {
     const ph = this.getUserPhone();
-    return Boolean(ph && /^[6-9]\d{9}$/.test(ph));
+    const clean = String(ph || '').replace(/\D/g, '').slice(-10);
+    return Boolean(clean && /^[6-9]\d{9}$/.test(clean));
   }
 
-  setCustomerDetails(phone, rawName = '', rawEmail = '') {
+  hasValidEmail() {
+    const em = (this.getUserEmail() || '').trim().toLowerCase();
+    return Boolean(em && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em));
+  }
+
+  hasMandatoryCustomerDetails() {
+    return this.hasValidPhone() && this.hasValidEmail();
+  }
+
+  setCustomerDetails(phone, emailOrName = '', optionalNameOrEmail = '') {
     const cleanPhone = String(phone || '').replace(/\D/g, '').slice(-10);
     if (!cleanPhone || !/^[6-9]\d{9}$/.test(cleanPhone)) {
-      throw new Error('Please enter a valid 10-digit Indian mobile number (e.g. 9876543210).');
+      throw new Error('A valid 10-digit Indian mobile number (starting with 6, 7, 8, or 9) is compulsory.');
     }
 
-    let resolvedEmail = String(rawEmail || '').trim().toLowerCase();
-    let resolvedName = String(rawName || '').trim();
+    let resolvedEmail = '';
+    let resolvedName = '';
 
-    // If customer entered their Gmail address into the name field:
-    if (resolvedName && resolvedName.includes('@') && !resolvedEmail) {
-      resolvedEmail = resolvedName.toLowerCase();
-      resolvedName = resolvedEmail.split('@')[0];
+    const arg1 = String(emailOrName || '').trim();
+    const arg2 = String(optionalNameOrEmail || '').trim();
+
+    if (arg1.includes('@')) {
+      resolvedEmail = arg1.toLowerCase();
+      resolvedName = arg2;
+    } else if (arg2.includes('@')) {
+      resolvedEmail = arg2.toLowerCase();
+      resolvedName = arg1;
+    } else {
+      resolvedName = arg1;
+      resolvedEmail = (this.getUserEmail() || '').trim().toLowerCase();
     }
 
-    if (!resolvedName && resolvedEmail) {
-      resolvedName = resolvedEmail.split('@')[0];
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!resolvedEmail || !emailRegex.test(resolvedEmail)) {
+      throw new Error('A valid Email ID (e.g. yourname@gmail.com) is compulsory.');
     }
 
     if (!resolvedName || resolvedName.toLowerCase().includes('honesty') || resolvedName.toLowerCase().includes('shopper')) {
-      resolvedName = `Customer ${cleanPhone}`;
+      const emailUser = resolvedEmail.split('@')[0];
+      resolvedName = emailUser.replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim() || emailUser;
     }
 
     if (this.user) {
       this.user.phone = cleanPhone;
-      if (resolvedName) this.user.fullName = resolvedName;
-      if (resolvedEmail) this.user.email = resolvedEmail;
+      this.user.email = resolvedEmail;
+      this.user.fullName = resolvedName;
     } else {
       this.user = {
-        id: 'guest_' + cleanPhone,
+        id: 'cust_' + cleanPhone,
         email: resolvedEmail,
         fullName: resolvedName,
         phone: cleanPhone
@@ -655,8 +724,8 @@ class AuthManager {
     try {
       localStorage.setItem('honesty_customer_user', JSON.stringify(this.user));
       localStorage.setItem('honesty_customer_phone', cleanPhone);
-      if (resolvedName) localStorage.setItem('honesty_customer_name', resolvedName);
-      if (resolvedEmail) localStorage.setItem('honesty_customer_email', resolvedEmail);
+      localStorage.setItem('honesty_customer_email', resolvedEmail);
+      localStorage.setItem('honesty_customer_name', resolvedName);
     } catch (e) {}
 
     // Sync phone with Supabase if logged in
@@ -667,7 +736,7 @@ class AuthManager {
     }
 
     this.updateUI();
-    return { phone: cleanPhone, name: resolvedName, email: resolvedEmail };
+    return { phone: cleanPhone, email: resolvedEmail, name: resolvedName };
   }
 
   setUserPhone(phone) {
@@ -676,10 +745,37 @@ class AuthManager {
       throw new Error('Please enter a valid 10-digit Indian mobile number (e.g. 9876543210).');
     }
 
-    const existingName = this.getUserName() || `Customer ${clean}`;
     const existingEmail = this.getUserEmail() || '';
+    const existingName = this.getUserName() || `Customer ${clean}`;
 
-    return this.setCustomerDetails(clean, existingName, existingEmail).phone;
+    if (!existingEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(existingEmail)) {
+      if (this.user) this.user.phone = clean;
+      localStorage.setItem('honesty_customer_phone', clean);
+      this.updateUI();
+      return clean;
+    }
+
+    return this.setCustomerDetails(clean, existingEmail, existingName).phone;
+  }
+
+  setUserEmail(email) {
+    const clean = String(email || '').trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!clean || !emailRegex.test(clean)) {
+      throw new Error('Please enter a valid Email ID (e.g. yourname@gmail.com).');
+    }
+
+    const existingPhone = this.getUserPhone() || '';
+    const existingName = this.getUserName() || clean.split('@')[0];
+
+    if (!existingPhone || !/^[6-9]\d{9}$/.test(existingPhone.replace(/\D/g, '').slice(-10))) {
+      if (this.user) this.user.email = clean;
+      localStorage.setItem('honesty_customer_email', clean);
+      this.updateUI();
+      return clean;
+    }
+
+    return this.setCustomerDetails(existingPhone, clean, existingName).email;
   }
 
   getAccessToken() {

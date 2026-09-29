@@ -930,7 +930,7 @@ const server = http.createServer(async (req, res) => {
       if (!cleanPhone || !/^[6-9]\d{9}$/.test(cleanPhone)) {
         sendJson(400, {
           success: false,
-          error: 'A valid 10-digit Indian mobile number (starting with 6, 7, 8, or 9) is required for Cashfree payment.'
+          error: 'A valid 10-digit Indian mobile number (starting with 6, 7, 8, or 9) is compulsory.'
         });
         return;
       }
@@ -941,9 +941,18 @@ const server = http.createServer(async (req, res) => {
       const supabaseUser = await getSupabaseUserFromToken(token);
       const userId = (supabaseUser && supabaseUser.id) || bodyUserId || null;
 
-      // Authoritative Customer Email Resolution
+      // Authoritative Customer Email Resolution & Compulsory Validation
       let userEmail = (supabaseUser && supabaseUser.email) || customerEmail || null;
       if (userEmail) userEmail = String(userEmail).trim().toLowerCase();
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!userEmail || !emailRegex.test(userEmail)) {
+        sendJson(400, {
+          success: false,
+          error: 'A valid Email ID (e.g. rahul@gmail.com) is compulsory for order confirmation, receipt delivery, and payment verification.'
+        });
+        return;
+      }
 
       // Authoritative Customer Name Resolution:
       // Priority 1: Google account profile full name (if not placeholder)
@@ -963,7 +972,6 @@ const server = http.createServer(async (req, res) => {
       if (!userName && customerName) {
         const cn = String(customerName).trim();
         if (cn.includes('@')) {
-          if (!userEmail) userEmail = cn.toLowerCase();
           const part = cn.split('@')[0];
           userName = part.replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim() || part;
         } else if (!cn.toLowerCase().includes('honesty') && !cn.toLowerCase().includes('shopper') && !cn.toLowerCase().includes('guest')) {
@@ -1052,7 +1060,7 @@ const server = http.createServer(async (req, res) => {
         });
       }
 
-      console.log(`[Cashfree PG] Verified order ${orderId} for ₹${computedTotal} (${computedItems.length} items) [Customer: ${cleanPhone}, User: ${userId || 'guest'}]`);
+      console.log(`[Cashfree PG] Verified order ${orderId} for ₹${computedTotal} (${computedItems.length} items) [Phone: ${cleanPhone}, Email: ${userEmail}, User: ${userId || 'guest'}]`);
 
       // Persist PENDING order authoritatively in Supabase & local data layer
       await serverSupabase.createOrder({
@@ -1090,7 +1098,7 @@ const server = http.createServer(async (req, res) => {
               customer_id: 'cust_' + (userId ? userId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 15) : cleanPhone),
               customer_phone: cleanPhone,
               customer_name: cashfreeCustomerName,
-              customer_email: userEmail || undefined
+              customer_email: userEmail
             },
             order_meta: {
               return_url: (function() {

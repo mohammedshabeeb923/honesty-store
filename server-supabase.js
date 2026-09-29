@@ -1076,7 +1076,7 @@ class ServerSupabase {
 
     // 4. Update Customer Profile
     if (order.customer_phone) {
-      await this.recordCustomerOrder(order.customer_phone, Number(order.amount) || 0);
+      await this.recordCustomerOrder(order.customer_phone, Number(order.amount) || 0, order.customer_email, order.customer_name);
     }
 
     return { order, alreadyPaid: false };
@@ -1159,16 +1159,23 @@ class ServerSupabase {
   }
 
   // 7. RECORD CUSTOMER VISIT & ORDERS
-  async recordCustomerOrder(phone, amount) {
-    const cleanPhone = phone.replace(/\D/g, '').slice(-10);
+  async recordCustomerOrder(phone, amount, email = null, fullName = null) {
+    const cleanPhone = (phone || '').replace(/\D/g, '').slice(-10);
+    const cleanEmail = email ? String(email).trim().toLowerCase() : null;
+    const cleanName = fullName ? String(fullName).trim() : null;
+
     const existing = (this.fallbackData.profiles || []).find(p => p.phone === cleanPhone);
     if (existing) {
       existing.total_orders = (existing.total_orders || 0) + 1;
       existing.total_spent = (existing.total_spent || 0) + amount;
       existing.last_visit = new Date().toISOString();
+      if (cleanEmail) existing.email = cleanEmail;
+      if (cleanName && (!existing.full_name || existing.full_name.includes('Customer'))) existing.full_name = cleanName;
     } else {
       this.fallbackData.profiles.push({
         phone: cleanPhone,
+        email: cleanEmail,
+        full_name: cleanName || (cleanEmail ? cleanEmail.split('@')[0] : `Customer ${cleanPhone}`),
         total_orders: 1,
         total_spent: amount,
         last_visit: new Date().toISOString()
@@ -1177,14 +1184,18 @@ class ServerSupabase {
     this.saveFallback();
 
     try {
+      const profileBody = {
+        phone: cleanPhone,
+        total_orders: existing ? (existing.total_orders + 1) : 1,
+        total_spent: existing ? (existing.total_spent + amount) : amount
+      };
+      if (cleanEmail) profileBody.email = cleanEmail;
+      if (cleanName) profileBody.full_name = cleanName;
+
       await this.fetchApi('profiles', {
         method: 'POST',
         headers: { 'Prefer': 'resolution=merge-duplicates' },
-        body: {
-          phone: cleanPhone,
-          total_orders: existing ? (existing.total_orders + 1) : 1,
-          total_spent: existing ? (existing.total_spent + amount) : amount
-        }
+        body: profileBody
       });
     } catch (err) {
       // Ignored if RLS restricts anon profile upsert
