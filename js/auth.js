@@ -21,31 +21,35 @@ class AuthManager {
   restorePersistentSession() {
     try {
       const cached = JSON.parse(localStorage.getItem('honesty_customer_user') || 'null');
-      const savedPhone = localStorage.getItem('honesty_customer_phone') || '';
-      const savedName = localStorage.getItem('honesty_customer_name') || '';
-      const savedEmail = localStorage.getItem('honesty_customer_email') || '';
+      const savedPhone = (localStorage.getItem('honesty_customer_phone') || (cached ? cached.phone : '') || '').replace(/\D/g, '').slice(-10);
+      const savedEmail = (localStorage.getItem('honesty_customer_email') || (cached ? cached.email : '') || '').trim().toLowerCase();
+      const savedName = localStorage.getItem('honesty_customer_name') || (cached ? cached.fullName : '') || '';
       const hasAdminAuth = localStorage.getItem('honesty_admin_auth') === 'true' && Boolean(localStorage.getItem('honesty_admin_token'));
       this.isAdminUser = hasAdminAuth;
 
-      if (cached && (cached.id || cached.email || cached.fullName)) {
-        this.user = cached;
-        if (savedPhone && !this.user.phone) this.user.phone = savedPhone;
-        if (savedEmail && !this.user.email) this.user.email = savedEmail;
-        if (savedName && (!this.user.fullName || this.user.fullName.toLowerCase().includes('honesty') || this.user.fullName.toLowerCase().includes('shopper'))) {
-          this.user.fullName = savedName;
+      const validPhone = Boolean(savedPhone && /^[6-9]\d{9}$/.test(savedPhone));
+      const validEmail = Boolean(savedEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(savedEmail));
+
+      if (validPhone && validEmail) {
+        let cleanName = savedName || savedEmail.split('@')[0];
+        if (cleanName.toLowerCase().includes('honesty') || cleanName.toLowerCase().includes('shopper')) {
+          cleanName = savedEmail.split('@')[0];
         }
-        // Sanitize generic names
-        if (this.user.fullName && (this.user.fullName.toLowerCase().includes('honesty') || this.user.fullName.toLowerCase().includes('shopper'))) {
-          this.user.fullName = this.user.email ? this.user.email.split('@')[0] : (savedPhone ? `Customer ${savedPhone}` : '');
-        }
+
+        this.user = {
+          id: (cached && cached.id && !cached.id.startsWith('guest_')) ? cached.id : ('cust_' + savedPhone),
+          email: savedEmail,
+          fullName: cleanName,
+          avatarUrl: (cached && cached.avatarUrl) || 'assets/avatar.png',
+          phone: savedPhone
+        };
         this.isLoggedIn = true;
-        console.log('[AuthManager] Restored persistent session for:', this.user.fullName || this.user.email);
-      } else if (savedPhone || savedEmail || savedName) {
-        let cleanName = savedName;
-        if (!cleanName && savedEmail) cleanName = savedEmail.split('@')[0];
-        if (!cleanName && savedPhone) cleanName = `Customer ${savedPhone}`;
-        this.user = { id: 'guest_' + (savedPhone || Date.now()), email: savedEmail, fullName: cleanName || 'Customer', phone: savedPhone };
-        this.isLoggedIn = true;
+        console.log('[AuthManager] Restored verified customer session for:', this.user.fullName, `(${this.user.email}, +91 ${this.user.phone})`);
+      } else {
+        // No guest or unverified sessions allowed per store policy
+        this.user = null;
+        this.isLoggedIn = false;
+        localStorage.removeItem('honesty_customer_user');
       }
     } catch (e) {
       console.warn('[AuthManager] Session restore warning:', e);
@@ -100,7 +104,6 @@ class AuthManager {
   }
 
   async handleUserSignedIn(authUser) {
-    this.isLoggedIn = true;
     const meta = authUser.user_metadata || {};
     let fullName = meta.full_name || meta.name || '';
     if (!fullName || fullName.toLowerCase().includes('honesty') || fullName.toLowerCase().includes('shopper')) {
@@ -109,51 +112,74 @@ class AuthManager {
       }
     }
     const avatarUrl = meta.avatar_url || meta.picture || 'assets/avatar.png';
-    const savedPhone = localStorage.getItem('honesty_customer_phone') || '';
-    const phone = authUser.phone || meta.phone || savedPhone || '';
+    const savedPhone = (localStorage.getItem('honesty_customer_phone') || authUser.phone || meta.phone || '').replace(/\D/g, '').slice(-10);
+    const validPhone = Boolean(savedPhone && /^[6-9]\d{9}$/.test(savedPhone));
+    const email = (authUser.email || '').trim().toLowerCase();
 
     this.user = {
       id: authUser.id,
-      email: authUser.email || '',
-      fullName: fullName || (authUser.email ? authUser.email.split('@')[0] : 'Customer'),
+      email: email,
+      fullName: fullName || (email ? email.split('@')[0] : 'Customer'),
       avatarUrl,
-      phone
+      phone: validPhone ? savedPhone : ''
     };
 
-    // Persist session to localStorage across reloads and tab closures
-    try {
-      localStorage.setItem('honesty_customer_user', JSON.stringify(this.user));
-      if (this.user.fullName) localStorage.setItem('honesty_customer_name', this.user.fullName);
-      if (this.user.email) localStorage.setItem('honesty_customer_email', this.user.email);
-      if (phone) localStorage.setItem('honesty_customer_phone', phone);
-    } catch (e) {}
+    if (validPhone && email) {
+      this.isLoggedIn = true;
+      try {
+        localStorage.setItem('honesty_customer_user', JSON.stringify(this.user));
+        if (this.user.fullName) localStorage.setItem('honesty_customer_name', this.user.fullName);
+        if (this.user.email) localStorage.setItem('honesty_customer_email', this.user.email);
+        localStorage.setItem('honesty_customer_phone', savedPhone);
+      } catch (e) {}
 
-    // Verify Admin Status
-    this.isAdminUser = await window.supabaseClient.checkIsAdmin(authUser);
-    if (this.isAdminUser) {
-      localStorage.setItem('honesty_admin_auth', 'true');
+      // Verify Admin Status
+      this.isAdminUser = await window.supabaseClient.checkIsAdmin(authUser);
+      if (this.isAdminUser) {
+        localStorage.setItem('honesty_admin_auth', 'true');
+      } else {
+        localStorage.removeItem('honesty_admin_auth');
+        localStorage.removeItem('honesty_admin_token');
+      }
+
+      this.updateUI();
+
+      // Trigger user-specific order load in storeDB
+      if (window.storeDB && typeof window.storeDB.loadUserOrders === 'function') {
+        window.storeDB.loadUserOrders(authUser.id);
+      }
+
+      this.closeAuthModal();
+
+      // Auto-advance screen from splash when customer signs in
+      if (window.customerApp && window.customerApp.currentScreen === 'screen-splash') {
+        window.customerApp.switchScreen('screen-catalog');
+      }
+
+      // Execute callback if pending
+      if (typeof this.authCallback === 'function') {
+        const cb = this.authCallback;
+        this.authCallback = null;
+        cb(this.user);
+      }
     } else {
-      localStorage.removeItem('honesty_admin_auth');
-      localStorage.removeItem('honesty_admin_token');
-    }
-
-    this.updateUI();
-
-    // Trigger user-specific order load in storeDB
-    if (window.storeDB && typeof window.storeDB.loadUserOrders === 'function') {
-      window.storeDB.loadUserOrders(authUser.id);
-    }
-
-    // Auto-advance screen from splash when customer signs in
-    if (window.customerApp && window.customerApp.currentScreen === 'screen-splash') {
-      window.customerApp.switchScreen('screen-catalog');
-    }
-
-    // Execute callback if pending
-    if (typeof this.authCallback === 'function') {
-      const cb = this.authCallback;
-      this.authCallback = null;
-      cb(this.user);
+      // Missing compulsory phone number! Prompt customer to provide phone number to enter store
+      this.isLoggedIn = false;
+      this.openAuthModal();
+      const phoneInput = document.getElementById('signin-customer-phone');
+      const emailInput = document.getElementById('signin-customer-email');
+      const nameInput = document.getElementById('signin-customer-name');
+      const errLogin = document.getElementById('login-error-msg');
+      if (emailInput) emailInput.value = email;
+      if (nameInput) nameInput.value = fullName;
+      if (errLogin) {
+        errLogin.innerText = 'Google account verified! Please enter your 10-digit mobile number (compulsory) to enter the store.';
+        errLogin.style.display = 'block';
+        errLogin.style.color = '#2563eb';
+        errLogin.style.background = '#eff6ff';
+        errLogin.style.borderColor = '#bfdbfe';
+      }
+      if (phoneInput) setTimeout(() => phoneInput.focus(), 150);
     }
   }
 
@@ -340,37 +366,8 @@ class AuthManager {
   }
 
   loginAsGuest() {
-    if (!this.user) {
-      const savedPhone = localStorage.getItem('honesty_customer_phone') || '';
-      const savedName = localStorage.getItem('honesty_customer_name') || '';
-      const savedEmail = localStorage.getItem('honesty_customer_email') || '';
-      let cleanName = savedName;
-      if (!cleanName && savedEmail) cleanName = savedEmail.split('@')[0];
-      if (!cleanName && savedPhone) cleanName = `Customer ${savedPhone}`;
-
-      this.user = {
-        id: 'guest_' + Math.random().toString(36).slice(2, 10),
-        email: savedEmail,
-        fullName: cleanName || 'Customer',
-        avatarUrl: 'assets/avatar.png',
-        phone: savedPhone
-      };
-      this.isLoggedIn = true;
-      try {
-        localStorage.setItem('honesty_customer_user', JSON.stringify(this.user));
-      } catch (e) {}
-    }
-    this.updateUI();
-    this.closeAuthModal();
-
-    if (typeof this.authCallback === 'function') {
-      const cb = this.authCallback;
-      this.authCallback = null;
-      cb(this.user);
-    }
-    if (window.customerApp && typeof window.customerApp.switchScreen === 'function') {
-      window.customerApp.switchScreen('screen-catalog');
-    }
+    // Guest login is strictly disabled per store policy - must provide Gmail & Phone
+    this.openAuthModal();
   }
 
   async logout() {
@@ -388,9 +385,9 @@ class AuthManager {
       window.showToast('You have been signed out.', 'info');
     }
 
-    // Return to catalog view if in customer app
+    // Return to splash welcome view if in customer app
     if (window.customerApp && typeof window.customerApp.switchScreen === 'function') {
-      window.customerApp.switchScreen('screen-catalog');
+      window.customerApp.switchScreen('screen-splash');
     }
   }
 
@@ -408,7 +405,7 @@ class AuthManager {
     const errLogin = document.getElementById('login-error-msg');
     if (errLogin) errLogin.style.display = 'none';
 
-    if (this.isLoggedIn && this.user) {
+    if (this.isLoggedIn && this.hasMandatoryCustomerDetails()) {
       if (signinView) signinView.style.display = 'none';
       if (profileView) profileView.style.display = 'block';
 
@@ -436,6 +433,23 @@ class AuthManager {
     } else {
       if (signinView) signinView.style.display = 'block';
       if (profileView) profileView.style.display = 'none';
+
+      const emailInput = document.getElementById('signin-customer-email');
+      const phoneInput = document.getElementById('signin-customer-phone');
+      const nameInput = document.getElementById('signin-customer-name');
+
+      const savedEmail = this.getUserEmail();
+      const savedPhone = this.getUserPhone();
+      const savedName = this.getUserName();
+
+      if (emailInput && savedEmail) emailInput.value = savedEmail;
+      if (phoneInput && savedPhone) phoneInput.value = savedPhone;
+      if (nameInput && savedName && !savedName.toLowerCase().includes('customer')) nameInput.value = savedName;
+
+      setTimeout(() => {
+        if (emailInput && !emailInput.value) emailInput.focus();
+        else if (phoneInput && !phoneInput.value) phoneInput.focus();
+      }, 150);
     }
 
     this.updateUI();
@@ -534,11 +548,111 @@ class AuthManager {
       });
     }
 
-    // Guest sign-in button
-    const btnGuest = document.getElementById('btn-guest-signin');
-    if (btnGuest) {
-      btnGuest.addEventListener('click', () => {
-        this.loginAsGuest();
+    // Customer sign-in/sign-up form (Compulsory Gmail + Phone)
+    const customerSigninForm = document.getElementById('customer-signin-form');
+    if (customerSigninForm) {
+      customerSigninForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const errEl = document.getElementById('login-error-msg');
+        if (errEl) {
+          errEl.style.display = 'none';
+          errEl.innerText = '';
+        }
+
+        const emailInput = document.getElementById('signin-customer-email');
+        const phoneInput = document.getElementById('signin-customer-phone');
+        const nameInput = document.getElementById('signin-customer-name');
+        const submitBtn = document.getElementById('btn-customer-signin-submit');
+
+        const rawEmail = (emailInput?.value || '').trim();
+        const rawPhone = (phoneInput?.value || '').trim();
+        const rawName = (nameInput?.value || '').trim();
+
+        // 1. Validate compulsory Gmail / Email
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!rawEmail || !emailRegex.test(rawEmail)) {
+          if (errEl) {
+            errEl.innerText = 'Please enter a valid Gmail ID / Email Address (e.g. rahul@gmail.com).';
+            errEl.style.display = 'block';
+            errEl.style.color = '#ef4444';
+            errEl.style.background = '#fef2f2';
+            errEl.style.borderColor = '#fee2e2';
+          }
+          if (emailInput) emailInput.focus();
+          return;
+        }
+
+        // 2. Validate compulsory 10-digit Indian Mobile Number
+        const cleanPhone = rawPhone.replace(/\D/g, '').slice(-10);
+        if (!cleanPhone || !/^[6-9]\d{9}$/.test(cleanPhone)) {
+          if (errEl) {
+            errEl.innerText = 'Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.';
+            errEl.style.display = 'block';
+            errEl.style.color = '#ef4444';
+            errEl.style.background = '#fef2f2';
+            errEl.style.borderColor = '#fee2e2';
+          }
+          if (phoneInput) phoneInput.focus();
+          return;
+        }
+
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.innerHTML = '<span>Entering Store...</span>';
+        }
+
+        try {
+          this.setCustomerDetails(cleanPhone, rawEmail, rawName);
+          this.isLoggedIn = true;
+
+          // Sync customer profile with backend API
+          try {
+            const resp = await fetch('/api/customer/quick-auth', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                phone: cleanPhone,
+                email: rawEmail.toLowerCase(),
+                fullName: this.getUserName()
+              })
+            });
+            const data = await resp.json();
+            if (data?.token) {
+              localStorage.setItem('honesty_customer_token', data.token);
+            }
+          } catch (netErr) {
+            console.warn('[AuthManager] Quick-auth API network sync warning:', netErr);
+          }
+
+          this.updateUI();
+          this.closeAuthModal();
+
+          if (window.showToast) {
+            window.showToast(`Welcome to Honesty Store, ${this.getUserName()}!`, 'success');
+          }
+
+          if (typeof this.authCallback === 'function') {
+            const cb = this.authCallback;
+            this.authCallback = null;
+            cb();
+          } else if (window.customerApp && typeof window.customerApp.switchScreen === 'function') {
+            window.customerApp.switchScreen('screen-catalog');
+          }
+        } catch (err) {
+          console.error('[AuthManager] Signin submission error:', err);
+          if (errEl) {
+            errEl.innerText = err.message || 'Failed to complete sign in. Please verify your details.';
+            errEl.style.display = 'block';
+            errEl.style.color = '#ef4444';
+            errEl.style.background = '#fef2f2';
+            errEl.style.borderColor = '#fee2e2';
+          }
+        } finally {
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<span>Continue &amp; Enter Store &rarr;</span>';
+          }
+        }
       });
     }
 
@@ -720,6 +834,7 @@ class AuthManager {
         phone: cleanPhone
       };
     }
+    this.isLoggedIn = true;
 
     try {
       localStorage.setItem('honesty_customer_user', JSON.stringify(this.user));

@@ -363,6 +363,50 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // 1b. Customer Quick Auth / Sign In / Sign Up (Compulsory Gmail + Phone)
+  if (req.method === 'POST' && (reqPath === '/api/customer/quick-auth' || reqPath === '/api/customer/signin')) {
+    try {
+      const { email, phone, name } = await parseJsonBody(req);
+      const cleanPhone = String(phone || '').replace(/\D/g, '').slice(-10);
+      const cleanEmail = String(email || '').trim().toLowerCase();
+      let cleanName = String(name || '').trim();
+
+      if (!cleanPhone || !/^[6-9]\d{9}$/.test(cleanPhone)) {
+        sendJson(400, { success: false, message: 'A valid 10-digit Indian mobile number is compulsory.' });
+        return;
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!cleanEmail || !emailRegex.test(cleanEmail)) {
+        sendJson(400, { success: false, message: 'A valid Gmail / Email address is compulsory.' });
+        return;
+      }
+
+      if (!cleanName || cleanName.toLowerCase().includes('honesty') || cleanName.toLowerCase().includes('shopper') || cleanName.toLowerCase().includes('customer')) {
+        cleanName = cleanEmail.split('@')[0];
+      }
+
+      await serverSupabase.recordCustomerOrder(cleanPhone, 0, cleanEmail, cleanName);
+      const token = signCustomerToken(cleanPhone, cleanName);
+      console.log(`[Customer Auth] Verified customer: ${cleanName} (${cleanEmail}, +91 ${cleanPhone})`);
+
+      sendJson(200, {
+        success: true,
+        message: 'Customer authenticated successfully',
+        token,
+        user: {
+          id: 'cust_' + cleanPhone,
+          phone: cleanPhone,
+          email: cleanEmail,
+          fullName: cleanName
+        }
+      });
+    } catch (err) {
+      sendJson(400, { success: false, message: err.message });
+    }
+    return;
+  }
+
   // 2. Login Customer (Phone + Password / PIN)
   if (req.method === 'POST' && reqPath === '/api/login') {
     try {

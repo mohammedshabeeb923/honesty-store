@@ -47,12 +47,21 @@ class CustomerApp {
   }
 
   bindEvents() {
-    // Enter Store from splash - Frictionless access to catalog
+    // Enter Store from splash - Requires compulsory Gmail & Phone sign in / sign up
     const btnEnter = document.getElementById('btn-enter-store');
     if (btnEnter) {
       btnEnter.addEventListener('click', () => {
-        window.storeDB.logVisit();
-        this.switchScreen('screen-catalog');
+        if (window.authManager && window.authManager.hasMandatoryCustomerDetails()) {
+          window.storeDB.logVisit();
+          this.switchScreen('screen-catalog');
+        } else {
+          window.authManager.openAuthModal({
+            onSuccess: () => {
+              window.storeDB.logVisit();
+              this.switchScreen('screen-catalog');
+            }
+          });
+        }
       });
     }
 
@@ -166,6 +175,22 @@ class CustomerApp {
   }
 
   switchScreen(screenId) {
+    if (screenId !== 'screen-splash') {
+      const isAuth = window.authManager && typeof window.authManager.hasMandatoryCustomerDetails === 'function'
+        ? window.authManager.hasMandatoryCustomerDetails()
+        : false;
+      if (!isAuth) {
+        if (window.authManager && typeof window.authManager.openAuthModal === 'function') {
+          window.authManager.openAuthModal({
+            onSuccess: () => {
+              this.switchScreen(screenId);
+            }
+          });
+        }
+        return;
+      }
+    }
+
     this.currentScreen = screenId;
     Object.values(this.screens).forEach(screen => {
       if (screen) screen.classList.remove('active');
