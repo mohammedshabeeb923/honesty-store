@@ -299,6 +299,10 @@ const server = http.createServer(async (req, res) => {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*'
     });
+    if (req.method === 'HEAD') {
+      res.end();
+      return;
+    }
     res.end(JSON.stringify(data));
   };
 
@@ -306,10 +310,35 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PATCH, PUT',
+      'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS, PATCH, PUT',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization'
     });
     res.end();
+    return;
+  }
+
+  // 0. Dedicated Health Check for UptimeRobot / Keep-Alive Monitors / Pingers
+  if (reqPath === '/health' || reqPath === '/healthz' || reqPath === '/api/health' || reqPath === '/ping') {
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Access-Control-Allow-Origin': '*'
+    });
+
+    if (req.method === 'HEAD') {
+      res.end();
+      return;
+    }
+
+    const healthData = {
+      status: 'healthy',
+      uptime: Math.floor(process.uptime()),
+      timestamp: new Date().toISOString(),
+      service: 'Honesty Store Node',
+      version: '2.0.0'
+    };
+
+    res.end(JSON.stringify(healthData));
     return;
   }
 
@@ -1420,8 +1449,14 @@ const server = http.createServer(async (req, res) => {
 
     res.writeHead(200, {
       'Content-Type': contentType,
+      'Content-Length': stats.size,
       'Cache-Control': 'no-cache'
     });
+
+    if (req.method === 'HEAD') {
+      res.end();
+      return;
+    }
 
     const stream = fs.createReadStream(filePath);
     stream.pipe(res);
