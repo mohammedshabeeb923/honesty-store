@@ -346,33 +346,60 @@ const server = http.createServer(async (req, res) => {
   // BACKEND API ROUTES
   // ============================================================
 
-  // Order Status Check (Public, safe - used by customer when returning to site)
-  if ((req.method === 'GET' || req.method === 'POST') && reqPath === '/api/order-status') {
+  // Order Status Check (Public endpoint - used by returning customers to check payment)
+  if ((req.method === 'GET' || req.method === 'POST') && (reqPath === '/api/order-status' || reqPath === '/api/check-order')) {
     try {
-      const orderId = req.method === 'GET' ? queryParams.get('id') : (await parseJsonBody(req)).orderId;
-      if (!orderId) {
-        sendJson(400, { success: false, error: 'orderId required' });
+      let orderId;
+      if (req.method === 'GET') {
+        orderId = queryParams.get('id') || queryParams.get('order_id');
+      } else {
+        const body = await parseJsonBody(req);
+        orderId = body.orderId || body.order_id || body.id;
+      }
+
+      if (!orderId || typeof orderId !== 'string' || orderId.length > 100) {
+        sendJson(400, { success: false, error: 'Valid orderId is required' });
         return;
       }
-      // Fetch from Supabase
-      const orders = await serverSupabase.fetchApi('orders', { query: `?id=eq.${orderId}&select=id,status,payment_status,order_status,amount,customer_name,created_at,updated_at,items` });
-      if (!orders || orders.length === 0) {
+
+      // First check local fallback
+      const localOrder = (serverSupabase.fallbackData.orders || []).find(o => o.id === orderId);
+
+      // Try Supabase (authoritative)
+      let order = null;
+      try {
+        const orders = await serverSupabase.fetchApi('orders', {
+          query: `?id=eq.${encodeURIComponent(orderId)}&select=id,status,payment_status,order_status,amount,customer_name,created_at,updated_at,items,payment_method`
+        });
+        if (orders && orders.length > 0) {
+          order = orders[0];
+        }
+      } catch(e) {
+        console.warn('[order-status] Supabase fetch failed:', e.message);
+      }
+
+      // Fall back to local if Supabase unavailable
+      if (!order && localOrder) order = localOrder;
+
+      if (!order) {
         sendJson(404, { success: false, error: 'Order not found' });
         return;
       }
-      const o = orders[0];
+
+      const isPaid = order.status === 'PAID' || order.payment_status === 'PAID';
       sendJson(200, {
         success: true,
-        orderId: o.id,
-        status: o.status,
-        paymentStatus: o.payment_status,
-        orderStatus: o.order_status,
-        isPaid: o.status === 'PAID' || o.payment_status === 'PAID',
-        amount: o.amount,
-        customerName: o.customer_name,
-        createdAt: o.created_at,
-        updatedAt: o.updated_at,
-        items: o.items
+        orderId: order.id,
+        status: order.status,
+        paymentStatus: order.payment_status,
+        orderStatus: order.order_status,
+        isPaid,
+        amount: order.amount,
+        customerName: order.customer_name,
+        paymentMethod: order.payment_method,
+        createdAt: order.created_at,
+        updatedAt: order.updated_at,
+        items: order.items
       });
     } catch(err) {
       sendJson(500, { success: false, error: err.message });
@@ -1425,6 +1452,95 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // 16a. Admin: Reconcile stale PENDING orders against Cashfree API
+  if (req.method === 'POST' && reqPath === '/api/admin/reconcile-pending') {
+    if (!await isAuthorizedAdmin(req)) {
+      sendJson(401, { success: false, message: 'Admin authorization required' });
+      return;
+    }
+    try {
+      const { appId, secretKey, env } = getCashfreeConfig();
+      if (!appId || !secretKey || appId === 'TEST_APP_ID') {
+        throw new Error('Cashfree credentials not configured for reconciliation');
+      }
+
+      // Fetch stale PENDING orders from Supabase (older than 5 min)
+      const staleOrders = await serverSupabase.fetchApi('orders', {
+        query: '?status=eq.PENDING&payment_status=eq.PENDING&select=id,order_number,amount,created_at,customer_name'
+      }) || [];
+
+      const cutoff = Date.now() - 5 * 60 * 1000; // 5 minutes ago
+      const reconcilable = staleOrders.filter(o => new Date(o.created_at).getTime() < cutoff);
+
+      console.log(`[Reconciliation] Checking ${reconcilable.length} stale PENDING orders...`);
+
+      let recovered = 0, failed = 0, stillPending = 0, errors = 0;
+      const details = [];
+
+      for (const order of reconcilable) {
+        try {
+          const baseUrl = env === 'PRODUCTION'
+            ? `https://api.cashfree.com/pg/orders/${order.id}`
+            : `https://sandbox.cashfree.com/pg/orders/${order.id}`;
+
+          const cfRes = await fetch(baseUrl, {
+            method: 'GET',
+            headers: {
+              'x-client-id': appId,
+              'x-client-secret': secretKey,
+              'x-api-version': '2023-08-01'
+            }
+          });
+
+          if (!cfRes.ok) {
+            console.warn(`[Reconciliation] Cashfree API error for ${order.id}: ${cfRes.status}`);
+            errors++;
+            details.push({ orderId: order.id, result: 'api_error', status: cfRes.status });
+            continue;
+          }
+
+          const cfData = await cfRes.json();
+          const cfStatus = cfData.order_status;
+
+          if (cfStatus === 'PAID') {
+            await serverSupabase.confirmOrderPayment(
+              order.id,
+              cfData.cf_payment_id || cfData.cf_order_id,
+              cfData.cf_order_id,
+              { paymentMethod: 'Reconciled' }
+            );
+            recovered++;
+            details.push({ orderId: order.id, result: 'recovered', amount: order.amount });
+            console.log(`[Reconciliation] Recovered PAID order: ${order.id} (${order.customer_name || 'Unknown'}, Rs.${order.amount})`);
+          } else if (cfStatus === 'FAILED' || cfStatus === 'CANCELLED' || cfStatus === 'TERMINATED' || cfStatus === 'EXPIRED') {
+            await serverSupabase.markOrderAsFailed(order.id, cfStatus, cfData.cf_payment_id);
+            failed++;
+            details.push({ orderId: order.id, result: 'marked_failed', cfStatus });
+            console.log(`[Reconciliation] Marked ${cfStatus}: ${order.id}`);
+          } else {
+            stillPending++;
+            details.push({ orderId: order.id, result: 'still_pending', cfStatus });
+          }
+        } catch (orderErr) {
+          errors++;
+          details.push({ orderId: order.id, result: 'error', error: orderErr.message });
+          console.warn(`[Reconciliation] Error processing ${order.id}:`, orderErr.message);
+        }
+      }
+
+      console.log(`[Reconciliation] Complete: recovered=${recovered}, failed=${failed}, stillPending=${stillPending}, errors=${errors}`);
+      sendJson(200, {
+        success: true,
+        summary: { checked: reconcilable.length, recovered, failed, stillPending, errors },
+        details
+      });
+    } catch (err) {
+      console.error('[Reconciliation] Error:', err.message);
+      sendJson(500, { success: false, error: err.message });
+    }
+    return;
+  }
+
   // 16. Test Supabase Connection
   if (req.method === 'POST' && reqPath === '/api/test-supabase') {
     try {
@@ -1539,10 +1655,12 @@ const server = http.createServer(async (req, res) => {
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 
-    // Images: cache for 1 day to reduce mobile bandwidth on large product assets
-    // HTML/JS/CSS: no-cache so code changes are picked up immediately
-    const isImage = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.ico'].includes(ext);
-    const cacheControl = isImage ? 'public, max-age=86400' : 'no-cache';
+    // Images/fonts: 7-day immutable cache to reduce bandwidth on repeat visits
+    // HTML/JS/CSS/JSON: strict no-cache so code changes are always picked up immediately
+    const isStaticAsset = ['.jpg', '.jpeg', '.png', '.svg', '.ico', '.woff2', '.gif', '.webp'].includes(ext);
+    const cacheControl = isStaticAsset
+      ? 'public, max-age=604800, immutable'
+      : 'no-cache, no-store, must-revalidate';
 
     res.writeHead(200, {
       'Content-Type': contentType,
