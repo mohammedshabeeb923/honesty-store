@@ -172,6 +172,37 @@ async function isAuthorizedAdmin(req) {
   return false;
 }
 
+// Secret for automatic cron/UptimeRobot background reconciliation
+const CRON_SECRET = (process.env.CRON_SECRET || process.env.RECONCILIATION_SECRET || 'honesty_reconcile_cron_2026').trim();
+
+function isAuthorizedCron(req, queryParams) {
+  const token = (queryParams ? (queryParams.get('token') || queryParams.get('key') || queryParams.get('secret') || queryParams.get('cron_secret')) : null) || '';
+  const headerToken = req.headers['x-cron-secret'] || req.headers['x-cron-token'] || req.headers['x-api-key'] || '';
+  const authHeader = (req.headers['authorization'] || '').replace(/^Bearer\s+/i, '').trim();
+
+  const candidate = String(token || headerToken || authHeader || '').trim();
+  if (!candidate) return false;
+
+  const validSecrets = [
+    process.env.CRON_SECRET,
+    process.env.RECONCILIATION_SECRET,
+    CRON_SECRET,
+    process.env.SERVER_SECRET,
+    process.env.SUPABASE_ANON_KEY
+  ].filter(Boolean).map(s => String(s).trim());
+
+  for (const s of validSecrets) {
+    if (!s) continue;
+    if (candidate === s) return true;
+    try {
+      if (candidate.length === s.length && crypto.timingSafeEqual(Buffer.from(candidate), Buffer.from(s))) {
+        return true;
+      }
+    } catch (e) {}
+  }
+  return false;
+}
+
 function getCallerSupabaseToken(req) {
   const sbToken = req.headers['x-supabase-token'];
   if (sbToken && !sbToken.startsWith('admin_')) return sbToken;
@@ -289,6 +320,141 @@ function getCashfreeConfig() {
   return { appId, secretKey, env };
 }
 
+// ============================================================
+// SHARED PENDING-ORDER RECONCILIATION ENGINE
+// Used by both POST /api/admin/reconcile-pending and GET /api/cron/reconcile
+// ============================================================
+async function executePendingOrdersReconciliation() {
+  const { appId, secretKey, env } = getCashfreeConfig();
+  if (!appId || !secretKey || appId === 'TEST_APP_ID') {
+    throw new Error('Cashfree credentials not configured on server for reconciliation');
+  }
+
+  // 1. Fetch stale PENDING orders from Supabase (older than 5 min)
+  let staleOrders = [];
+  try {
+    staleOrders = await serverSupabase.fetchApi('orders', {
+      query: '?status=eq.PENDING&select=id,order_number,amount,created_at,customer_name,customer_phone,customer_email,status,payment_status'
+    }) || [];
+  } catch (fetchErr) {
+    console.warn('[Reconciliation] Supabase fetch error, checking local fallback:', fetchErr.message);
+    staleOrders = (serverSupabase.fallbackData.orders || []).filter(o => o.status === 'PENDING' || o.payment_status === 'PENDING');
+  }
+
+  const cutoff = Date.now() - 5 * 60 * 1000; // 5 minutes ago
+  const reconcilable = (staleOrders || []).filter(o => {
+    const t = new Date(o.created_at).getTime();
+    return !isNaN(t) && t < cutoff;
+  });
+
+  console.log(`[Reconciliation] Checking ${reconcilable.length} stale PENDING orders (created > 5m ago)...`);
+
+  let recovered = 0, failed = 0, stillPending = 0, errors = 0;
+  const details = [];
+
+  for (const order of reconcilable) {
+    try {
+      const baseUrl = env === 'PRODUCTION'
+        ? `https://api.cashfree.com/pg/orders/${encodeURIComponent(order.id)}`
+        : `https://sandbox.cashfree.com/pg/orders/${encodeURIComponent(order.id)}`;
+
+      const cfRes = await fetch(baseUrl, {
+        method: 'GET',
+        headers: {
+          'x-client-id': appId,
+          'x-client-secret': secretKey,
+          'x-api-version': '2023-08-01'
+        }
+      });
+
+      if (!cfRes.ok) {
+        console.warn(`[Reconciliation] Cashfree API returned HTTP ${cfRes.status} for order ${order.id}`);
+        errors++;
+        details.push({ orderId: order.id, result: 'api_error', status: cfRes.status });
+        continue;
+      }
+
+      const cfData = await cfRes.json();
+      const cfStatus = cfData.order_status;
+
+      if (cfStatus === 'PAID') {
+        // Fetch payment details to capture payer UPI ID / payer name if available
+        let payerInfo = cfData.customer_details?.customer_name;
+        let paymentMethodDetail = 'UPI';
+        try {
+          const payUrl = env === 'PRODUCTION'
+            ? `https://api.cashfree.com/pg/orders/${encodeURIComponent(order.id)}/payments`
+            : `https://sandbox.cashfree.com/pg/orders/${encodeURIComponent(order.id)}/payments`;
+
+          const payRes = await fetch(payUrl, {
+            method: 'GET',
+            headers: {
+              'x-client-id': appId,
+              'x-client-secret': secretKey,
+              'x-api-version': '2023-08-01'
+            }
+          });
+          if (payRes.ok) {
+            const payments = await payRes.json();
+            if (Array.isArray(payments) && payments.length > 0) {
+              const successP = payments.find(p => p.payment_status === 'SUCCESS') || payments[0];
+              paymentMethodDetail = successP.payment_group || (successP.payment_method ? Object.keys(successP.payment_method)[0] : 'UPI');
+              if (successP.payment_method?.upi?.upi_id) {
+                payerInfo = successP.payment_method.upi.upi_id;
+              } else if (successP.payer_name) {
+                payerInfo = successP.payer_name;
+              }
+            }
+          }
+        } catch (payErr) {}
+
+        const confirmResult = await serverSupabase.confirmOrderPayment(
+          order.id,
+          cfData.cf_payment_id || cfData.cf_order_id,
+          cfData.cf_order_id,
+          {
+            payerInfo,
+            paymentMethod: paymentMethodDetail,
+            customerDetails: cfData.customer_details
+          }
+        );
+        recovered++;
+        details.push({
+          orderId: order.id,
+          result: 'recovered',
+          amount: order.amount,
+          alreadyPaid: confirmResult?.alreadyPaid
+        });
+        console.log(`[Reconciliation] ✅ Recovered & marked PAID: ${order.id} (₹${order.amount}, ${order.customer_name || 'Customer'})`);
+      } else if (['FAILED', 'CANCELLED', 'TERMINATED', 'EXPIRED', 'USER_DROPPED'].includes(cfStatus)) {
+        await serverSupabase.markOrderAsFailed(order.id, cfStatus, cfData.cf_payment_id);
+        failed++;
+        details.push({ orderId: order.id, result: 'marked_failed', cfStatus });
+        console.log(`[Reconciliation] ❌ Marked ${cfStatus}: ${order.id}`);
+      } else {
+        stillPending++;
+        details.push({ orderId: order.id, result: 'still_pending', cfStatus });
+      }
+    } catch (orderErr) {
+      errors++;
+      details.push({ orderId: order.id, result: 'error', error: orderErr.message });
+      console.warn(`[Reconciliation] Error processing ${order.id}:`, orderErr.message);
+    }
+  }
+
+  const summary = {
+    checked: reconcilable.length,
+    recovered,
+    failed,
+    stillPending,
+    errors,
+    timestamp: new Date().toISOString()
+  };
+
+  console.log(`[Reconciliation Complete] Checked: ${summary.checked} | Recovered: ${summary.recovered} | Failed: ${summary.failed} | Still Pending: ${summary.stillPending} | Errors: ${summary.errors}`);
+  return { summary, details };
+}
+
 const server = http.createServer(async (req, res) => {
   const [reqPath, queryString] = req.url.split('?');
   const queryParams = new URLSearchParams(queryString || '');
@@ -339,6 +505,43 @@ const server = http.createServer(async (req, res) => {
     };
 
     res.end(JSON.stringify(healthData));
+    return;
+  }
+
+  // 0b. Dedicated Secure Cron / UptimeRobot Pending-Order Reconciliation Endpoint
+  // Example for UptimeRobot monitor: GET https://your-domain.com/api/cron/reconcile?key=honesty_reconcile_cron_2026
+  if ((req.method === 'GET' || req.method === 'HEAD') && (reqPath === '/api/cron/reconcile' || reqPath === '/api/cron/reconcile-pending')) {
+    const isCronAuthed = isAuthorizedCron(req, queryParams);
+    const isAdminAuthed = await isAuthorizedAdmin(req);
+
+    if (!isCronAuthed && !isAdminAuthed) {
+      sendJson(401, {
+        status: 'unauthorized',
+        error: 'Unauthorized: valid secret token (?key=...) or admin credentials required'
+      });
+      return;
+    }
+
+    try {
+      const result = await executePendingOrdersReconciliation();
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Access-Control-Allow-Origin': '*'
+      });
+      if (req.method === 'HEAD') {
+        res.end();
+        return;
+      }
+      res.end(JSON.stringify({
+        status: 'ok',
+        service: 'Honesty Store Pending Order Reconciliation',
+        ...result.summary
+      }));
+    } catch (err) {
+      console.error('[Cron Reconciliation Error]:', err.message);
+      sendJson(500, { status: 'error', error: err.message });
+    }
     return;
   }
 
@@ -1459,83 +1662,14 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     try {
-      const { appId, secretKey, env } = getCashfreeConfig();
-      if (!appId || !secretKey || appId === 'TEST_APP_ID') {
-        throw new Error('Cashfree credentials not configured for reconciliation');
-      }
-
-      // Fetch stale PENDING orders from Supabase (older than 5 min)
-      const staleOrders = await serverSupabase.fetchApi('orders', {
-        query: '?status=eq.PENDING&payment_status=eq.PENDING&select=id,order_number,amount,created_at,customer_name'
-      }) || [];
-
-      const cutoff = Date.now() - 5 * 60 * 1000; // 5 minutes ago
-      const reconcilable = staleOrders.filter(o => new Date(o.created_at).getTime() < cutoff);
-
-      console.log(`[Reconciliation] Checking ${reconcilable.length} stale PENDING orders...`);
-
-      let recovered = 0, failed = 0, stillPending = 0, errors = 0;
-      const details = [];
-
-      for (const order of reconcilable) {
-        try {
-          const baseUrl = env === 'PRODUCTION'
-            ? `https://api.cashfree.com/pg/orders/${order.id}`
-            : `https://sandbox.cashfree.com/pg/orders/${order.id}`;
-
-          const cfRes = await fetch(baseUrl, {
-            method: 'GET',
-            headers: {
-              'x-client-id': appId,
-              'x-client-secret': secretKey,
-              'x-api-version': '2023-08-01'
-            }
-          });
-
-          if (!cfRes.ok) {
-            console.warn(`[Reconciliation] Cashfree API error for ${order.id}: ${cfRes.status}`);
-            errors++;
-            details.push({ orderId: order.id, result: 'api_error', status: cfRes.status });
-            continue;
-          }
-
-          const cfData = await cfRes.json();
-          const cfStatus = cfData.order_status;
-
-          if (cfStatus === 'PAID') {
-            await serverSupabase.confirmOrderPayment(
-              order.id,
-              cfData.cf_payment_id || cfData.cf_order_id,
-              cfData.cf_order_id,
-              { paymentMethod: 'Reconciled' }
-            );
-            recovered++;
-            details.push({ orderId: order.id, result: 'recovered', amount: order.amount });
-            console.log(`[Reconciliation] Recovered PAID order: ${order.id} (${order.customer_name || 'Unknown'}, Rs.${order.amount})`);
-          } else if (cfStatus === 'FAILED' || cfStatus === 'CANCELLED' || cfStatus === 'TERMINATED' || cfStatus === 'EXPIRED') {
-            await serverSupabase.markOrderAsFailed(order.id, cfStatus, cfData.cf_payment_id);
-            failed++;
-            details.push({ orderId: order.id, result: 'marked_failed', cfStatus });
-            console.log(`[Reconciliation] Marked ${cfStatus}: ${order.id}`);
-          } else {
-            stillPending++;
-            details.push({ orderId: order.id, result: 'still_pending', cfStatus });
-          }
-        } catch (orderErr) {
-          errors++;
-          details.push({ orderId: order.id, result: 'error', error: orderErr.message });
-          console.warn(`[Reconciliation] Error processing ${order.id}:`, orderErr.message);
-        }
-      }
-
-      console.log(`[Reconciliation] Complete: recovered=${recovered}, failed=${failed}, stillPending=${stillPending}, errors=${errors}`);
+      const result = await executePendingOrdersReconciliation();
       sendJson(200, {
         success: true,
-        summary: { checked: reconcilable.length, recovered, failed, stillPending, errors },
-        details
+        summary: result.summary,
+        details: result.details
       });
     } catch (err) {
-      console.error('[Reconciliation] Error:', err.message);
+      console.error('[Admin Reconciliation Error]:', err.message);
       sendJson(500, { success: false, error: err.message });
     }
     return;
