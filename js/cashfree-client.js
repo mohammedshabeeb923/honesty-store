@@ -125,14 +125,18 @@ class CashfreeClient {
 
           this.cashfree.checkout(checkoutOptions).then(async (result) => {
             if (result && result.error) {
-              if (window.showToast) window.showToast('Payment cancelled: ' + (result.error.message || 'Cancelled'), 'error');
-              return;
+              console.warn('[Cashfree Checkout]:', result.error.message || 'Payment cancelled');
+              // Even if there's a reported error, still verify server-side
+              // (race condition: user may have paid right as modal closed)
             }
-
-            // Verify payment server-side via GET /pg/orders/{order_id}
+            // Always verify server-side — the webhook is the source of truth,
+            // but this immediate check catches the case where webhook hasn't fired yet
             await this.verifyAndCompletePayment(orderId, session.orderAmount || total, cart);
           }).catch(cErr => {
             console.warn('[Cashfree Checkout Catch]:', cErr);
+            // Still attempt verification on caught errors
+            this.verifyAndCompletePayment(orderId, session.orderAmount || total, cart)
+              .catch(vErr => console.warn('[Post-error verify]:', vErr));
           });
         } else {
           // If Cashfree JS SDK is blocked by browser, redirect to Cashfree checkout directly
@@ -173,8 +177,29 @@ class CashfreeClient {
           status: 'Paid',
           payment_method: 'Cashfree UPI'
         });
+      } else if (verifyData.orderStatus === 'FAILED') {
+        if (window.showToast) window.showToast('Payment failed or was cancelled. No amount was charged.', 'error');
       } else {
-        if (window.showToast) window.showToast(`Payment Status: ${verifyData.orderStatus || 'Pending'}. If deducted, your order will update shortly.`, 'info');
+        // Payment is processing — webhook will confirm it in the background
+        if (window.showToast) window.showToast('Payment verification in progress. Checking again in 5 seconds...', 'info');
+        // One retry after 5 seconds
+        setTimeout(async () => {
+          try {
+            const r2 = await fetch('/api/verify-cashfree-order', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ orderId })
+            });
+            const d2 = await r2.json();
+            if (d2.success && d2.isPaid) {
+              this.handlePaymentSuccess(d2.order || { id: orderId, amount: expectedAmount, items: fallbackItems, status: 'Paid', payment_method: 'Cashfree UPI' });
+            } else {
+              if (window.showToast) window.showToast('Payment processing. Check your order history in a moment.', 'info');
+            }
+          } catch(e) {
+            console.warn('[Cashfree] Retry verify error:', e);
+          }
+        }, 5000);
       }
     } catch (vErr) {
       console.warn('[Cashfree Client] Verification error:', vErr);

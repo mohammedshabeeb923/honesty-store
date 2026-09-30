@@ -149,15 +149,45 @@ document.addEventListener('DOMContentLoaded', () => {
   if (urlParams.has('order_id')) {
     const returnOrderId = urlParams.get('order_id');
     console.log('[Cashfree Return URL]: Checking order', returnOrderId);
-    fetch('/api/verify-cashfree-order', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderId: returnOrderId })
-    }).then(r => r.json()).then(data => {
-      if (data.isPaid && window.cashfreeClient) {
-        window.cashfreeClient.handlePaymentSuccess(data.order || { id: returnOrderId, amount: data.orderAmount || 1, items: [] });
+    
+    // Show confirming state
+    if (window.showToast) window.showToast('Confirming your payment...', 'info');
+
+    // Clean up URL immediately (remove ?order_id= from address bar)
+    try {
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, '', cleanUrl);
+    } catch(e) {}
+
+    const verifyReturnOrder = async (attempt = 1) => {
+      try {
+        const r = await fetch('/api/verify-cashfree-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId: returnOrderId })
+        });
+        const data = await r.json();
+        
+        if (data.isPaid && window.cashfreeClient) {
+          window.cashfreeClient.handlePaymentSuccess(data.order || { id: returnOrderId, amount: data.orderAmount || 1, items: [] });
+          if (window.showToast) window.showToast('Payment confirmed! Thank you.', 'success');
+        } else if ((data.orderStatus === 'PENDING' || !data.orderStatus) && attempt <= 3) {
+          // Webhook may still be in transit — retry after delay
+          const delay = attempt * 4000; // 4s, 8s, 12s
+          setTimeout(() => verifyReturnOrder(attempt + 1), delay);
+          if (attempt === 1 && window.showToast) window.showToast('Payment verification in progress... Please wait.', 'info');
+        } else if (data.orderStatus === 'FAILED') {
+          if (window.showToast) window.showToast('Payment was not completed. Please try again if amount was deducted.', 'error');
+        } else {
+          if (window.showToast) window.showToast('Payment status: ' + (data.orderStatus || 'Processing') + '. Check your order history shortly.', 'info');
+        }
+      } catch(e) {
+        console.warn('[Return URL] Verification error:', e);
+        if (window.showToast) window.showToast('Could not verify payment status. Please check your order history.', 'error');
       }
-    }).catch(e => console.warn('Return URL check warning:', e));
+    };
+    
+    verifyReturnOrder();
   }
 
   // Close modals when clicking overlay

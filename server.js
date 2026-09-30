@@ -346,7 +346,41 @@ const server = http.createServer(async (req, res) => {
   // BACKEND API ROUTES
   // ============================================================
 
-  // 1. Register Customer (Phone + Password / PIN)
+  // Order Status Check (Public, safe - used by customer when returning to site)
+  if ((req.method === 'GET' || req.method === 'POST') && reqPath === '/api/order-status') {
+    try {
+      const orderId = req.method === 'GET' ? queryParams.get('id') : (await parseJsonBody(req)).orderId;
+      if (!orderId) {
+        sendJson(400, { success: false, error: 'orderId required' });
+        return;
+      }
+      // Fetch from Supabase
+      const orders = await serverSupabase.fetchApi('orders', { query: `?id=eq.${orderId}&select=id,status,payment_status,order_status,amount,customer_name,created_at,updated_at,items` });
+      if (!orders || orders.length === 0) {
+        sendJson(404, { success: false, error: 'Order not found' });
+        return;
+      }
+      const o = orders[0];
+      sendJson(200, {
+        success: true,
+        orderId: o.id,
+        status: o.status,
+        paymentStatus: o.payment_status,
+        orderStatus: o.order_status,
+        isPaid: o.status === 'PAID' || o.payment_status === 'PAID',
+        amount: o.amount,
+        customerName: o.customer_name,
+        createdAt: o.created_at,
+        updatedAt: o.updated_at,
+        items: o.items
+      });
+    } catch(err) {
+      sendJson(500, { success: false, error: err.message });
+    }
+    return;
+  }
+
+
   if (req.method === 'POST' && reqPath === '/api/register') {
     try {
       const { name, phone, password } = await parseJsonBody(req);
@@ -1232,14 +1266,20 @@ const server = http.createServer(async (req, res) => {
       const timestamp = req.headers['x-webhook-timestamp'];
       const { secretKey } = getCashfreeConfig();
 
-      if (signature && timestamp && secretKey) {
-        const computedSignature = crypto.createHmac('sha256', secretKey)
-          .update(timestamp + rawBody)
-          .digest('base64');
-        if (signature !== computedSignature) {
-          console.warn('[Cashfree Webhook] Invalid signature rejected!');
-          sendJson(401, { error: 'Invalid webhook signature' });
-          return;
+      if (secretKey) {
+        if (signature && timestamp) {
+          const computedSignature = crypto.createHmac('sha256', secretKey)
+            .update(timestamp + rawBody)
+            .digest('base64');
+          if (signature !== computedSignature) {
+            console.warn('[Cashfree Webhook] Invalid signature rejected!');
+            sendJson(401, { error: 'Invalid webhook signature' });
+            return;
+          }
+        } else {
+          // secretKey is configured but signature is absent — log for monitoring.
+          // Cashfree sends unsigned events in some test/sandbox scenarios.
+          console.warn('[Cashfree Webhook] WARNING: Received webhook without x-webhook-signature header. Processing anyway (may be a test event).');
         }
       }
 
@@ -1268,7 +1308,9 @@ const server = http.createServer(async (req, res) => {
 
       sendJson(200, { status: 'ACKNOWLEDGED' });
     } catch (e) {
-      sendJson(400, { error: 'Webhook processing error', details: e.message });
+      const isTransient = e.message && (e.message.includes('network') || e.message.includes('timeout') || e.message.includes('ECONNREFUSED') || e.message.includes('fetch'));
+      console.error('[Cashfree Webhook] Processing error:', e.message);
+      sendJson(isTransient ? 503 : 200, { status: isTransient ? 'RETRY' : 'ACKNOWLEDGED', error: e.message });
     }
     return;
   }
@@ -1430,6 +1472,56 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Admin: Reconcile stuck PENDING orders against Cashfree API
+  if (req.method === 'POST' && reqPath === '/api/admin/reconcile-pending') {
+    // Require admin auth
+    const adminCookie = (req.headers['cookie'] || '').split(';').map(c => c.trim()).find(c => c.startsWith('admin_token='));
+    const adminToken = (adminCookie || '').replace('admin_token=', '') || req.headers['x-admin-token'];
+    const adminPayload = adminToken ? verifyAdminToken(adminToken) : null;
+    if (!adminPayload) {
+      sendJson(401, { success: false, error: 'Admin authentication required' });
+      return;
+    }
+    try {
+      const { appId, secretKey, env } = getCashfreeConfig();
+      if (!appId || !secretKey || appId === 'TEST_APP_ID') {
+        sendJson(400, { success: false, error: 'Cashfree credentials not configured' });
+        return;
+      }
+      const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      // Fetch PENDING orders older than 5 minutes
+      const pendingOrders = await serverSupabase.fetchApi('orders', {
+        query: `?status=eq.PENDING&created_at=lt.${fiveMinsAgo}&select=id,amount,customer_name,created_at`
+      });
+      const results = { recovered: [], failed: [], skipped: [], total: (pendingOrders || []).length };
+      const cfBase = env === 'PRODUCTION' ? 'https://api.cashfree.com' : 'https://sandbox.cashfree.com';
+      for (const order of (pendingOrders || [])) {
+        try {
+          const cfRes = await fetch(`${cfBase}/pg/orders/${order.id}`, {
+            headers: { 'x-client-id': appId, 'x-client-secret': secretKey, 'x-api-version': '2023-08-01' }
+          });
+          const cfData = await cfRes.json();
+          if (cfData.order_status === 'PAID') {
+            await serverSupabase.confirmOrderPayment(order.id, null, order.id, {});
+            results.recovered.push(order.id);
+          } else if (['FAILED', 'USER_DROPPED', 'CANCELLED', 'EXPIRED'].includes(cfData.order_status)) {
+            await serverSupabase.markOrderAsFailed(order.id, cfData.order_status, null);
+            results.failed.push(order.id);
+          } else {
+            results.skipped.push({ id: order.id, cfStatus: cfData.order_status });
+          }
+        } catch (orderErr) {
+          results.skipped.push({ id: order.id, error: orderErr.message });
+        }
+      }
+      console.log(`[Reconcile] Recovered: ${results.recovered.length}, Failed: ${results.failed.length}, Skipped: ${results.skipped.length}`);
+      sendJson(200, { success: true, ...results });
+    } catch (err) {
+      sendJson(500, { success: false, error: err.message });
+    }
+    return;
+  }
+
   // ============================================================
   // STATIC ASSETS SERVING
   // ============================================================
@@ -1447,10 +1539,15 @@ const server = http.createServer(async (req, res) => {
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 
+    // Images: cache for 1 day to reduce mobile bandwidth on large product assets
+    // HTML/JS/CSS: no-cache so code changes are picked up immediately
+    const isImage = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.ico'].includes(ext);
+    const cacheControl = isImage ? 'public, max-age=86400' : 'no-cache';
+
     res.writeHead(200, {
       'Content-Type': contentType,
       'Content-Length': stats.size,
-      'Cache-Control': 'no-cache'
+      'Cache-Control': cacheControl
     });
 
     if (req.method === 'HEAD') {

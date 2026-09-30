@@ -1029,6 +1029,8 @@ class ServerSupabase {
           payment_reference: order.payment_reference,
           cashfree_payment_id: cfPaymentId,
           cashfree_order_id: cfOrderId,
+          verified_at: verifiedAt,
+          paid_at: verifiedAt,
           updated_at: verifiedAt
         }
       });
@@ -1084,7 +1086,7 @@ class ServerSupabase {
 
   // 5. ATOMICALLY DEDUCT INVENTORY
   async deductProductStock(productId, qty) {
-    // 1. Update in local fallback
+    // 1. Update in local fallback atomically
     const localProd = (this.fallbackData.products || []).find(p => p.id === productId);
     let newStock = 0;
     if (localProd) {
@@ -1095,26 +1097,16 @@ class ServerSupabase {
       this.saveFallback();
     }
 
-    // 2. Fetch latest live stock from Supabase and decrement
+    // 2. Try atomic RPC deduction (row-locked, prevents race conditions)
     try {
-      const remoteProd = await this.getProduct(productId);
-      if (remoteProd) {
-        newStock = Math.max(0, (remoteProd.stock || 0) - qty);
-        const newPhysical = Math.max(0, (remoteProd.physical_stock || remoteProd.stock) - qty);
-        await this.fetchApi('products', {
-          method: 'PATCH',
-          query: `?id=eq.${productId}`,
-          body: {
-            stock: newStock,
-            expected_stock: newStock,
-            physical_stock: newPhysical,
-            updated_at: new Date().toISOString()
-          }
-        });
-        console.log(`[ServerSupabase] Decremented stock for ${productId}: now ${newStock}`);
-      }
-    } catch (err) {
-      console.warn(`[ServerSupabase] deductProductStock(${productId}) remote warning:`, err.message);
+      await this.callRpc('deduct_inventory', {
+        p_items: [{ id: productId, qty: Number(qty) || 1 }]
+      });
+      console.log(`[ServerSupabase] Atomically deducted ${qty} units of ${productId} via RPC`);
+    } catch (rpcErr) {
+      console.warn(`[ServerSupabase] deductProductStock RPC failed for ${productId}:`, rpcErr.message);
+      // Do NOT fall back to racy read-then-write. Log and continue.
+      // The fallback data has already been updated above.
     }
   }
 
