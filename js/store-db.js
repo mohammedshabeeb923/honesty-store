@@ -116,19 +116,19 @@ const DEFAULT_PRODUCTS = [
     referenceName: 'MUNCH RS 10 [BOX]',
     variant: 'Chocolate Coated Wafer Box',
     category: 'Chocolates',
-    price: 209,
-    purchasePrice: 209.00,
-    sellingPrice: null, // Requires Admin Input
-    stock: 1,
-    expectedStock: 1,
-    physicalStock: 1,
+    price: 10,
+    purchasePrice: 8.50,
+    sellingPrice: 10,
+    stock: 25,
+    expectedStock: 25,
+    physicalStock: 25,
     image: 'assets/munch.jpg',
     imageUrl: 'assets/munch.jpg',
-    badge: 'PRICE TBD',
-    lowStockThreshold: 1,
+    badge: '',
+    lowStockThreshold: 5,
     isActive: true,
     isAvailable: true,
-    description: 'Crispy chocolate wafer box. Reference: MUNCH RS 10 [BOX] @ ₹209.00. Selling price requires admin input.'
+    description: 'Crispy chocolate wafer bar.'
   },
   {
     id: 'snickers',
@@ -221,8 +221,21 @@ class StoreDB {
     // Client transient UI state (cart, active filters)
     this.uiState = this.loadUIState();
 
+    // Cache key for live Supabase products to prevent old mock UI flash
+    let cachedProducts = [];
+    try {
+      const rawCached = localStorage.getItem('honesty_cached_products_v3');
+      if (rawCached) {
+        cachedProducts = JSON.parse(rawCached);
+      }
+    } catch (e) {}
+
+    this.isCatalogLoading = cachedProducts.length === 0;
+    this.userOrdersLoading = false;
+    this.userOrdersError = null;
+
     this.data = {
-      products: DEFAULT_PRODUCTS,
+      products: cachedProducts.length > 0 ? cachedProducts : [],
       get orders() {
         // Backwards compatibility: returns current user's isolated orders
         return window.storeDB ? window.storeDB.userOrders : [];
@@ -233,6 +246,7 @@ class StoreDB {
       community: {
         salesToday: 0,
         storeVisits: 0,
+        uniqueVisitors: 0,
         completedPayments: 0,
         pledgesCount: 0,
         storeLocation: 'Floor 3, Innovation Hub'
@@ -247,6 +261,7 @@ class StoreDB {
       localStorage.removeItem('honesty_store_v1');
     } catch (e) {}
 
+    this.trackVisit();
     this.syncWithServer();
   }
 
@@ -295,11 +310,15 @@ class StoreDB {
       await this.fetchCommunityMetrics();
 
       // 3. If a customer is logged in, fetch ONLY their private orders
-      const currentUserId = window.authManager ? window.authManager.getUserId() : null;
-      if (currentUserId) {
-        await this.loadUserOrders(currentUserId);
+      const isCustomerAuthed = window.authManager && typeof window.authManager.isAuthenticated === 'function' 
+        ? window.authManager.isAuthenticated() 
+        : false;
+      if (isCustomerAuthed) {
+        await this.loadUserOrders();
       } else {
         this.userOrders = [];
+        this.userOrdersLoading = false;
+        this.userOrdersError = null;
       }
 
       // 4. If admin console is open and user is admin, fetch all admin orders
@@ -374,6 +393,11 @@ class StoreDB {
             updatedAt: p.updated_at || null
           };
         });
+
+        this.isCatalogLoading = false;
+        try {
+          localStorage.setItem('honesty_cached_products_v3', JSON.stringify(this.data.products));
+        } catch (e) {}
       }
     } catch (e) {
       console.warn('[StoreDB] Could not sync products:', e);
@@ -389,6 +413,7 @@ class StoreDB {
           const m = metricData.metrics;
           this.data.community.salesToday = Number(m.sales_today) || 0;
           this.data.community.storeVisits = Number(m.store_visits) || 0;
+          this.data.community.uniqueVisitors = Number(m.unique_visitors) || 0;
           this.data.community.completedPayments = Number(m.completed_payments) || 0;
         }
       }
@@ -396,45 +421,62 @@ class StoreDB {
   }
 
   /**
-   * Load orders strictly belonging to the authenticated customer
+   * Load orders strictly belonging to the authenticated customer from Supabase
    */
-  async loadUserOrders(userId) {
-    if (!userId) {
+  async loadUserOrders() {
+    const isCustomerAuthed = window.authManager && typeof window.authManager.isAuthenticated === 'function' 
+      ? window.authManager.isAuthenticated() 
+      : false;
+
+    if (!isCustomerAuthed) {
       this.userOrders = [];
+      this.userOrdersLoading = false;
+      this.userOrdersError = null;
       this.notify();
       return;
     }
 
+    this.userOrdersLoading = true;
+    this.userOrdersError = null;
+    this.notify();
+
     try {
       let rawOrders = [];
+      const token = window.authManager ? window.authManager.getAccessToken() : '';
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
 
-      // 1. Try Supabase Client (RLS enforces user_id = auth.uid())
-      if (window.supabaseClient && window.supabaseClient.isConnected) {
-        rawOrders = await window.supabaseClient.getUserOrders(userId);
+      const currentPhone = window.authManager ? window.authManager.getUserPhone() : '';
+      const currentEmail = window.authManager ? window.authManager.getUserEmail() : '';
+      const params = new URLSearchParams();
+      if (currentPhone) params.set('phone', currentPhone);
+      if (currentEmail) params.set('email', currentEmail);
+
+      const url = '/api/orders' + (params.toString() ? `?${params.toString()}` : '');
+      const res = await fetch(url, { headers });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: Failed to fetch order history`);
       }
-
-      // 2. Fallback to authenticated backend API
-      if (!rawOrders || rawOrders.length === 0) {
-        const token = window.authManager ? window.authManager.getAccessToken() : '';
-        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-        const res = await fetch(`/api/orders?userId=${encodeURIComponent(userId)}`, { headers });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success && Array.isArray(data.orders)) {
-            rawOrders = data.orders;
-          }
-        }
+      const data = await res.json();
+      if (data.success && Array.isArray(data.orders)) {
+        rawOrders = data.orders;
+        this.userOrders = rawOrders.map(o => this.formatOrder(o));
+        this.userOrdersLoading = false;
+        this.userOrdersError = null;
+      } else {
+        throw new Error(data.error || 'Failed to load orders');
       }
-
-      this.userOrders = (rawOrders || []).map(o => this.formatOrder(o));
-      this.notify();
     } catch (e) {
-      console.warn('[StoreDB] Could not load user orders:', e);
+      console.error('[StoreDB] Error loading user orders from Supabase:', e);
+      this.userOrdersLoading = false;
+      this.userOrdersError = e.message || 'Unable to load your history. Please try again.';
     }
+    this.notify();
   }
 
   clearUserOrders() {
     this.userOrders = [];
+    this.userOrdersLoading = false;
+    this.userOrdersError = null;
     this.notify();
   }
 
@@ -469,19 +511,43 @@ class StoreDB {
 
   formatOrder(o) {
     const createdAt = o.created_at || new Date().toISOString();
+    const paidAt = o.paid_at || o.verified_at || (o.status === 'PAID' ? createdAt : null);
+
+    // Normalize items array
+    let items = [];
+    if (Array.isArray(o.items)) {
+      items = o.items.map(i => ({
+        id: i.id || i.product_id,
+        name: i.product_name_snapshot || i.name || 'Store Item',
+        qty: Number(i.quantity || i.qty) || 1,
+        price: Number(i.unit_price || i.price) || 0,
+        itemTotal: Number(i.item_total) || ((Number(i.unit_price || i.price) || 0) * (Number(i.quantity || i.qty) || 1))
+      }));
+    }
+
+    const orderNum = o.order_number || o.id;
+
     return {
       id: o.id,
+      orderNumber: orderNum,
       userId: o.user_id,
       customerEmail: o.customer_email || '',
       customerName: o.customer_name || '',
-      timeLabel: o.time_label || new Date(createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      customerPhone: o.customer_phone || '',
+      timeLabel: o.time_label || new Date(createdAt).toLocaleDateString('en-IN', {
+        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+      }),
       createdAt,
-      amount: Number(o.amount) || 0,
-      itemCount: Number(o.item_count) || (Array.isArray(o.items) ? o.items.length : 1),
-      status: o.status || 'PAID',
-      paymentMethod: o.payment_method || 'UPI',
+      paidAt,
+      amount: Number(o.amount || o.total_amount) || 0,
+      itemCount: Number(o.item_count) || items.reduce((s, i) => s + i.qty, 0) || 1,
+      status: String(o.status || o.payment_status || 'PAID').toUpperCase(),
+      paymentStatus: String(o.payment_status || o.status || 'PAID').toUpperCase(),
+      orderStatus: String(o.order_status || 'COMPLETED').toUpperCase(),
+      paymentMethod: o.payment_method || 'Cashfree UPI',
       paymentGateway: o.payment_gateway || 'Cashfree',
-      items: Array.isArray(o.items) ? o.items : []
+      paymentReference: o.payment_reference || o.cashfree_payment_id || o.id,
+      items
     };
   }
 
@@ -1068,9 +1134,49 @@ class StoreDB {
     return prod;
   }
 
+  async trackVisit() {
+    try {
+      let visitorId = localStorage.getItem('hs_visitor_id');
+      if (!visitorId) {
+        visitorId = 'v_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+        localStorage.setItem('hs_visitor_id', visitorId);
+      }
+
+      let sessionId = sessionStorage.getItem('hs_session_id');
+      if (!sessionId) {
+        sessionId = 's_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+        sessionStorage.setItem('hs_session_id', sessionId);
+      }
+
+      const lastRecorded = parseInt(sessionStorage.getItem('hs_visit_recorded_at') || '0', 10);
+      const now = Date.now();
+      if (now - lastRecorded < 30 * 60 * 1000) {
+        return; // Debounced for 30 minutes in current session
+      }
+
+      sessionStorage.setItem('hs_visit_recorded_at', String(now));
+
+      const res = await fetch('/api/record-visit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visitorId, sessionId })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.metrics) {
+          this.data.community.storeVisits = Number(data.metrics.totalVisits || data.metrics.total_visits) || this.data.community.storeVisits;
+          this.data.community.uniqueVisitors = Number(data.metrics.uniqueVisitors || data.metrics.unique_visitors) || 0;
+          this.notify();
+        }
+      }
+    } catch (e) {
+      console.warn('[StoreDB] Visit tracking notice:', e.message);
+    }
+  }
+
   logVisit() {
-    this.data.community.storeVisits += 1;
-    this.save();
+    this.trackVisit();
   }
 
   signHonorPledge() {

@@ -189,6 +189,10 @@ class AuthManager {
     this.user = null;
     this.session = null;
     localStorage.removeItem('honesty_customer_user');
+    localStorage.removeItem('honesty_customer_token');
+    localStorage.removeItem('honesty_customer_phone');
+    localStorage.removeItem('honesty_customer_email');
+    localStorage.removeItem('honesty_customer_name');
     localStorage.removeItem('honesty_admin_auth');
     localStorage.removeItem('honesty_admin_token');
 
@@ -894,7 +898,7 @@ class AuthManager {
   }
 
   getAccessToken() {
-    return this.session?.access_token || null;
+    return this.session?.access_token || localStorage.getItem('honesty_customer_token') || null;
   }
 
   isAuthenticated() {

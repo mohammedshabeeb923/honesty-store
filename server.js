@@ -38,10 +38,11 @@ const crypto = require('crypto');
 // Cryptographic HMAC Secret for Session Signing
 const SERVER_SECRET = process.env.SERVER_SECRET || process.env.SUPABASE_ANON_KEY || 'honesty-store-cryptographic-token-salt-2026';
 
-function signCustomerToken(phone, name) {
+function signCustomerToken(phone, name, email = null) {
   const payload = {
     phone,
     name,
+    email: email || null,
     role: 'customer',
     iat: Date.now(),
     exp: Date.now() + 30 * 24 * 3600 * 1000 // 30 days
@@ -680,7 +681,7 @@ const server = http.createServer(async (req, res) => {
       }
 
       await serverSupabase.recordCustomerOrder(cleanPhone, 0, cleanEmail, cleanName);
-      const token = signCustomerToken(cleanPhone, cleanName);
+      const token = signCustomerToken(cleanPhone, cleanName, cleanEmail);
       console.log(`[Customer Auth] Verified customer: ${cleanName} (${cleanEmail}, +91 ${cleanPhone})`);
 
       sendJson(200, {
@@ -800,29 +801,48 @@ const server = http.createServer(async (req, res) => {
     try {
       const authHeader = req.headers['authorization'] || '';
       const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-      const supabaseUser = await getSupabaseUserFromToken(token);
+      const customToken = req.headers['x-customer-token'] || req.headers['x-admin-token'] || '';
+      const candidateToken = token || customToken;
+
       const isAdmin = await isAuthorizedAdmin(req);
-      const queryUserId = queryParams.get('userId');
+      const supabaseUser = await getSupabaseUserFromToken(candidateToken);
+      const customerUser = verifyCustomerToken(candidateToken);
+
       const queryPhone = queryParams.get('phone');
+      const queryEmail = queryParams.get('email');
+      const queryUserId = queryParams.get('userId');
 
       let orders = [];
       if (isAdmin) {
-        orders = await serverSupabase.getOrders({ isAdmin: true });
+        // Admin can request all orders or filter by query parameters
+        orders = await serverSupabase.getOrders({
+          isAdmin: true,
+          phone: queryPhone,
+          email: queryEmail,
+          userId: queryUserId
+        });
       } else if (supabaseUser) {
-        orders = await serverSupabase.getOrders({ userId: supabaseUser.id });
-      } else if (queryUserId) {
-        // Only return if matching current verified user, or empty
-        orders = (supabaseUser && supabaseUser.id === queryUserId) 
-          ? await serverSupabase.getOrders({ userId: queryUserId }) 
-          : [];
-      } else if (queryPhone) {
-        orders = await serverSupabase.getOrders({ phone: queryPhone });
+        // Authenticated via Supabase Google OAuth
+        orders = await serverSupabase.getOrders({
+          userId: supabaseUser.id,
+          email: supabaseUser.email,
+          phone: queryPhone
+        });
+      } else if (customerUser) {
+        // Authenticated via verified customer session (compulsory Phone + Gmail)
+        orders = await serverSupabase.getOrders({
+          phone: customerUser.phone,
+          email: customerUser.email || queryEmail
+        });
       } else {
-        orders = [];
+        // Unauthenticated access strictly prohibited
+        sendJson(401, { success: false, error: 'Authentication required to view order history' });
+        return;
       }
 
       sendJson(200, { success: true, orders });
     } catch (err) {
+      console.error('[API Orders Error]:', err.message);
       sendJson(500, { success: false, error: err.message });
     }
     return;
@@ -847,7 +867,44 @@ const server = http.createServer(async (req, res) => {
   // 5. Community Metrics
   if (req.method === 'GET' && reqPath === '/api/community-metrics') {
     try {
-      const metrics = serverSupabase.fallbackData.community_metrics || { sales_today: 0, store_visits: 0, completed_payments: 0 };
+      const visitMetrics = await serverSupabase.getVisitMetrics();
+      const metrics = {
+        ...(serverSupabase.fallbackData.community_metrics || {}),
+        store_visits: visitMetrics.totalVisits || 0,
+        unique_visitors: visitMetrics.uniqueVisitors || 0
+      };
+      sendJson(200, { success: true, metrics });
+    } catch (err) {
+      sendJson(500, { success: false, error: err.message });
+    }
+    return;
+  }
+
+  // 5b. Record Store Visit (Persistent Total & Unique Visitor Tracking with 30-min Debounce)
+  if (req.method === 'POST' && reqPath === '/api/record-visit') {
+    try {
+      const { visitorId, sessionId } = await parseJsonBody(req);
+      if (!visitorId) {
+        sendJson(400, { success: false, error: 'visitorId is required' });
+        return;
+      }
+      const metrics = await serverSupabase.recordVisit(visitorId, sessionId);
+      sendJson(200, { success: true, metrics });
+    } catch (err) {
+      console.warn('[Record Visit Error]:', err.message);
+      sendJson(500, { success: false, error: err.message });
+    }
+    return;
+  }
+
+  // 5c. Admin Visit Metrics Query
+  if (req.method === 'GET' && reqPath === '/api/admin/visit-metrics') {
+    if (!await isAuthorizedAdmin(req)) {
+      sendJson(401, { success: false, message: 'Admin authorization required' });
+      return;
+    }
+    try {
+      const metrics = await serverSupabase.getVisitMetrics();
       sendJson(200, { success: true, metrics });
     } catch (err) {
       sendJson(500, { success: false, error: err.message });

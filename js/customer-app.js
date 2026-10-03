@@ -225,12 +225,28 @@ class CustomerApp {
     } else {
       if (bottomNav) bottomNav.style.display = 'flex';
     }
+
+    if (screenId === 'screen-orders' && window.storeDB && typeof window.storeDB.loadUserOrders === 'function') {
+      window.storeDB.loadUserOrders();
+    }
   }
 
   renderCatalog() {
     if (!this.productsGrid) return;
-    const products = window.storeDB.getProducts(this.activeCategory);
-    const cart = window.storeDB.getCart() || [];
+    const isCatalogLoading = window.storeDB ? window.storeDB.isCatalogLoading : false;
+    const products = window.storeDB ? window.storeDB.getProducts(this.activeCategory) : [];
+    const cart = window.storeDB ? window.storeDB.getCart() : [];
+
+    if (isCatalogLoading && (!products || products.length === 0)) {
+      this.productsGrid.innerHTML = `
+        <div style="grid-column: 1 / -1; text-align: center; padding: 48px 16px; color: #64748b;">
+          <div class="spinner" style="margin: 0 auto 12px; width: 34px; height: 34px; border: 3px solid #e2e8f0; border-top-color: #0ca678; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+          <p style="font-size: 14px; font-weight: 700; color: #0f172a;">Loading fresh shelf products...</p>
+          <p style="font-size: 12px; color: #94a3b8; margin-top: 4px;">Connecting to live store inventory</p>
+        </div>
+      `;
+      return;
+    }
 
     this.productsGrid.innerHTML = products.map(prod => {
       const isOutOfStock = prod.stock <= 0;
@@ -416,7 +432,34 @@ class CustomerApp {
           <p style="font-size: 12px; color: #94a3b8; margin-bottom: 16px; line-height: 1.4;">Your purchase receipts and order history are privately protected by Supabase RLS.</p>
           <button onclick="window.authManager.openAuthModal()" style="background: #0f172a; color: #fff; border: none; padding: 11px 20px; border-radius: 12px; font-size: 13px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
             <svg width="15" height="15" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
-            Sign In with Google
+            Sign In with Google / Phone
+          </button>
+        </div>
+      `;
+      return;
+    }
+
+    if (window.storeDB && window.storeDB.userOrdersLoading) {
+      listEl.innerHTML = `
+        <div style="text-align: center; padding: 44px 16px; color: #64748b;">
+          <div class="spinner" style="margin: 0 auto 12px; width: 34px; height: 34px; border: 3px solid #e2e8f0; border-top-color: #0ca678; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+          <p style="font-size: 15px; font-weight: 700; color: #0f172a; margin-bottom: 4px;">Loading your order history...</p>
+          <p style="font-size: 12px; color: #94a3b8;">Fetching your verified receipts from Supabase</p>
+        </div>
+      `;
+      return;
+    }
+
+    if (window.storeDB && window.storeDB.userOrdersError) {
+      listEl.innerHTML = `
+        <div style="text-align: center; padding: 44px 16px; color: #ef4444;">
+          <div style="width: 52px; height: 52px; border-radius: 50%; background: #fef2f2; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px; border: 1px solid #fee2e2;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          </div>
+          <p style="font-size: 15px; font-weight: 800; color: #991b1b; margin-bottom: 4px;">Unable to load your history. Please try again.</p>
+          <p style="font-size: 12px; color: #64748b; margin-bottom: 16px;">${window.storeDB.userOrdersError}</p>
+          <button onclick="window.storeDB.loadUserOrders()" style="background: #0f172a; color: #fff; border: none; padding: 9px 18px; border-radius: 10px; font-size: 12px; font-weight: 700; cursor: pointer;">
+            Retry Loading
           </button>
         </div>
       `;
@@ -430,26 +473,46 @@ class CustomerApp {
           <div style="width: 52px; height: 52px; border-radius: 50%; background: #f8fafc; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px; border: 1px dashed #cbd5e1;">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
           </div>
-          <p style="font-size: 15px; font-weight: 800; color: #0f172a; margin-bottom: 4px;">No purchases yet</p>
-          <p style="font-size: 12px; color: #94a3b8;">When you buy snacks or drinks, your receipts will appear here.</p>
+          <p style="font-size: 15px; font-weight: 800; color: #0f172a; margin-bottom: 4px;">No purchases yet.</p>
+          <p style="font-size: 12px; color: #94a3b8;">When you buy snacks or drinks, your verified receipts will appear here.</p>
         </div>
       `;
       return;
     }
 
-    listEl.innerHTML = orders.map(order => `
-      <div class="order-history-card" onclick="window.customerApp.viewReceipt('${order.id}')">
-        <div class="order-card-meta">
-          <div class="order-date-label">${order.timeLabel}</div>
-          <div class="order-code-title">Order ${order.id}</div>
-          <div class="order-status-row">
-            <span class="badge-paid">✓ ${order.status}</span>
-            <span class="order-items-count">${order.itemCount} ${order.itemCount === 1 ? 'item' : 'items'}</span>
+    listEl.innerHTML = orders.map(order => {
+      const isPaid = order.status === 'PAID' || order.status === 'Paid' || order.paymentStatus === 'PAID';
+      const isFailed = order.status === 'FAILED' || order.paymentStatus === 'FAILED';
+      const badgeClass = isPaid ? 'background: #e6fcf5; color: #0ca678;' : (isFailed ? 'background: #fee2e2; color: #dc2626;' : 'background: #fef3c7; color: #d97706;');
+      const badgeIcon = isPaid ? '✓' : (isFailed ? '✕' : '⏳');
+      const itemsListText = (order.items && order.items.length > 0)
+        ? order.items.map(i => `${i.qty}× ${i.name} (₹${i.price})`).join(', ')
+        : `${order.itemCount} items`;
+
+      return `
+        <div class="order-history-card" onclick="window.customerApp.viewReceipt('${order.id}')" style="display: flex; flex-direction: column; gap: 8px; align-items: stretch;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div class="order-card-meta">
+              <div class="order-date-label">${order.timeLabel}</div>
+              <div class="order-code-title">Order #${order.orderNumber || order.id}</div>
+            </div>
+            <div class="order-card-amount">₹${order.amount}</div>
+          </div>
+          <div style="font-size: 12px; color: #475569; background: #f8fafc; padding: 6px 10px; border-radius: 8px; border: 1px solid #f1f5f9;">
+            ${itemsListText}
+          </div>
+          <div class="order-status-row" style="justify-content: space-between; margin-top: 2px;">
+            <span class="badge-paid" style="${badgeClass}">
+              ${badgeIcon} ${order.status}
+            </span>
+            <div style="font-size: 11px; color: #94a3b8; display: flex; align-items: center; gap: 4px;">
+              ${order.paidAt ? `<span>Paid ${new Date(order.paidAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span> • ` : ''}
+              <span style="color: #0ca678; font-weight: 600;">View Bill →</span>
+            </div>
           </div>
         </div>
-        <div class="order-card-amount">₹${order.amount}</div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
   }
 
   renderCommunity() {
@@ -613,23 +676,32 @@ class CustomerApp {
     const receiptContent = document.getElementById('receipt-modal-body');
 
     if (receiptContent) {
+      const isPaid = order.status === 'PAID' || order.status === 'Paid' || order.paymentStatus === 'PAID';
       receiptContent.innerHTML = `
         <div style="text-align: center; margin-bottom: 16px;">
           <div style="font-size: 13px; color: #64748b;">${order.timeLabel}</div>
-          <h3 style="font-size: 20px; font-weight: 800; margin: 4px 0;">Order ${order.id}</h3>
-          <span class="badge-paid" style="display:inline-flex; margin-top: 4px;">✓ Verified Honor Payment</span>
+          <h3 style="font-size: 20px; font-weight: 800; margin: 4px 0;">Order #${order.orderNumber || order.id}</h3>
+          <span class="badge-paid" style="display:inline-flex; margin-top: 4px; ${isPaid ? 'background:#e6fcf5;color:#0ca678;' : 'background:#fee2e2;color:#dc2626;'}">
+            ${isPaid ? '✓ Verified Honor Payment' : '⏳ Status: ' + order.status}
+          </span>
         </div>
         <div style="border-top: 1px dashed #cbd5e1; border-bottom: 1px dashed #cbd5e1; padding: 14px 0; margin: 14px 0;">
-          ${order.items.map(item => `
+          ${(order.items || []).map(item => `
             <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px;">
-              <span>${item.qty}x ${item.name}</span>
-              <span style="font-weight: 700;">₹${item.price * item.qty}</span>
+              <span>${item.qty}x ${item.name} (${item.price ? '₹' + item.price : ''})</span>
+              <span style="font-weight: 700;">₹${item.itemTotal || (item.price * item.qty)}</span>
             </div>
           `).join('')}
         </div>
         <div style="display: flex; justify-content: space-between; font-size: 17px; font-weight: 800;">
           <span>Total Paid</span>
           <span>₹${order.amount}</span>
+        </div>
+        <div style="margin-top: 14px; font-size: 12px; color: #475569; background: #f8fafc; border-radius: 8px; padding: 10px; line-height: 1.6; border: 1px solid #f1f5f9; text-align: left;">
+          <div><strong>Payment Method:</strong> ${order.paymentMethod || 'Cashfree UPI'}</div>
+          ${order.paymentReference ? `<div><strong>Reference / Payment ID:</strong> ${order.paymentReference}</div>` : ''}
+          ${order.paidAt ? `<div><strong>Paid At:</strong> ${new Date(order.paidAt).toLocaleString('en-IN')}</div>` : ''}
+          <div><strong>Order Status:</strong> ${order.orderStatus || 'COMPLETED'}</div>
         </div>
         <div style="text-align: center; font-size: 11px; color: #64748b; margin-top: 16px;">
           "Take what you need. Pay what you take."<br/>Thank you for your honesty!

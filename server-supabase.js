@@ -232,11 +232,15 @@ class ServerSupabase {
         orders: [],
         profiles: [],
         stock_audits: [],
+        store_visits: [],
         community_metrics: { sales_today: 0, store_visits: 0, completed_payments: 0 }
       };
     }
     if (!Array.isArray(data.deleted_product_ids)) {
       data.deleted_product_ids = [];
+    }
+    if (!Array.isArray(data.store_visits)) {
+      data.store_visits = [];
     }
     return data;
   }
@@ -815,10 +819,14 @@ class ServerSupabase {
 
     const customerIdentifier = orderData.customerIdentifier || orderData.customer_identifier || (custName ? (cleanPh ? `${custName} (+91 ${cleanPh})` : custName) : (cleanPh || custEmail || 'Guest'));
 
+    const candidateUserId = orderData.userId || orderData.user_id || null;
+    const isCandidateValidUuid = typeof candidateUserId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(candidateUserId);
+    const resolvedUserId = isCandidateValidUuid ? candidateUserId : null;
+
     const record = {
       id: rawId,
       order_number: orderNumber,
-      user_id: orderData.userId || orderData.user_id || null,
+      user_id: resolvedUserId,
       customer_email: custEmail,
       customer_name: custName,
       customer_phone: cleanPh || null,
@@ -1150,6 +1158,124 @@ class ServerSupabase {
     }
   }
 
+  // 6b. RECORD PERSISTENT STORE VISIT (TOTAL & UNIQUE VISITORS WITH 30-MIN DEBOUNCE)
+  async recordVisit(visitorId, sessionId = null) {
+    if (!visitorId) return { recorded: false, error: 'visitorId required' };
+    const cleanVisitorId = String(visitorId).trim().slice(0, 80);
+    const cleanSessionId = sessionId ? String(sessionId).trim().slice(0, 80) : null;
+    const now = new Date();
+    const nowIso = now.toISOString();
+
+    // 1. Maintain in local fallback with 30-min debounce
+    if (!Array.isArray(this.fallbackData.store_visits)) {
+      this.fallbackData.store_visits = [];
+    }
+    const cutoff30m = now.getTime() - 30 * 60 * 1000;
+    const lastVisit = this.fallbackData.store_visits
+      .filter(v => v.visitor_id === cleanVisitorId)
+      .sort((a, b) => new Date(b.visited_at).getTime() - new Date(a.visited_at).getTime())[0];
+
+    let recorded = false;
+    if (!lastVisit || new Date(lastVisit.visited_at).getTime() < cutoff30m) {
+      this.fallbackData.store_visits.push({
+        id: 'v_' + Date.now(),
+        visitor_id: cleanVisitorId,
+        session_id: cleanSessionId,
+        visited_at: nowIso
+      });
+      if (this.fallbackData.community_metrics) {
+        this.fallbackData.community_metrics.store_visits = (this.fallbackData.community_metrics.store_visits || 0) + 1;
+      }
+      this.saveFallback();
+      recorded = true;
+    }
+
+    // 2. Persist to Supabase
+    try {
+      // Try atomic RPC function first
+      const rpcResult = await this.callRpc('record_store_visit', {
+        p_visitor_id: cleanVisitorId,
+        p_session_id: cleanSessionId
+      });
+      if (rpcResult && typeof rpcResult === 'object') {
+        return {
+          recorded: Boolean(rpcResult.recorded),
+          totalVisits: Number(rpcResult.total_visits) || 0,
+          uniqueVisitors: Number(rpcResult.unique_visitors) || 0,
+          todayVisits: Number(rpcResult.today_visits) || 0
+        };
+      }
+    } catch (rpcErr) {
+      // Fallback: direct table insert
+      if (recorded) {
+        try {
+          await this.fetchApi('store_visits', {
+            method: 'POST',
+            body: {
+              visitor_id: cleanVisitorId,
+              session_id: cleanSessionId,
+              visited_at: nowIso
+            }
+          });
+        } catch (tableErr) {
+          // Table may be migrating, fallbackData preserves visits
+        }
+      }
+    }
+
+    const currentMetrics = await this.getVisitMetrics();
+    return {
+      recorded,
+      ...currentMetrics
+    };
+  }
+
+  // 6c. GET VISIT METRICS (AGGREGATED FROM SUPABASE & LOCAL FALLBACK)
+  async getVisitMetrics() {
+    try {
+      const rpcMetrics = await this.callRpc('get_visit_metrics');
+      if (rpcMetrics && typeof rpcMetrics === 'object') {
+        return {
+          totalVisits: Number(rpcMetrics.total_visits) || 0,
+          uniqueVisitors: Number(rpcMetrics.unique_visitors) || 0,
+          todayVisits: Number(rpcMetrics.today_visits) || 0,
+          todayUniques: Number(rpcMetrics.today_uniques) || 0
+        };
+      }
+    } catch (e) {}
+
+    try {
+      const visits = await this.fetchApi('store_visits', { query: '?select=visitor_id,visited_at&order=visited_at.desc' });
+      if (visits && Array.isArray(visits)) {
+        const uniqueSet = new Set(visits.map(v => v.visitor_id));
+        const todayStr = new Date().toISOString().split('T')[0];
+        const todayVisits = visits.filter(v => (v.visited_at || '').startsWith(todayStr));
+        const todayUniqueSet = new Set(todayVisits.map(v => v.visitor_id));
+        return {
+          totalVisits: visits.length,
+          uniqueVisitors: uniqueSet.size,
+          todayVisits: todayVisits.length,
+          todayUniques: todayUniqueSet.size
+        };
+      }
+    } catch (tableErr) {}
+
+    // Fallback to local
+    const localVisits = this.fallbackData.store_visits || [];
+    const uniqueSet = new Set(localVisits.map(v => v.visitor_id));
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todayVisits = localVisits.filter(v => (v.visited_at || '').startsWith(todayStr));
+    const todayUniqueSet = new Set(todayVisits.map(v => v.visitor_id));
+    const commVisits = Math.max(localVisits.length, this.fallbackData.community_metrics?.store_visits || 0);
+
+    return {
+      totalVisits: commVisits,
+      uniqueVisitors: Math.max(uniqueSet.size, commVisits > 0 ? 1 : 0),
+      todayVisits: todayVisits.length,
+      todayUniques: todayUniqueSet.size
+    };
+  }
+
   // 7. RECORD CUSTOMER VISIT & ORDERS
   async recordCustomerOrder(phone, amount, email = null, fullName = null) {
     const cleanPhone = (phone || '').replace(/\D/g, '').slice(-10);
@@ -1271,6 +1397,7 @@ class ServerSupabase {
     // Backwards compatibility if passed as a single string (phone or userId)
     let userId = typeof filter === 'object' && filter !== null ? filter.userId : null;
     let phone = typeof filter === 'object' && filter !== null ? filter.phone : null;
+    let email = typeof filter === 'object' && filter !== null ? filter.email : null;
     let isAdmin = typeof filter === 'object' && filter !== null ? Boolean(filter.isAdmin) : false;
 
     if (typeof filter === 'string') {
@@ -1281,15 +1408,28 @@ class ServerSupabase {
       }
     }
 
-    let cleanPhone = phone ? phone.replace(/\D/g, '').slice(-10) : null;
+    if (typeof userId === 'string' && userId.startsWith('cust_') && !phone) {
+      phone = userId.replace('cust_', '');
+    }
+
+    const isValidUuid = typeof userId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
+    let cleanPhone = phone ? String(phone).replace(/\D/g, '').slice(-10) : null;
+    let cleanEmail = email ? String(email).trim().toLowerCase() : null;
+
     try {
       let query;
       if (isAdmin) {
-        query = '?select=*&order=created_at.desc&limit=100';
-      } else if (userId) {
+        query = '?select=*&order=created_at.desc&limit=200';
+      } else if (isValidUuid && cleanPhone) {
+        query = `?select=*&or=(user_id.eq.${userId},customer_phone.like.*${cleanPhone})&order=created_at.desc`;
+      } else if (isValidUuid) {
         query = `?select=*&user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc`;
+      } else if (cleanPhone && cleanEmail) {
+        query = `?select=*&or=(customer_phone.like.*${cleanPhone},customer_email.eq.${encodeURIComponent(cleanEmail)})&order=created_at.desc`;
       } else if (cleanPhone) {
-        query = `?select=*&customer_phone=like.*${cleanPhone}&order=created_at.desc`;
+        query = `?select=*&customer_phone.like.*${cleanPhone}&order=created_at.desc`;
+      } else if (cleanEmail) {
+        query = `?select=*&customer_email.eq.${encodeURIComponent(cleanEmail)}&order=created_at.desc`;
       } else {
         // STRICT SECURITY: Do NOT return all orders to unauthenticated caller!
         return [];
@@ -1343,9 +1483,12 @@ class ServerSupabase {
       return { ...o, customer_name: custName };
     });
     if (isAdmin) return orders;
-    if (userId) return orders.filter(o => o.user_id === userId);
-    if (cleanPhone) return orders.filter(o => (o.customer_phone || '').includes(cleanPhone));
-    return [];
+    return orders.filter(o => {
+      if (isValidUuid && o.user_id === userId) return true;
+      if (cleanPhone && o.customer_phone && o.customer_phone.includes(cleanPhone)) return true;
+      if (cleanEmail && o.customer_email && o.customer_email.toLowerCase() === cleanEmail) return true;
+      return false;
+    });
   }
 
   // 9. ADJUST STOCK & RECORD AUDIT LOG (ADMIN)
@@ -1496,8 +1639,9 @@ class ServerSupabase {
 
   // 11. REAL DASHBOARD METRICS AGGREGATION
   async getDashboardMetrics() {
-    const orders = await this.getOrders();
-    const paidOrders = orders.filter(o => o.status === 'PAID' || o.status === 'Paid');
+    const orders = await this.getOrders({ isAdmin: true });
+    const paidOrders = orders.filter(o => o.status === 'PAID' || o.status === 'Paid' || o.payment_status === 'PAID');
+    const visitMetrics = await this.getVisitMetrics();
 
     const totalRevenue = paidOrders.reduce((sum, o) => sum + (Number(o.amount) || 0), 0);
     const totalOrdersCount = paidOrders.length;
@@ -1515,9 +1659,9 @@ class ServerSupabase {
     paidOrders.forEach(o => {
       const items = Array.isArray(o.items) ? o.items : [];
       items.forEach(item => {
-        const qty = Number(item.qty) || 1;
+        const qty = Number(item.qty || item.quantity) || 1;
         totalItemsSold += qty;
-        productCounts[item.name || item.id] = (productCounts[item.name || item.id] || 0) + qty;
+        productCounts[item.name || item.product_name_snapshot || item.id] = (productCounts[item.name || item.product_name_snapshot || item.id] || 0) + qty;
       });
     });
 
@@ -1534,6 +1678,10 @@ class ServerSupabase {
       totalOrdersCount,
       totalItemsSold,
       completedPayments: totalOrdersCount,
+      totalVisits: visitMetrics.totalVisits,
+      uniqueVisitors: visitMetrics.uniqueVisitors,
+      todayVisits: visitMetrics.todayVisits,
+      todayUniques: visitMetrics.todayUniques,
       topProducts,
       recentOrders: paidOrders.slice(0, 10)
     };

@@ -1123,6 +1123,10 @@ class AdminApp {
       totalOrdersCount: adminOrders.length,
       totalItemsSold: adminOrders.reduce((s, o) => s + (Number(o.itemCount) || 1), 0),
       completedPayments: adminOrders.length,
+      totalVisits: window.storeDB.data.community.storeVisits || 0,
+      uniqueVisitors: window.storeDB.data.community.uniqueVisitors || 0,
+      todayVisits: 0,
+      todayUniques: 0,
       topProducts: []
     };
 
@@ -1210,14 +1214,13 @@ class AdminApp {
             <div class="funnel-stage-item">
               <div class="funnel-circle">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect x="3" y="3" width="7" height="7"></rect>
-                  <rect x="14" y="3" width="7" height="7"></rect>
-                  <rect x="14" y="14" width="7" height="7"></rect>
-                  <rect x="3" y="14" width="7" height="7"></rect>
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
                 </svg>
               </div>
-              <div class="funnel-count-val">${Math.max(metrics.completedPayments, metrics.todayOrdersCount + 1)}</div>
+              <div class="funnel-count-val">${metrics.todayVisits !== undefined ? metrics.todayVisits : (metrics.totalVisits || 0)}</div>
               <div class="funnel-stage-label">STORE VISITS</div>
+              <div style="font-size: 11px; color: #0ca678; font-weight: 700; margin-top: 3px;">${metrics.todayUniques !== undefined ? metrics.todayUniques : (metrics.uniqueVisitors || 0)} Unique</div>
             </div>
 
             <!-- Stage 2 -->
@@ -1267,8 +1270,8 @@ class AdminApp {
           <p style="font-size: 14px; color: #64748b;">Cumulative metrics across all customer purchases.</p>
         </div>
 
-        <!-- 4 Stat Cards -->
-        <div class="dashboard-kpi-grid">
+        <!-- 6 Stat Cards -->
+        <div class="dashboard-kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
           <div class="kpi-card">
             <div class="kpi-card-header">
               <span class="kpi-icon-pill">₹</span>
@@ -1299,8 +1302,30 @@ class AdminApp {
 
           <div class="kpi-card">
             <div class="kpi-card-header">
+              <span class="kpi-icon-pill" style="color: #2563eb;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              </span>
+            </div>
+            <span class="kpi-title">Store Visits</span>
+            <div class="kpi-val">${(metrics.totalVisits || 0).toLocaleString('en-IN')}</div>
+            <div class="kpi-sub" style="font-size:11px; color:#64748b; margin-top:2px;">Persistent storefront sessions</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-card-header">
+              <span class="kpi-icon-pill" style="color: #0ca678;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              </span>
+            </div>
+            <span class="kpi-title">Unique Visitors</span>
+            <div class="kpi-val">${(metrics.uniqueVisitors || 0).toLocaleString('en-IN')}</div>
+            <div class="kpi-sub" style="font-size:11px; color:#0ca678; margin-top:2px; font-weight:600;">Anonymous unique devices</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-card-header">
               <span class="kpi-icon-pill">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
               </span>
             </div>
             <span class="kpi-title">Honor Trust Score</span>
