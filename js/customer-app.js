@@ -275,6 +275,7 @@ class CustomerApp {
             <img src="${window.resolveProductImage ? window.resolveProductImage(prod.image, prod.id) : (prod.image || 'assets/lays.jpg')}" 
                  alt="${prod.name}" 
                  loading="lazy" 
+                 decoding="async" 
                  onerror="this.onerror=null;this.src='assets/lays.jpg';" />
           </div>
           <div class="product-name" title="${prod.name}">${prod.name}</div>
@@ -390,7 +391,7 @@ class CustomerApp {
           return `
           <div class="cart-row-item">
             <div class="cart-item-info">
-              <img src="${itemImg}" class="cart-item-img" alt="${item.name}" onerror="this.onerror=null;this.src='assets/lays.jpg';" />
+              <img src="${itemImg}" class="cart-item-img" alt="${item.name}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='assets/lays.jpg';" />
               <div class="cart-item-text">
                 <h4>${item.name}</h4>
                 <p>₹${item.price} each</p>
@@ -580,7 +581,7 @@ class CustomerApp {
       <div class="cart-item-card">
         <div class="cart-item-card-left">
           <div class="cart-item-card-thumb">
-            <img src="${itemImg}" alt="${item.name}" onerror="this.onerror=null;this.src='assets/lays.jpg';" />
+            <img src="${itemImg}" alt="${item.name}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='assets/lays.jpg';" />
           </div>
           <div class="cart-item-card-meta">
             <h4>${item.name}</h4>

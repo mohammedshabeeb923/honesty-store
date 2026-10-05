@@ -11,9 +11,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Honesty Store" />
   <link rel="apple-touch-icon" href="assets/logo.jpg" />
-  <link rel="stylesheet" href="css/base.css?v=14.0" />
-  <link rel="stylesheet" href="css/customer.css?v=14.0" />
-  <link rel="stylesheet" href="css/admin.css?v=14.0" />
+  <link rel="stylesheet" href="css/base.css?v=15.0" />
+  <link rel="stylesheet" href="css/customer.css?v=15.0" />
+  <link rel="stylesheet" href="css/admin.css?v=15.0" />
   <!-- Supabase JS Client v2 SDK -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -22,7 +22,7 @@
   <!-- MASTER VIEW SWITCHER HEADER -->
   <header class="master-header">
     <div class="brand-badge">
-      <img src="assets/logo.jpg" alt="Honesty Store Logo" />
+      <img src="assets/logo.jpg" alt="Honesty Store Logo" decoding="async" />
       <span>HONESTY STORE</span>
       <span style="font-size: 11px; font-weight: 500; background: rgba(255,255,255,0.15); padding: 2px 8px; border-radius: 10px; margin-left: 6px;">
         Business Platform
@@ -73,7 +73,7 @@
             </svg>
           </button>
           <div class="header-brand-title">
-            <img src="assets/logo.jpg" alt="Logo" />
+            <img src="assets/logo.jpg" alt="Logo" decoding="async" />
             <span>Honesty Store</span>
           </div>
           <div style="display: flex; align-items: center; gap: 8px;">
@@ -81,7 +81,7 @@
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
             </button>
             <div class="header-avatar" title="Customer Profile" style="position: relative; width: 34px; height: 34px; cursor: pointer;">
-              <img src="assets/avatar.png" alt="Avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" />
+              <img src="assets/avatar.png" alt="Avatar" loading="lazy" decoding="async" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" />
               <span id="auth-status-dot" style="position: absolute; bottom: -1px; right: -1px; width: 10px; height: 10px; border-radius: 50%; background: #10b981; border: 2px solid #fff;" title="Verified Phone Login Active"></span>
             </div>
           </div>
@@ -94,7 +94,7 @@
           <section class="customer-screen active" id="screen-splash">
             <div class="splash-top">
               <div class="splash-logo-card">
-                <img src="assets/logo.jpg" alt="Honesty Store Logo" />
+                <img src="assets/logo.jpg" alt="Honesty Store Logo" decoding="async" />
               </div>
               <h1 class="splash-title">HONESTY STORE</h1>
               <p class="splash-subtitle">Take what you need. Pay what you take.</p>
@@ -102,7 +102,7 @@
 
             <!-- Wall Snack Shelf Hero Image -->
             <div class="splash-shelf-container">
-              <img src="assets/shelf.png" alt="Honesty Store Shelf" class="splash-shelf-img" />
+              <img src="assets/shelf.png" alt="Honesty Store Shelf" class="splash-shelf-img" decoding="async" />
             </div>
 
             <!-- 4-Step Stepper Box -->
@@ -204,7 +204,7 @@
                 </button>
                 <div class="cart-brand-title">Honesty Store</div>
                 <div class="cart-avatar-wrap">
-                  <img src="assets/avatar.png" alt="Customer Avatar" />
+                  <img src="assets/avatar.png" alt="Customer Avatar" loading="lazy" decoding="async" />
                 </div>
               </div>
 
@@ -483,7 +483,7 @@
             <div style="cursor: pointer; display: flex; color: #64748b;" title="Notifications">
               <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
             </div>
-            <img src="assets/avatar.png" alt="Admin Profile" class="admin-profile-avatar" title="Logged in as Store Administrator" />
+            <img src="assets/avatar.png" alt="Admin Profile" class="admin-profile-avatar" title="Logged in as Store Administrator" loading="lazy" decoding="async" />
           </div>
         </header>
 
@@ -1341,7 +1341,7 @@
           <!-- Active Image Preview Card -->
           <div id="photo-preview-card" class="photo-preview-card" style="display: none;">
             <div class="photo-preview-box">
-              <img id="photo-preview-img" src="assets/lays.jpg" alt="Preview" onerror="this.src='assets/lays.jpg';" />
+              <img id="photo-preview-img" src="assets/lays.jpg" alt="Preview" loading="lazy" decoding="async" onerror="this.src='assets/lays.jpg';" />
               <div id="photo-upload-spinner" class="photo-upload-spinner" style="display: none;">
                 <div class="mini-spinner"></div>
                 <span>Optimizing & Uploading...</span>
@@ -1603,7 +1603,7 @@
       <!-- View 2: Logged-in Profile View -->
       <div id="auth-step-profile" style="display: none; text-align: center;">
         <div style="position: relative; width: 64px; height: 64px; margin: 0 auto 12px;">
-          <img id="profile-modal-avatar" src="assets/avatar.png" alt="Profile" style="width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 2px solid #e2e8f0;" />
+          <img id="profile-modal-avatar" src="assets/avatar.png" alt="Profile" loading="lazy" decoding="async" style="width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 2px solid #e2e8f0;" />
           <span style="position: absolute; bottom: 0; right: 0; width: 14px; height: 14px; border-radius: 50%; background: #10b981; border: 2px solid #fff;"></span>
         </div>
         <h4 style="font-size: 17px; font-weight: 800; color: #0f172a; margin-bottom: 2px;" id="profile-modal-name">Verified Shopper</h4>
@@ -1951,14 +1951,14 @@
   </script>
 
   <!-- Application Scripts with Correct Dependency Order & Cache-Busting -->
-  <script src="js/config.js?v=14.0"></script>
-  <script src="js/supabase-client.js?v=14.0"></script>
-  <script src="js/auth.js?v=14.0"></script>
-  <script src="js/store-db.js?v=14.0"></script>
-  <script src="js/cashfree-client.js?v=14.0"></script>
-  <script src="js/customer-app.js?v=14.0"></script>
-  <script src="js/admin-app.js?v=14.0"></script>
-  <script src="js/app.js?v=14.0"></script>
+  <script src="js/config.js?v=15.0"></script>
+  <script src="js/supabase-client.js?v=15.0"></script>
+  <script src="js/auth.js?v=15.0"></script>
+  <script src="js/store-db.js?v=15.0"></script>
+  <script src="js/cashfree-client.js?v=15.0"></script>
+  <script src="js/customer-app.js?v=15.0"></script>
+  <script src="js/admin-app.js?v=15.0"></script>
+  <script src="js/app.js?v=15.0"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

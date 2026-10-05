@@ -1,6 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 
 // 0. Auto-load .env file if present (zero external dependencies)
 try {
@@ -460,17 +461,38 @@ const server = http.createServer(async (req, res) => {
   const [reqPath, queryString] = req.url.split('?');
   const queryParams = new URLSearchParams(queryString || '');
 
-  // Helper response sender
+  // Helper response sender (with gzip compression for large JSON payloads)
   const sendJson = (statusCode, data) => {
-    res.writeHead(statusCode, { 
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*'
-    });
-    if (req.method === 'HEAD') {
-      res.end();
-      return;
+    const jsonStr = JSON.stringify(data);
+    const acceptEncoding = (req.headers['accept-encoding'] || '').toLowerCase();
+
+    if (acceptEncoding.includes('gzip') && jsonStr.length > 1024) {
+      const gzipped = zlib.gzipSync(Buffer.from(jsonStr, 'utf8'));
+      res.writeHead(statusCode, { 
+        'Content-Type': 'application/json',
+        'Content-Encoding': 'gzip',
+        'Vary': 'Accept-Encoding',
+        'Content-Length': gzipped.length,
+        'Access-Control-Allow-Origin': '*'
+      });
+      if (req.method === 'HEAD') {
+        res.end();
+        return;
+      }
+      res.end(gzipped);
+    } else {
+      const buf = Buffer.from(jsonStr, 'utf8');
+      res.writeHead(statusCode, { 
+        'Content-Type': 'application/json',
+        'Content-Length': buf.length,
+        'Access-Control-Allow-Origin': '*'
+      });
+      if (req.method === 'HEAD') {
+        res.end();
+        return;
+      }
+      res.end(buf);
     }
-    res.end(JSON.stringify(data));
   };
 
   // CORS preflight
@@ -1845,27 +1867,74 @@ const server = http.createServer(async (req, res) => {
 
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+    const baseName = path.basename(filePath).toLowerCase();
 
-    // Images/fonts: 7-day immutable cache to reduce bandwidth on repeat visits
-    // HTML/JS/CSS/JSON: strict no-cache so code changes are always picked up immediately
-    const isStaticAsset = ['.jpg', '.jpeg', '.png', '.svg', '.ico', '.woff2', '.gif', '.webp'].includes(ext);
-    const cacheControl = isStaticAsset
-      ? 'public, max-age=604800, immutable'
-      : 'no-cache, no-store, must-revalidate';
+    // Browser caching policy:
+    // - Static images & fonts: 30-day immutable cache
+    // - Static JS & CSS: 1-day cache with stale-while-revalidate
+    // - Service worker: always revalidate
+    // - HTML / others: 0-second cache with conditional revalidation (304 Not Modified)
+    let cacheControl;
+    if (['.jpg', '.jpeg', '.png', '.svg', '.ico', '.woff2', '.gif', '.webp'].includes(ext)) {
+      cacheControl = 'public, max-age=2592000, immutable';
+    } else if (['.js', '.css'].includes(ext)) {
+      cacheControl = 'public, max-age=86400, stale-while-revalidate=604800';
+    } else if (baseName === 'sw.js') {
+      cacheControl = 'no-cache, no-store, must-revalidate';
+    } else {
+      cacheControl = 'public, max-age=0, must-revalidate';
+    }
 
-    res.writeHead(200, {
-      'Content-Type': contentType,
-      'Content-Length': stats.size,
-      'Cache-Control': cacheControl
-    });
+    // Generate ETag from file size and last-modified time
+    const etag = `W/"${stats.size.toString(16)}-${Math.floor(stats.mtimeMs).toString(16)}"`;
 
-    if (req.method === 'HEAD') {
+    // Handle conditional GET (304 Not Modified saves 100% of download bandwidth)
+    const ifNoneMatch = req.headers['if-none-match'];
+    if (ifNoneMatch && (ifNoneMatch === etag || ifNoneMatch.includes(etag))) {
+      res.writeHead(304, {
+        'ETag': etag,
+        'Cache-Control': cacheControl
+      });
       res.end();
       return;
     }
 
-    const stream = fs.createReadStream(filePath);
-    stream.pipe(res);
+    if (req.method === 'HEAD') {
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'Content-Length': stats.size,
+        'Cache-Control': cacheControl,
+        'ETag': etag
+      });
+      res.end();
+      return;
+    }
+
+    // Native Gzip streaming for compressible text assets
+    const acceptEncoding = (req.headers['accept-encoding'] || '').toLowerCase();
+    const isCompressible = ['.html', '.js', '.css', '.json', '.svg', '.txt'].includes(ext);
+
+    if (acceptEncoding.includes('gzip') && isCompressible) {
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'Content-Encoding': 'gzip',
+        'Vary': 'Accept-Encoding',
+        'Cache-Control': cacheControl,
+        'ETag': etag
+      });
+      const rawStream = fs.createReadStream(filePath);
+      const gzipStream = zlib.createGzip({ level: zlib.constants.Z_DEFAULT_COMPRESSION });
+      rawStream.pipe(gzipStream).pipe(res);
+    } else {
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'Content-Length': stats.size,
+        'Cache-Control': cacheControl,
+        'ETag': etag
+      });
+      const stream = fs.createReadStream(filePath);
+      stream.pipe(res);
+    }
   });
 });
 
