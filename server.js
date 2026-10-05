@@ -506,8 +506,26 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 0. Dedicated Health Check for UptimeRobot / Keep-Alive Monitors / Pingers
-  if (reqPath === '/health' || reqPath === '/healthz' || reqPath === '/api/health' || reqPath === '/ping') {
+  // 0. Dedicated Lightweight Health Check for UptimeRobot / Keep-Alive Monitors
+  if ((req.method === 'GET' || req.method === 'HEAD') && (reqPath === '/health' || reqPath === '/healthz' || reqPath === '/ping')) {
+    res.writeHead(200, {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Content-Length': 2,
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Access-Control-Allow-Origin': '*'
+    });
+
+    if (req.method === 'HEAD') {
+      res.end();
+      return;
+    }
+
+    res.end('OK');
+    return;
+  }
+
+  // Backward-compatible JSON health endpoint
+  if (reqPath === '/api/health') {
     res.writeHead(200, {
       'Content-Type': 'application/json',
       'Cache-Control': 'no-cache, no-store, must-revalidate',
