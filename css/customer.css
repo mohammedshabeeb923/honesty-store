@@ -1429,3 +1429,51 @@
   }
 }
 
+/* CUSTOMER FOOTER & COMPLIANCE BAR */
+.store-footer-support {
+  margin-top: 28px;
+  padding: 20px 14px 16px;
+  background: #f8fafc;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  text-align: center;
+}
+
+.btn-feedback-form {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+  padding: 9px 16px;
+  border-radius: 20px;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  transition: all 0.15s ease;
+}
+
+.btn-feedback-form:hover {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+  transform: translateY(-1px);
+}
+
+.store-compliance-notice {
+  margin-top: 14px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #64748b;
+  border-top: 1px dashed #e2e8f0;
+  padding-top: 12px;
+}
+
+.store-compliance-name {
+  font-weight: 700;
+  color: #334155;
+}
