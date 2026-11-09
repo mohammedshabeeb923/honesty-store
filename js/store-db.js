@@ -686,8 +686,19 @@ class StoreDB {
     if (!includeArchived) {
       list = list.filter(p => p.isActive !== false);
     }
-    if (!category || category === 'All') return list;
-    return list.filter(p => (p.category || '').toLowerCase() === category.toLowerCase());
+    if (category && category !== 'All') {
+      list = list.filter(p => (p.category || '').toLowerCase() === category.toLowerCase());
+    }
+
+    // Always sort customer catalog from high MRP to low MRP
+    return list.slice().sort((a, b) => {
+      const mrpA = Number(a.price) || Number(a.sellingPrice) || 0;
+      const mrpB = Number(b.price) || Number(b.sellingPrice) || 0;
+      if (mrpB !== mrpA) {
+        return mrpB - mrpA; // High MRP to Low MRP
+      }
+      return (a.name || '').localeCompare(b.name || '');
+    });
   }
 
   getProduct(id) {

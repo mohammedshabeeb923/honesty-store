@@ -234,8 +234,18 @@ class CustomerApp {
   renderCatalog() {
     if (!this.productsGrid) return;
     const isCatalogLoading = window.storeDB ? window.storeDB.isCatalogLoading : false;
-    const products = window.storeDB ? window.storeDB.getProducts(this.activeCategory) : [];
+    let products = window.storeDB ? window.storeDB.getProducts(this.activeCategory) : [];
     const cart = window.storeDB ? window.storeDB.getCart() : [];
+
+    // Guarantee customer catalog is always arranged strictly from High MRP to Low MRP
+    products = (products || []).slice().sort((a, b) => {
+      const mrpA = Number(a.price) || Number(a.sellingPrice) || 0;
+      const mrpB = Number(b.price) || Number(b.sellingPrice) || 0;
+      if (mrpB !== mrpA) {
+        return mrpB - mrpA;
+      }
+      return (a.name || '').localeCompare(b.name || '');
+    });
 
     if (isCatalogLoading && (!products || products.length === 0)) {
       this.productsGrid.innerHTML = `
