@@ -175,6 +175,12 @@ function resolveProductImage(img, id = '') {
   if (s.includes('lays') || s.includes('lay') || idStr.includes('lays')) return 'assets/lays.jpg';
   if (s.includes('dairymilk') || idStr.includes('dairymilk')) return 'assets/dairymilk.png';
   if (s.includes('parleg') || idStr.includes('parleg')) return 'assets/parleg.png';
+  if (idStr === 'yuki_cone_chocolate_120_ml' || (idStr.includes('chocolate') && idStr.includes('cone') && !idStr.includes('small'))) {
+    return 'assets/yuki_cone_chocolate.webp';
+  }
+  if (idStr === 'yuki_cone_butterscotch_120_ml' || (idStr.includes('butterscotch') && idStr.includes('cone'))) {
+    return 'assets/yuki_cone_butterscotch.webp';
+  }
   if (s.includes('yuki') || idStr.includes('yuki') || s.includes('icecream') || idStr.includes('icecream') || s.includes('ice_cream') || idStr.includes('ice_cream')) {
     return 'assets/icecream-placeholder.svg';
   }
