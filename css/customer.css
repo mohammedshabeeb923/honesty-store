@@ -1472,6 +1472,48 @@
   font-size: 11px;
 }
 
+/* Standalone Support & Feedback CTA Button */
+.btn-support-feedback-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #ffffff;
+  color: #0f172a;
+  border: 1.5px solid #cbd5e1;
+  padding: 10px 20px;
+  border-radius: 24px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  margin: 4px auto 14px;
+  width: auto;
+  max-width: 100%;
+}
+
+.btn-support-feedback-cta:hover {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+}
+
+.btn-support-feedback-cta:active {
+  transform: scale(0.98);
+}
+
+.btn-support-feedback-cta svg {
+  color: #3b82f6;
+  transition: color 0.18s ease;
+}
+
+.btn-support-feedback-cta:hover svg {
+  color: #93c5fd;
+}
+
 .store-compliance-notice {
   margin-top: 10px;
   font-size: 11px;

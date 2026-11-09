@@ -193,13 +193,27 @@
 
               <!-- Customer Legal Compliance & Merchant Information Footer -->
               <div class="store-footer-support">
+                <!-- Legal Policy Links Row -->
                 <div class="footer-legal-links">
                   <button type="button" class="footer-legal-btn" onclick="window.openPolicyModal('privacy')">Privacy Policy</button>
                   <span class="footer-legal-separator">•</span>
                   <button type="button" class="footer-legal-btn" onclick="window.openPolicyModal('terms')">Terms & Conditions</button>
-                  <span class="footer-legal-separator">•</span>
-                  <button type="button" class="footer-legal-btn" onclick="window.openFeedbackModal()">Support & Feedback</button>
                 </div>
+
+                <!-- Separate Support & Feedback CTA Popup Button -->
+                <div>
+                  <button type="button" 
+                          class="btn-support-feedback-cta" 
+                          onclick="window.openFeedbackModal()" 
+                          title="Open Support & Feedback Form">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    <span>Support & Feedback</span>
+                  </button>
+                </div>
+
+                <!-- Authorized Merchant & Operations Compliance Notice -->
                 <div class="store-compliance-notice">
                   <div>Operated & Managed by <span class="store-compliance-name" id="footer-merchant-name">Mohammed Shabeeb</span></div>
                   <div style="font-size: 10px; color: #94a3b8; margin-top: 3px;">Honesty Store Campus Initiative • Authorized Cashfree Merchant</div>
