@@ -973,7 +973,7 @@ const server = http.createServer(async (req, res) => {
       const categories = await serverSupabase.getCategories();
       sendJson(200, { success: true, categories });
     } catch (err) {
-      sendJson(200, { success: true, categories: ['Chips', 'Biscuits', 'Chocolates', 'Drinks'] });
+      sendJson(200, { success: true, categories: ['Chips', 'Biscuits', 'Chocolates', 'Drinks', 'Ice Cream'] });
     }
     return;
   }

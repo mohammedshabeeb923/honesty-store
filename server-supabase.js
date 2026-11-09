@@ -175,7 +175,10 @@ function resolveProductImage(img, id = '') {
   if (s.includes('lays') || s.includes('lay') || idStr.includes('lays')) return 'assets/lays.jpg';
   if (s.includes('dairymilk') || idStr.includes('dairymilk')) return 'assets/dairymilk.png';
   if (s.includes('parleg') || idStr.includes('parleg')) return 'assets/parleg.png';
-  return img || 'assets/lays.jpg';
+  if (s.includes('yuki') || idStr.includes('yuki') || s.includes('icecream') || idStr.includes('icecream') || s.includes('ice_cream') || idStr.includes('ice_cream')) {
+    return 'assets/icecream-placeholder.svg';
+  }
+  return img || 'assets/icecream-placeholder.svg';
 }
 
 function normalizeCategory(cat) {
@@ -185,6 +188,7 @@ function normalizeCategory(cat) {
   if (['biscuits', 'biscuit'].includes(c)) return 'Biscuits';
   if (['chocolates', 'chocolate'].includes(c)) return 'Chocolates';
   if (['chips', 'chip', 'snacks', 'snack'].includes(c)) return 'Chips';
+  if (['ice cream', 'icecream', 'ice-cream', 'ice_cream', 'ice creams'].includes(c)) return 'Ice Cream';
   return cat.charAt(0).toUpperCase() + cat.slice(1);
 }
 
@@ -1741,6 +1745,7 @@ class ServerSupabase {
           if (['biscuits', 'biscuit'].includes(cat.toLowerCase())) return 'Biscuits';
           if (['chocolates', 'chocolate'].includes(cat.toLowerCase())) return 'Chocolates';
           if (['chips', 'chip', 'snacks', 'snack'].includes(cat.toLowerCase())) return 'Chips';
+          if (['ice cream', 'icecream', 'ice-cream', 'ice_cream', 'ice creams'].includes(cat.toLowerCase())) return 'Ice Cream';
           return cat ? (cat.charAt(0).toUpperCase() + cat.slice(1)) : null;
         })
         .filter(Boolean);

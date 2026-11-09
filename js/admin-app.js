@@ -903,6 +903,28 @@ class AdminApp {
             ${sellingPriceDisplay}
           </td>
           <td>
+            ${(() => {
+              const sell = (prod.sellingPrice !== null && prod.sellingPrice !== undefined && Number(prod.sellingPrice) > 0)
+                ? Number(prod.sellingPrice)
+                : ((prod.price && Number(prod.price) > 0) ? Number(prod.price) : null);
+              const cost = (prod.purchasePrice !== null && prod.purchasePrice !== undefined) ? Number(prod.purchasePrice) : null;
+              if (sell !== null && cost !== null && sell > 0) {
+                const profit = sell - cost;
+                const margin = (profit / sell) * 100;
+                const isProfitable = profit >= 0;
+                return `
+                  <div style="font-weight: 700; color: ${isProfitable ? '#16a34a' : '#dc2626'}; font-size: 13px;">
+                    ${profit >= 0 ? '+' : ''}₹${profit.toFixed(2)}
+                  </div>
+                  <div style="font-size: 10px; color: ${isProfitable ? '#15803d' : '#b91c1c'}; font-weight: 600;">
+                    ${margin.toFixed(1)}% margin
+                  </div>
+                `;
+              }
+              return '<span style="color:#94a3b8; font-size:12px;">—</span>';
+            })()}
+          </td>
+          <td>
             <div style="display: flex; align-items: center; gap: 8px;">
               <span style="font-weight: 700; font-size: 13px;">${prod.stock} units</span>
               ${stockBadge}

@@ -24,8 +24,11 @@ function resolveProductImage(img, id = '') {
   if (s.includes('lays') || s.includes('lay') || idStr.includes('lays')) return 'assets/lays.jpg';
   if (s.includes('dairymilk') || idStr.includes('dairymilk')) return 'assets/dairymilk.png';
   if (s.includes('parleg') || idStr.includes('parleg')) return 'assets/parleg.png';
+  if (s.includes('yuki') || idStr.includes('yuki') || s.includes('icecream') || idStr.includes('icecream') || s.includes('ice_cream') || idStr.includes('ice_cream')) {
+    return 'assets/icecream-placeholder.svg';
+  }
 
-  return img || 'assets/lays.jpg';
+  return img || 'assets/icecream-placeholder.svg';
 }
 window.resolveProductImage = resolveProductImage;
 
