@@ -408,6 +408,14 @@ class ServerSupabase {
             };
           });
 
+        // Sort products by MRP descending (High to Low)
+        merged.sort((a, b) => {
+          const mrpA = Number(a.price) || Number(a.selling_price) || 0;
+          const mrpB = Number(b.price) || Number(b.selling_price) || 0;
+          if (mrpB !== mrpA) return mrpB - mrpA;
+          return (a.name || '').localeCompare(b.name || '');
+        });
+
         // Mirror authoritative Supabase data to local fallback cache
         this.fallbackData.products = merged;
         this.saveFallback();
@@ -417,6 +425,12 @@ class ServerSupabase {
       console.warn('[ServerSupabase] getProducts fallback to local cache:', err.message);
     }
     const fallbackList = (this.fallbackData.products || DEFAULT_PRODUCTS).filter(p => !deletedIds.has(p.id));
+    fallbackList.sort((a, b) => {
+      const mrpA = Number(a.price) || Number(a.selling_price) || 0;
+      const mrpB = Number(b.price) || Number(b.selling_price) || 0;
+      if (mrpB !== mrpA) return mrpB - mrpA;
+      return (a.name || '').localeCompare(b.name || '');
+    });
     return includeArchived ? fallbackList : fallbackList.filter(p => p.is_active !== false);
   }
 
