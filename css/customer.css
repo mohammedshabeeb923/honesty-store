@@ -1432,42 +1432,50 @@
 /* CUSTOMER FOOTER & COMPLIANCE BAR */
 .store-footer-support {
   margin-top: 28px;
-  padding: 20px 14px 16px;
+  padding: 20px 14px 18px;
   background: #f8fafc;
   border-radius: 14px;
   border: 1px solid #e2e8f0;
   text-align: center;
 }
 
-.btn-feedback-form {
-  display: inline-flex;
+.footer-legal-links {
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  background: #ffffff;
-  color: #0f172a;
-  border: 1px solid #cbd5e1;
-  padding: 9px 16px;
-  border-radius: 20px;
-  font-size: 12.5px;
-  font-weight: 700;
-  text-decoration: none;
-  cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-  transition: all 0.15s ease;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-bottom: 14px;
 }
 
-.btn-feedback-form:hover {
-  background: #0f172a;
-  color: #ffffff;
-  border-color: #0f172a;
-  transform: translateY(-1px);
+.footer-legal-btn {
+  background: none;
+  border: none;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #475569;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.footer-legal-btn:hover {
+  color: #0f172a;
+  background: #e2e8f0;
+}
+
+.footer-legal-separator {
+  color: #cbd5e1;
+  font-size: 11px;
 }
 
 .store-compliance-notice {
-  margin-top: 14px;
+  margin-top: 10px;
   font-size: 11px;
-  line-height: 1.5;
+  line-height: 1.55;
   color: #64748b;
   border-top: 1px dashed #e2e8f0;
   padding-top: 12px;
@@ -1475,5 +1483,63 @@
 
 .store-compliance-name {
   font-weight: 700;
-  color: #334155;
+  color: #1e293b;
 }
+
+/* FLOATING ENQUIRIES & HELP BUTTON (Bottom-Right FAB) */
+.floating-enquiries-fab {
+  position: absolute;
+  bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  right: 14px;
+  z-index: 90;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #0f172a;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 9px 15px 9px 12px;
+  border-radius: 24px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px -1px rgba(15, 23, 42, 0.28), 0 2px 6px -1px rgba(0, 0, 0, 0.12);
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s ease, background 0.15s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.floating-enquiries-fab:hover {
+  background: #1e293b;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px -1px rgba(15, 23, 42, 0.35), 0 3px 8px -1px rgba(0, 0, 0, 0.16);
+}
+
+.floating-enquiries-fab:active {
+  transform: scale(0.96);
+}
+
+.floating-enquiries-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #3b82f6;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+@media (max-width: 480px) {
+  .floating-enquiries-fab {
+    bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+    right: 12px;
+    padding: 8px 13px 8px 10px;
+    font-size: 11.5px;
+  }
+}
+
